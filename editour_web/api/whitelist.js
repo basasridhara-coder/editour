@@ -6,7 +6,7 @@ const SUPABASE_URL = 'https://fxfklefnkpmhofncqhfh.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ4ZmtsZWZua3BtaG9mbmNxaGZoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NzM4NzYsImV4cCI6MjEwODA0OTg3Nn0.0nw5ZDvlEsYal6EYXcqyaAPRHoxkXxZgDsNQDppEYgM';
 
 const MASTER_ADMINS = ['shridharoct16@gmail.com'];
-const STARTER_PERSPECTIVE_CREDITS = 5;
+const STARTER_PERSPECTIVE_CREDITS = 3;
 const DEFAULT_DAILY_CREDIT_LIMIT = 1;
 const DAILY_CHRONICLE_FREE_LIMIT = 1;
 
@@ -135,6 +135,152 @@ async function saveWhitelistData(data) {
   }
 }
 
+async function getFeedbackAndTelemetryData() {
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_feedback_telemetry&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (resp.ok) {
+      const rows = await resp.json();
+      if (Array.isArray(rows) && rows.length > 0 && rows[0].data) {
+        const d = rows[0].data;
+        return {
+          feedback_items: Array.isArray(d.feedback_items) ? d.feedback_items : [],
+          telemetry_events: Array.isArray(d.telemetry_events) ? d.telemetry_events : [],
+          daily_metrics: (d.daily_metrics && typeof d.daily_metrics === 'object') ? d.daily_metrics : {},
+          alert_webhook_url: String(d.alert_webhook_url || '').trim(),
+          last_webhook_sent_by_type: (d.last_webhook_sent_by_type && typeof d.last_webhook_sent_by_type === 'object') ? d.last_webhook_sent_by_type : {}
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching feedback/telemetry:', err.message);
+  }
+  return {
+    feedback_items: [],
+    telemetry_events: [],
+    daily_metrics: {},
+    alert_webhook_url: '',
+    last_webhook_sent_by_type: {}
+  };
+}
+
+async function saveFeedbackAndTelemetryData(data) {
+  try {
+    const payload = {
+      id: 'system_feedback_telemetry',
+      data: data
+    };
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+    return resp.ok;
+  } catch (err) {
+    console.warn('Error saving feedback/telemetry:', err.message);
+    return false;
+  }
+}
+
+async function sendFounderWebhookAlert(webhookUrl, title, summaryLines = []) {
+  const cleanUrl = String(webhookUrl || '').trim();
+  if (!cleanUrl || !cleanUrl.startsWith('http')) return false;
+  try {
+    const textBody = `🚨 *${title}*\n${summaryLines.join('\n')}`;
+    // Compatible with Slack (`text`), Discord (`content`), and generic webhook receivers
+    const payload = {
+      text: textBody,
+      content: textBody,
+      title,
+      details: summaryLines,
+      source: 'slant.today',
+      timestamp: new Date().toISOString()
+    };
+    const resp = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return resp.ok;
+  } catch (err) {
+    console.warn('Webhook alert dispatch failed:', err.message);
+    return false;
+  }
+}
+
+function buildSystemHealthSummary(ftData, supabaseLatencyMs = 0, totalDbPostsCount = 0) {
+  const nowMs = Date.now();
+  const dayAgoMs = nowMs - 24 * 60 * 60 * 1000;
+  const events = Array.isArray(ftData?.telemetry_events) ? ftData.telemetry_events : [];
+  const feedback = Array.isArray(ftData?.feedback_items) ? ftData.feedback_items : [];
+
+  const recent24h = events.filter(e => {
+    const t = Date.parse(e?.createdAt || '');
+    if (!Number.isFinite(t) || t < dayAgoMs) return false;
+    // Ignore client-side network abort / page unload / tab-sleep artifacts (statusCode 0 or >65s wall-clock sleep)
+    if (Number(e.statusCode) === 0 && /failed to fetch|networkerror|load failed/i.test(String(e.message || ''))) return false;
+    if (e.type === 'slow_response' && Number(e.durationMs) > 65000) return false;
+    return true;
+  });
+
+  const quota429Count24h = recent24h.filter(e => e.type === 'gemini_quota_429' || Number(e.statusCode) === 429).length;
+  const timeout504Count24h = recent24h.filter(e => e.type === 'vercel_timeout' || Number(e.statusCode) === 504 || Number(e.statusCode) === 502).length;
+  const supabaseErrorCount24h = recent24h.filter(e => e.type === 'supabase_error' && Number(e.statusCode) >= 500).length;
+  const slowRequestCount24h = recent24h.filter(e => e.type === 'slow_response').length;
+  const unreadFeedbackCount = feedback.filter(f => f.status !== 'resolved').length;
+
+  let status = 'healthy';
+  let statusLabel = '🟢 All Systems Nominal';
+  const recommendations = [];
+
+  if (quota429Count24h >= 3 || timeout504Count24h >= 2 || supabaseErrorCount24h >= 2) {
+    status = 'critical';
+    statusLabel = '🔴 Action Needed — Quota / Timeout Spikes Detected';
+  } else if (quota429Count24h > 0 || timeout504Count24h > 0 || supabaseErrorCount24h > 0 || slowRequestCount24h >= 3 || supabaseLatencyMs > 1400 || totalDbPostsCount > 450) {
+    status = 'warning';
+    statusLabel = '🟡 Watch Closely — Approaching Tier Thresholds';
+  }
+
+  if (quota429Count24h > 0) {
+    recommendations.push(`Gemini API / Vercel hit ${quota429Count24h} rate-limit (429) error(s) in the last 24h. Consider raising your Google AI Studio RPM tier if active creators grow.`);
+  }
+  if (timeout504Count24h > 0) {
+    recommendations.push(`Vercel Serverless Functions hit ${timeout504Count24h} timeout(s) (504/502) in 24h. Upgrading Vercel Hobby → Pro increases function concurrency & maxDuration.`);
+  }
+  if (supabaseErrorCount24h > 0 || supabaseLatencyMs > 1400) {
+    recommendations.push(`Supabase DB latency is ${supabaseLatencyMs}ms (${supabaseErrorCount24h} DB errors in 24h). Check Supabase Disk IO / Free Tier bandwidth if latency stays >1200ms.`);
+  }
+  if (totalDbPostsCount > 420) {
+    recommendations.push(`Supabase has ${totalDbPostsCount}+ post rows loaded per admin query. Consider archiving old base64 images or upgrading Supabase when passing 500 MB DB size.`);
+  }
+  if (recommendations.length === 0) {
+    recommendations.push('Vercel functions, Supabase database latency, and Gemini API quotas are running smoothly within current tier limits.');
+  }
+
+  return {
+    status,
+    statusLabel,
+    supabaseLatencyMs,
+    totalDbPostsCount,
+    unreadFeedbackCount,
+    errors24hCount: recent24h.length,
+    quota429Count24h,
+    timeout504Count24h,
+    supabaseErrorCount24h,
+    slowRequestCount24h,
+    recommendations
+  };
+}
+
 module.exports = async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -169,7 +315,10 @@ module.exports = async function handler(req, res) {
     // If admin is requesting, return full roster and pending requests + live post usage statistics
     if (isAdmin) {
       let userStats = {};
+      let supabaseLatencyMs = 0;
+      let totalDbPostsCount = 0;
       try {
+        const t0 = Date.now();
         const statsResp = await fetch(
           `${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data->userEmail,data->creatorHandle,data->adaptedHeadline&id=like.slant*&order=created_at.desc&limit=500`,
           {
@@ -179,9 +328,11 @@ module.exports = async function handler(req, res) {
             }
           }
         );
+        supabaseLatencyMs = Math.max(1, Date.now() - t0);
         if (statsResp.ok) {
           const postRows = await statsResp.json();
           if (Array.isArray(postRows)) {
+            totalDbPostsCount = postRows.length;
             postRows.forEach(p => {
               const uEmail = String(p.userEmail || '').toLowerCase().trim();
               if (!uEmail) return;
@@ -200,6 +351,9 @@ module.exports = async function handler(req, res) {
       } catch (err) {
         console.warn('Error aggregating user stats:', err.message);
       }
+
+      const ftData = await getFeedbackAndTelemetryData();
+      const systemHealthSummary = buildSystemHealthSummary(ftData, supabaseLatencyMs, totalDbPostsCount);
 
       const userCreditsMap = {};
       const allTrackedEmails = new Set([
@@ -226,7 +380,12 @@ module.exports = async function handler(req, res) {
         userStats: userStats,
         userCreditsMap,
         defaultDailyLimit: whitelist.default_daily_limit || DEFAULT_DAILY_CREDIT_LIMIT,
-        credits: requesterEmail ? computeUserCreditSummary(whitelist, requesterEmail) : null
+        credits: requesterEmail ? computeUserCreditSummary(whitelist, requesterEmail) : null,
+        userFeedback: ftData.feedback_items.slice(0, 100),
+        systemTelemetry: ftData.telemetry_events.slice(0, 100),
+        dailyMetrics: ftData.daily_metrics || {},
+        alertWebhookUrl: ftData.alert_webhook_url || '',
+        systemHealthSummary
       };
       if (res.status) return res.status(200).json ? res.status(200).json(responsePayload) : res.status(200).end(JSON.stringify(responsePayload));
       res.setHeader('Content-Type', 'application/json');
@@ -331,11 +490,191 @@ module.exports = async function handler(req, res) {
       return res.end(JSON.stringify(out));
     }
 
+    // ACTION: User submits feedback, bug report, feature idea, or post-publish micro-pulse
+    if (action === 'submit_feedback') {
+      const ftData = await getFeedbackAndTelemetryData();
+      const category = String(body.category || 'general').trim().slice(0, 40);
+      const rating = String(body.rating || '').trim().slice(0, 40);
+      const message = String(body.message || '').trim().slice(0, 1200);
+      const handle = String(body.handle || name || cleanEmail.split('@')[0] || 'guest').trim().slice(0, 60);
+      const contextObj = (body.context && typeof body.context === 'object') ? {
+        screen: String(body.context.screen || '').slice(0, 80),
+        postTitle: String(body.context.postTitle || '').slice(0, 140),
+        sparkType: String(body.context.sparkType || '').slice(0, 40),
+        viewport: String(body.context.viewport || '').slice(0, 40),
+        userAgent: String(body.context.userAgent || '').slice(0, 160),
+        lastError: String(body.context.lastError || '').slice(0, 240)
+      } : {};
+
+      const item = {
+        id: 'fb_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        email: cleanEmail || 'guest@slant.today',
+        handle,
+        category,
+        rating,
+        message,
+        context: contextObj,
+        status: 'new',
+        createdAt: new Date().toISOString()
+      };
+
+      ftData.feedback_items.unshift(item);
+      if (ftData.feedback_items.length > 150) {
+        ftData.feedback_items = ftData.feedback_items.slice(0, 150);
+      }
+      await saveFeedbackAndTelemetryData(ftData);
+
+      if (ftData.alert_webhook_url && (message.length > 0 || rating === 'needed_tweaks' || rating === 'missed_point' || category === 'bug_report')) {
+        await sendFounderWebhookAlert(
+          ftData.alert_webhook_url,
+          `New Slant User Feedback (${category.toUpperCase()})`,
+          [
+            `• From: ${handle} (${item.email})`,
+            rating ? `• Pulse Rating: ${rating}` : null,
+            message ? `• Message: "${message}"` : null,
+            contextObj.postTitle ? `• Post: ${contextObj.postTitle}` : null
+          ].filter(Boolean)
+        );
+      }
+
+      const out = { success: true, item };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Client or API logs a telemetry event (429 rate limit, 504 timeout, Supabase error, or slow >25s call)
+    if (action === 'log_telemetry') {
+      const eventType = String(body.type || 'api_error').trim().slice(0, 50);
+      const statusCode = Number(body.statusCode) || 0;
+      const durationMs = Math.max(0, Math.round(Number(body.durationMs) || 0));
+      const endpoint = String(body.endpoint || '/api/synthesize').trim().slice(0, 80);
+      const errMessage = String(body.message || '').trim().slice(0, 320);
+
+      // Ignore client-side network abort / page unload / tab-sleep artifacts
+      if ((statusCode === 0 && /failed to fetch|networkerror|load failed/i.test(errMessage)) || (eventType === 'slow_response' && durationMs > 65000)) {
+        const out = { success: true, ignoredClientArtifact: true };
+        if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+        return res.end(JSON.stringify(out));
+      }
+
+      const ftData = await getFeedbackAndTelemetryData();
+      const todayKey = getTodayDateKeyIST();
+      const severity = (statusCode === 429 || statusCode === 504 || statusCode === 502 || eventType === 'gemini_quota_429' || eventType === 'vercel_timeout' || (eventType === 'supabase_error' && statusCode >= 500))
+        ? 'critical'
+        : 'warning';
+
+      const telEntry = {
+        id: 'tel_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        type: eventType,
+        severity,
+        endpoint,
+        statusCode,
+        durationMs,
+        message: errMessage,
+        userEmail: cleanEmail || 'anonymous',
+        createdAt: new Date().toISOString()
+      };
+
+      ftData.telemetry_events.unshift(telEntry);
+      if (ftData.telemetry_events.length > 150) {
+        ftData.telemetry_events = ftData.telemetry_events.slice(0, 150);
+      }
+
+      if (!ftData.daily_metrics || typeof ftData.daily_metrics !== 'object') {
+        ftData.daily_metrics = {};
+      }
+      const dayBucket = ftData.daily_metrics[todayKey] || {
+        errorsCount: 0,
+        quota429Count: 0,
+        timeouts504Count: 0,
+        supabaseErrorsCount: 0,
+        slowCount: 0
+      };
+      dayBucket.errorsCount = (dayBucket.errorsCount || 0) + 1;
+      if (statusCode === 429 || eventType === 'gemini_quota_429') dayBucket.quota429Count = (dayBucket.quota429Count || 0) + 1;
+      if (statusCode === 504 || statusCode === 502 || eventType === 'vercel_timeout') dayBucket.timeouts504Count = (dayBucket.timeouts504Count || 0) + 1;
+      if (eventType === 'supabase_error') dayBucket.supabaseErrorsCount = (dayBucket.supabaseErrorsCount || 0) + 1;
+      if (eventType === 'slow_response') dayBucket.slowCount = (dayBucket.slowCount || 0) + 1;
+      ftData.daily_metrics[todayKey] = dayBucket;
+
+      // Dispatch instant webhook alert on critical errors with a 10-min cooldown per eventType
+      if (severity === 'critical' && ftData.alert_webhook_url) {
+        const lastSentMs = Number(ftData.last_webhook_sent_by_type?.[eventType]) || 0;
+        if (Date.now() - lastSentMs > 10 * 60 * 1000) {
+          ftData.last_webhook_sent_by_type = ftData.last_webhook_sent_by_type || {};
+          ftData.last_webhook_sent_by_type[eventType] = Date.now();
+          await sendFounderWebhookAlert(
+            ftData.alert_webhook_url,
+            `Slant Infrastructure Alert: ${eventType.toUpperCase()} (HTTP ${statusCode || 'ERR'})`,
+            [
+              `• Endpoint: ${endpoint} (${durationMs}ms)`,
+              `• User: ${telEntry.userEmail}`,
+              `• Detail: ${errMessage || 'Quota or timeout threshold reached'}`,
+              `• Today's Totals: 429s=${dayBucket.quota429Count || 0}, 504s=${dayBucket.timeouts504Count || 0}, DB=${dayBucket.supabaseErrorsCount || 0}`
+            ]
+          );
+        }
+      }
+
+      await saveFeedbackAndTelemetryData(ftData);
+      const out = { success: true };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
     // --- ADMIN ACTIONS (Strictly Requires Admin Authorization) ---
     if (!isAdmin) {
       const err = { error: 'Unauthorized. Admin credentials required.' };
       if (res.status) return res.status(403).json ? res.status(403).json(err) : res.status(403).end(JSON.stringify(err));
       return res.end(JSON.stringify(err));
+    }
+
+    // ACTION: Admin resolves or deletes a feedback item
+    if (action === 'resolve_feedback' || action === 'delete_feedback') {
+      const fbId = String(body.feedbackId || '').trim();
+      const ftData = await getFeedbackAndTelemetryData();
+      if (action === 'delete_feedback') {
+        ftData.feedback_items = ftData.feedback_items.filter(f => f.id !== fbId);
+      } else {
+        ftData.feedback_items = ftData.feedback_items.map(f => f.id === fbId ? { ...f, status: 'resolved' } : f);
+      }
+      await saveFeedbackAndTelemetryData(ftData);
+      const out = { success: true, userFeedback: ftData.feedback_items.slice(0, 100) };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Admin clears telemetry log
+    if (action === 'clear_telemetry') {
+      const ftData = await getFeedbackAndTelemetryData();
+      ftData.telemetry_events = [];
+      await saveFeedbackAndTelemetryData(ftData);
+      const out = { success: true, systemTelemetry: [] };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
+    }
+
+    // ACTION: Admin saves or tests the instant alert webhook URL
+    if (action === 'save_alert_webhook') {
+      const webhookUrl = String(body.webhookUrl || '').trim();
+      const testPing = Boolean(body.testPing);
+      const ftData = await getFeedbackAndTelemetryData();
+      ftData.alert_webhook_url = webhookUrl;
+      await saveFeedbackAndTelemetryData(ftData);
+      let pingOk = false;
+      if (testPing && webhookUrl) {
+        pingOk = await sendFounderWebhookAlert(
+          webhookUrl,
+          'Slant Founder Alert Webhook Connected ✓',
+          [
+            '• Your Vercel, Supabase & Gemini quota monitor is active.',
+            '• You will receive instant alerts here on 429 rate limits, 504 timeouts, DB errors, or user bug reports.'
+          ]
+        );
+      }
+      const out = { success: true, alertWebhookUrl: webhookUrl, pingOk };
+      if (res.status) return res.status(200).json ? res.status(200).json(out) : res.status(200).end(JSON.stringify(out));
+      return res.end(JSON.stringify(out));
     }
 
     // ACTION: Add an email directly to the allowed whitelist

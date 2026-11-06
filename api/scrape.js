@@ -11,15 +11,18 @@ module.exports = async function handler(req, res) {
   }
 
   let targetUrl = '';
+  let logoOnly = false;
   if (req.method === 'POST') {
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (_) {}
     }
     targetUrl = (body && body.url) ? body.url.trim() : '';
+    logoOnly = Boolean(body && body.logoOnly);
   } else {
     const parsed = new URL(req.url, 'http://localhost');
     targetUrl = parsed.searchParams.get('url') || '';
+    logoOnly = parsed.searchParams.get('logoOnly') === '1' || parsed.searchParams.get('logoOnly') === 'true';
   }
 
   if (!targetUrl) {
@@ -31,13 +34,40 @@ module.exports = async function handler(req, res) {
   }
 
   let domain = 'Web Source';
+  let hostname = '';
   try {
     const parsedUri = new URL(targetUrl);
-    domain = parsedUri.hostname.replace(/^www\./, '');
+    hostname = parsedUri.hostname.replace(/^www\./, '');
+    domain = hostname;
   } catch (_) {}
 
-  // 1. Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
   const ytVideoId = extractYouTubeVideoId(targetUrl);
+  const twitterStatusId = extractTwitterStatusId(targetUrl);
+
+  // Fast Logo-Only Mode (for hydrating YouTube channel avatars or site logos on existing feed posts)
+  if (logoOnly) {
+    if (ytVideoId) {
+      const ytLogoInfo = await fetchYouTubeChannelLogoFast(targetUrl);
+      return res.status(200).json({
+        success: true,
+        url: targetUrl,
+        sourceLogoUrl: ytLogoInfo.sourceLogoUrl || null,
+        author: ytLogoInfo.author || 'YouTube',
+        isVideo: true
+      });
+    }
+    const fallbackFavicon = hostname
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`
+      : null;
+    return res.status(200).json({
+      success: true,
+      url: targetUrl,
+      sourceLogoUrl: fallbackFavicon,
+      isVideo: isVideoAudioUrl(targetUrl)
+    });
+  }
+
+  // 1. Specialized YouTube Video Extractor: extracts full interview description, chapters, and high-res thumbnail
   if (ytVideoId) {
     try {
       const ytResult = await scrapeYouTubeUrl(targetUrl, ytVideoId);
@@ -61,6 +91,30 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // 1b. Specialized X.com / Twitter Post Extractor: extracts full tweet text, author handle, avatar, and attached photo/video media
+  if (twitterStatusId) {
+    try {
+      const xResult = await scrapeTwitterXUrl(targetUrl, twitterStatusId);
+      if (xResult && (xResult.content || xResult.title)) {
+        let ledger = null;
+        try {
+          const ledgerModule = require('./ledger');
+          if (ledgerModule && typeof ledgerModule.generateLedger === 'function') {
+            ledger = await ledgerModule.generateLedger(xResult.title, xResult.content, xResult.url, xResult.siteName);
+          }
+        } catch (lErr) {
+          console.warn('X.com scrape ledger generation error:', lErr.message);
+        }
+        return res.status(200).json({
+          ...xResult,
+          ledger
+        });
+      }
+    } catch (xErr) {
+      console.warn('Specialized X.com scrape failed, falling back to standard scrape:', xErr.message);
+    }
+  }
+
   // 2. Authentic Article Reader: Try Jina Reader API first for clean, JavaScript-rendered markdown
   let jinaData = null;
   try {
@@ -75,6 +129,9 @@ module.exports = async function handler(req, res) {
   let imageUrl = null;
   let imageBase64 = null;
   let imageMimeType = 'image/jpeg';
+  let sourceLogoUrl = hostname
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`
+    : null;
 
   try {
     const controller = new AbortController();
@@ -114,6 +171,12 @@ module.exports = async function handler(req, res) {
 
       // Lead Image Extraction
       imageUrl = extractMetaImage(html, targetUrl);
+
+      // Site Logo / Favicon Extraction (with automatic Google 64px Favicon fallback)
+      const extractedIcon = extractSiteLogoFromHtml(html, targetUrl);
+      if (extractedIcon) {
+        sourceLogoUrl = extractedIcon;
+      }
 
       // Fallback cleanText if Jina was empty or blocked
       if (!cleanText || cleanText.length < 200) {
@@ -192,6 +255,7 @@ module.exports = async function handler(req, res) {
       imageUrl: imageUrl && imageUrl.startsWith('http') ? imageUrl : null,
       imageBase64,
       imageMimeType,
+      sourceLogoUrl,
       ledger,
       isVideo: isVideoAudioUrl(targetUrl)
     });
@@ -206,6 +270,7 @@ module.exports = async function handler(req, res) {
     description: '',
     content: '',
     imageUrl: null,
+    sourceLogoUrl,
     fallback: true,
     notice: 'Lightweight slug extraction used',
     isVideo: isVideoAudioUrl(targetUrl)
@@ -326,6 +391,194 @@ function extractYouTubeVideoId(url) {
     }
   } catch (_) {}
   return null;
+}
+
+function extractTwitterStatusId(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'x.com' || host === 'twitter.com' || host.endsWith('.x.com') || host.endsWith('.twitter.com')) {
+      const m = parsed.pathname.match(/\/status(?:es)?\/(\d{5,25})/i);
+      if (m && m[1]) return m[1];
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function scrapeTwitterXUrl(targetUrl, statusId) {
+  let tweetText = '';
+  let authorName = '';
+  let authorHandle = '';
+  let avatarUrl = '';
+  let mediaImageUrl = '';
+  let isVideoMedia = false;
+  let quotedText = '';
+
+  // 1. Primary: FXTwitter JSON API (returns full text, Long-form X Articles, photos, video thumbnails, and quoted tweets)
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const fxResp = await fetch(`https://api.fxtwitter.com/i/status/${encodeURIComponent(statusId)}`, {
+      signal: ctrl.signal,
+      headers: {
+        'User-Agent': 'SlantEditorial/2.0 (https://slant.today)',
+        'Accept': 'application/json'
+      }
+    });
+    clearTimeout(timer);
+    if (fxResp.ok) {
+      const fxData = await fxResp.json();
+      const tw = fxData && fxData.tweet;
+      if (tw) {
+        authorName = (tw.author && tw.author.name) || '';
+        authorHandle = (tw.author && tw.author.screen_name) || '';
+        avatarUrl = (tw.author && tw.author.avatar_url) || '';
+        tweetText = tw.text || (tw.raw_text && tw.raw_text.text) || '';
+
+        if (tw.article) {
+          const artTitle = tw.article.title || '';
+          const artPreview = tw.article.preview_text || '';
+          if (artTitle || artPreview) {
+            tweetText = [artTitle, artPreview, tweetText].filter(Boolean).join('\n\n');
+          }
+          const artCover = tw.article.cover_media?.media_info?.original_img_url || tw.article.cover_media?.url;
+          if (artCover) mediaImageUrl = artCover;
+        }
+
+        if (!mediaImageUrl && tw.media) {
+          if (Array.isArray(tw.media.photos) && tw.media.photos.length > 0 && tw.media.photos[0].url) {
+            mediaImageUrl = tw.media.photos[0].url;
+          } else if (Array.isArray(tw.media.videos) && tw.media.videos.length > 0 && tw.media.videos[0].thumbnail_url) {
+            mediaImageUrl = tw.media.videos[0].thumbnail_url;
+            isVideoMedia = true;
+          } else if (Array.isArray(tw.media.all) && tw.media.all.length > 0) {
+            const firstM = tw.media.all[0];
+            mediaImageUrl = firstM.thumbnail_url || firstM.url || '';
+            if (firstM.type === 'video' || firstM.type === 'gif') isVideoMedia = true;
+          } else if (tw.media.external && tw.media.external.thumbnail_url) {
+            mediaImageUrl = tw.media.external.thumbnail_url;
+          }
+        }
+
+        if (tw.quote) {
+          const qAuthor = tw.quote.author?.screen_name ? `@${tw.quote.author.screen_name}` : (tw.quote.author?.name || 'Quoted Post');
+          if (tw.quote.text) {
+            quotedText = `Quoted Post (${qAuthor}): "${tw.quote.text}"`;
+          }
+          if (!mediaImageUrl && tw.quote.media) {
+            if (Array.isArray(tw.quote.media.photos) && tw.quote.media.photos.length > 0 && tw.quote.media.photos[0].url) {
+              mediaImageUrl = tw.quote.media.photos[0].url;
+            } else if (Array.isArray(tw.quote.media.videos) && tw.quote.media.videos.length > 0 && tw.quote.media.videos[0].thumbnail_url) {
+              mediaImageUrl = tw.quote.media.videos[0].thumbnail_url;
+              isVideoMedia = true;
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('fxtwitter fetch warning:', e.message);
+  }
+
+  // 2. Fallback: VXTwitter JSON API
+  if (!tweetText && !mediaImageUrl) {
+    try {
+      const ctrl2 = new AbortController();
+      const timer2 = setTimeout(() => ctrl2.abort(), 3500);
+      const vxResp = await fetch(`https://api.vxtwitter.com/Twitter/status/${encodeURIComponent(statusId)}`, {
+        signal: ctrl2.signal,
+        headers: {
+          'User-Agent': 'SlantEditorial/2.0 (https://slant.today)',
+          'Accept': 'application/json'
+        }
+      });
+      clearTimeout(timer2);
+      if (vxResp.ok) {
+        const vx = await vxResp.json();
+        if (vx) {
+          tweetText = vx.text || '';
+          authorName = vx.user_name || '';
+          authorHandle = vx.user_screen_name || '';
+          avatarUrl = vx.user_profile_image_url || '';
+          if (Array.isArray(vx.media_extended) && vx.media_extended.length > 0) {
+            const m0 = vx.media_extended[0];
+            mediaImageUrl = (m0.type === 'image' ? m0.url : (m0.thumbnail_url || m0.url)) || '';
+            if (m0.type === 'video' || m0.type === 'gif') isVideoMedia = true;
+          } else if (Array.isArray(vx.mediaURLs) && vx.mediaURLs.length > 0) {
+            mediaImageUrl = vx.mediaURLs[0];
+          }
+        }
+      }
+    } catch (e2) {
+      console.warn('vxtwitter fetch warning:', e2.message);
+    }
+  }
+
+  if (!tweetText && !mediaImageUrl) {
+    return null;
+  }
+
+  // Pre-fetch the attached X.com post image (or fallback to author avatar only if no media image) into imageBase64
+  let imageUrl = mediaImageUrl || null;
+  let imageBase64 = null;
+  let imageMimeType = 'image/jpeg';
+
+  if (imageUrl && imageUrl.startsWith('http')) {
+    try {
+      const imgCtrl = new AbortController();
+      const imgTimer = setTimeout(() => imgCtrl.abort(), 4500);
+      const imgResp = await fetch(imageUrl, {
+        signal: imgCtrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+        }
+      });
+      clearTimeout(imgTimer);
+      if (imgResp.ok) {
+        const ct = imgResp.headers.get('content-type') || 'image/jpeg';
+        const buf = await imgResp.arrayBuffer();
+        if (buf.byteLength > 800 && buf.byteLength < 6 * 1024 * 1024) {
+          imageMimeType = ct.split(';')[0];
+          imageBase64 = `data:${imageMimeType};base64,` + Buffer.from(buf).toString('base64');
+        }
+      }
+    } catch (imgErr) {
+      console.warn('Could not pre-fetch X.com post image buffer:', imgErr.message);
+    }
+  }
+
+  const displayAuthor = authorName
+    ? (authorHandle ? `${authorName} (@${authorHandle})` : authorName)
+    : (authorHandle ? `@${authorHandle}` : 'X (Twitter)');
+  const firstSentence = tweetText
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const shortHeadline = firstSentence.length > 95
+    ? firstSentence.slice(0, 92).trim() + '...'
+    : (firstSentence || `Post by ${displayAuthor}`);
+
+  const structuredContent = [
+    `Author: ${displayAuthor}`,
+    `Platform: X (formerly Twitter)`,
+    `Post Text:\n${tweetText}`,
+    quotedText ? `\n${quotedText}` : ''
+  ].filter(Boolean).join('\n').trim();
+
+  return {
+    success: true,
+    url: targetUrl,
+    title: `${authorName || (authorHandle ? `@${authorHandle}` : 'X')}: "${shortHeadline}"`,
+    siteName: authorHandle ? `@${authorHandle} • X` : 'X.com',
+    description: firstSentence.slice(0, 280),
+    content: structuredContent,
+    imageUrl,
+    imageBase64,
+    imageMimeType,
+    sourceLogoUrl: avatarUrl || 'https://www.google.com/s2/favicons?domain=x.com&sz=64',
+    isVideo: isVideoMedia
+  };
 }
 
 function isVideoAudioUrl(url) {
@@ -460,6 +713,98 @@ async function fetchPrimaryYouTubeTranscript(videoId) {
   }
 }
 
+function extractSiteLogoFromHtml(html, baseUrl) {
+  if (!html) return '';
+  const iconRegexes = [
+    /<link\b[^>]*?\brel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["'][^>]*?\bhref=["']([^"']+)["']/i,
+    /<link\b[^>]*?\bhref=["']([^"']+)["'][^>]*?\brel=["'](?:apple-touch-icon|apple-touch-icon-precomposed)["']/i,
+    /<link\b[^>]*?\brel=["'](?:icon|shortcut icon)["'][^>]*?\bhref=["']([^"']+)["']/i,
+    /<link\b[^>]*?\bhref=["']([^"']+)["'][^>]*?\brel=["'](?:icon|shortcut icon)["']/i
+  ];
+  for (const r of iconRegexes) {
+    const m = html.match(r);
+    if (m && m[1]) {
+      let href = decodeHtmlEntities(m[1].trim());
+      if (href && !href.startsWith('data:')) {
+        try {
+          return new URL(href, baseUrl).href;
+        } catch (_) {}
+      }
+    }
+  }
+  return '';
+}
+
+function normalizeYouTubeAvatarUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  let clean = rawUrl.replace(/\\u0026/g, '&').replace(/&amp;/g, '&').trim();
+  if (clean.startsWith('//')) clean = 'https:' + clean;
+  clean = clean.replace(/=s\d+-c/, '=s176-c');
+  return clean;
+}
+
+async function fetchYouTubeChannelLogoFast(targetUrl, existingOembed = null, existingPageHtml = '') {
+  let oembed = existingOembed || {};
+  if (!oembed.author_url && !oembed.author_name) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 2500);
+      const oembedResp = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`, {
+        signal: ctrl.signal,
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      });
+      clearTimeout(timer);
+      if (oembedResp.ok) {
+        oembed = await oembedResp.json();
+      }
+    } catch (_) {}
+  }
+
+  // 1. Check watch page HTML if already fetched
+  if (existingPageHtml) {
+    const avatarMatch = existingPageHtml.match(/"(?:videoOwnerRenderer|channelMetadataRenderer)"[\s\S]{1,1200}?"(?:thumbnail|avatar)"\s*:\s*\{\s*"thumbnails"\s*:\s*\[\s*\{\s*"url"\s*:\s*"(https?:\/\/yt3\.(?:ggpht|googleusercontent)\.com\/[^"]+)"/i)
+      || existingPageHtml.match(/"(https?:\/\/yt3\.(?:ggpht|googleusercontent)\.com\/(?:ytc\/)?[A-Za-z0-9_-]{16,}[^"]*)"/i);
+    if (avatarMatch && avatarMatch[1]) {
+      return {
+        sourceLogoUrl: normalizeYouTubeAvatarUrl(avatarMatch[1]),
+        author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+      };
+    }
+  }
+
+  // 2. Fetch channel page og:image from oembed.author_url
+  if (oembed && oembed.author_url) {
+    try {
+      const chCtrl = new AbortController();
+      const chTimer = setTimeout(() => chCtrl.abort(), 2800);
+      const chResp = await fetch(oembed.author_url, {
+        signal: chCtrl.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cookie': 'CONSENT=YES+cb.20210328-17-p0.en+FX+478;'
+        }
+      });
+      clearTimeout(chTimer);
+      if (chResp.ok) {
+        const chHtml = await chResp.text();
+        const ogImg = getMetaTagContent(chHtml, 'og:image') || getMetaTagContent(chHtml, 'twitter:image');
+        if (ogImg && ogImg.startsWith('http')) {
+          return {
+            sourceLogoUrl: normalizeYouTubeAvatarUrl(ogImg),
+            author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  return {
+    sourceLogoUrl: 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64',
+    author: decodeHtmlEntities(oembed.author_name || 'YouTube').trim()
+  };
+}
+
 async function scrapeYouTubeUrl(targetUrl, videoId) {
   let oembed = {};
   try {
@@ -472,6 +817,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
   } catch (_) {}
 
   let playerObj = null;
+  let watchPageHtml = '';
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
@@ -486,13 +832,20 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     });
     clearTimeout(timeout);
     if (pageResp.ok) {
-      const pageHtml = await pageResp.text();
-      const match = pageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
-                    pageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+      watchPageHtml = await pageResp.text();
+      const match = watchPageHtml.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});(?:var|<\/script>)/s) ||
+                    watchPageHtml.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
       if (match) {
         try { playerObj = JSON.parse(match[1]); } catch (_) {}
       }
     }
+  } catch (_) {}
+
+  // Extract YouTube Channel Avatar Logo
+  let sourceLogoUrl = null;
+  try {
+    const ytLogoInfo = await fetchYouTubeChannelLogoFast(targetUrl, oembed, watchPageHtml);
+    sourceLogoUrl = ytLogoInfo.sourceLogoUrl || null;
   } catch (_) {}
 
   let title = decodeHtmlEntities(playerObj?.videoDetails?.title || oembed.title || '').trim();
@@ -572,6 +925,7 @@ async function scrapeYouTubeUrl(targetUrl, videoId) {
     imageUrl,
     imageBase64,
     imageMimeType,
+    sourceLogoUrl,
     isVideo: true
   };
 }

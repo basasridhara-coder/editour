@@ -4,7 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Slant • Every Thought Deserves a Frame (slant.today)</title>
-  <meta name="description" content="For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.">
+  <meta name="description" content="Turn what you read, watch, observe, and experience into illustrated 1-minute editorial posters. A quiet space for original perspective and private daily chronicles.">
+  <link rel="canonical" href="https://www.slant.today/">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Slant",
+    "alternateName": "slant.today",
+    "url": "https://www.slant.today/",
+    "description": "Turn what you read, watch, observe, and experience into illustrated 1-minute editorial posters. A quiet space for original perspective and private daily chronicles."
+  }
+  </script>
   <script>
     /* Instant Theme Initialization (Prevents FOUC) - Default: Daylight Paper */
     (function() {
@@ -29,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261031_2345">
+  <link rel="stylesheet" href="style.css?v=20261106_1655">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -43,7 +54,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Slant">
   <meta property="og:title" content="Slant • Every Thought Deserves a Frame (slant.today)">
-  <meta property="og:description" content="For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.">
+  <meta property="og:description" content="Turn what you read, watch, observe, and experience into illustrated 1-minute editorial posters. A quiet space for original perspective and private daily chronicles.">
   <meta property="og:url" content="https://www.slant.today">
   <meta property="og:image" content="https://www.slant.today/slant_logo_animated.gif">
   <meta property="og:image:secure_url" content="https://www.slant.today/slant_logo_animated.gif">
@@ -52,7 +63,7 @@
   <meta property="og:image:height" content="320">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Slant • Every Thought Deserves a Frame (slant.today)">
-  <meta name="twitter:description" content="For people who think and reflect. Frame web links with your personal take, speak your inner voice, and preserve your daily chronicles as timeless illustrated editorial postcards.">
+  <meta name="twitter:description" content="Turn what you read, watch, observe, and experience into illustrated 1-minute editorial posters. A quiet space for original perspective and private daily chronicles.">
   <meta name="twitter:image" content="https://www.slant.today/slant_logo_animated.gif">
   <!-- Supabase JS Client for Authentication & Real-time -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -82,7 +93,7 @@
         <!-- 2-Column Hero Stage: Left (Brand & Narrative Showcase) | Right (Clean Auth Gateway) -->
         <div class="slant-triad-layout slant-two-col-stage">
           
-          <!-- Left Column: Brand Masthead, Identity Tagline, Interactive 3-Option Carousel, Editorial Quote & Anchor Seal -->
+          <!-- Left Column: Brand Masthead, Identity Tagline, Interactive 2-Pillar Carousel -->
           <section class="slant-triad-col triad-col-carousel triad-col-pillars triad-col-brand-narrative" id="sectionCarousel" aria-label="Slant Brand and Narrative Showcase">
             
             <!-- Masthead Header: Slant pen-nib emblem & title + Identity Tagline -->
@@ -108,22 +119,22 @@
               </div>
             </div>
 
-            <!-- Switcher Pills for the 2 Pillars (Perspective & Daily Chronicles) -->
+            <!-- Switcher Pills for the 2 Pillars (Share Your Perspective & Create a Series) -->
             <div class="stories-switcher-pills pillars-switcher-pills is-two-pillars" id="loginPillarsSwitcher" role="tablist" aria-label="Slant Two Pillars">
               <button type="button" class="story-switch-pill pillar-switch-pill active" data-pillar-idx="0" onclick="goToLoginPillarSlide(0)">
                 <span class="pillar-pill-icon-wrap">
                   <img src="/slant-icon-weblink.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" id="loginPerspectiveTabIcon" width="18" height="18">
                 </span>
                 <span class="pillar-pill-label-viewport">
-                  <span class="pillar-pill-label-track">Perspective</span>
+                  <span class="pillar-pill-label-track">Share Your Perspective</span>
                 </span>
               </button>
               <button type="button" class="story-switch-pill pillar-switch-pill pillar-switch-pill-chronicle" data-pillar-idx="1" onclick="goToLoginPillarSlide(1)">
                 <span class="pillar-pill-icon-wrap">
-                  <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="pillar-pill-icon" width="18" height="18">
+                  <img src="/slant-icon-series.jpg?v=20261105_2100" alt="" class="pillar-pill-icon" width="18" height="18">
                 </span>
                 <span class="pillar-pill-label-viewport">
-                  <span class="pillar-pill-label-track pillar-chronicle-slide-track">Daily Chronicles</span>
+                  <span class="pillar-pill-label-track pillar-chronicle-slide-track">Create a Series</span>
                 </span>
               </button>
             </div>
@@ -132,49 +143,46 @@
             <div class="slant-pillars-carousel-viewport" id="loginPillarsCarousel" data-current-pillar="0">
               <div class="slant-pillars-carousel-track is-two-pillar-track" id="loginPillarsTrack">
                 
-                <!-- Slide 1: Perspective Card (Covers both Web Link & Inner Voice) -->
+                <!-- Slide 1: Share Your Perspective Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
-                    <div class="login-perspective-spark-chips" onclick="event.stopPropagation()">
-                      <button type="button" class="login-spark-chip active" id="loginSparkChipWeb" onclick="setLoginPerspectiveSpark('web')">🌐 Web Link</button>
-                      <button type="button" class="login-spark-chip" id="loginSparkChipVoice" onclick="setLoginPerspectiveSpark('voice')">💭 Inner Voice</button>
-                    </div>
+                    <span class="slant-pillar-kicker-tag">✦ SHARE YOUR PERSPECTIVE</span>
                     <span class="slant-pillar-slide-num">01 / 02</span>
                   </div>
                   <div class="slant-pillar-card-content-split">
                     <p class="slant-pillar-above-image-goal">✦ Your perspective might deserve a following.</p>
                     <div class="slant-pillar-vertical-visual">
-                      <img src="/slant-pillar-weblink.jpg?v=20261028_1645" id="loginPerspectiveVisualImg" alt="Perspective watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                      <img src="/slant-pillar-perspective.jpg?v=20261105_2100" id="loginPerspectiveVisualImg" alt="Share Your Perspective watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
                     <div class="slant-pillar-vertical-body">
                       <div class="slant-pillar-vertical-header">
                         <img src="/slant-icon-weblink.jpg?v=20261028_1645" id="loginPerspectiveBodyIcon" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
                         <h3 class="slant-pillar-vertical-title" id="loginPerspectiveTitle">Share Your Perspective</h3>
                       </div>
-                      <p class="slant-pillar-vertical-hook" id="loginPerspectiveHook">On what you read or watch on the web, in a few lines.</p>
-                      <p class="slant-pillar-vertical-desc" id="loginPerspectiveDesc">Slant frames it into shareable illustrated posters, keeping your style and voice intact.</p>
+                      <p class="slant-pillar-vertical-hook" id="loginPerspectiveHook">Share a few lines on what you read, watch, or experience.</p>
+                      <p class="slant-pillar-vertical-desc" id="loginPerspectiveDesc">Slant turns your perspective into illustrated posters, keeping your style and voice intact.</p>
                     </div>
                   </div>
                 </article>
 
-                <!-- Slide 2: Daily Chronicles Card -->
+                <!-- Slide 2: Create a Series Card -->
                 <article class="slant-pillar-vertical-card" onclick="stepLoginPillarSlide(1)" title="Tap or swipe for next card">
                   <div class="slant-pillar-card-top-bar">
-                    <span class="slant-pillar-kicker-tag">📔 DAILY CHRONICLES</span>
+                    <span class="slant-pillar-kicker-tag">📚 CREATE A SERIES</span>
                     <span class="slant-pillar-slide-num">02 / 02</span>
                   </div>
                   <div class="slant-pillar-card-content-split">
-                    <p class="slant-pillar-above-image-goal">✦ Reflecting on a day passed is the hallmark of personal growth.</p>
+                    <p class="slant-pillar-above-image-goal">✦ Every reflection connects to a larger journey.</p>
                     <div class="slant-pillar-vertical-visual">
-                      <img src="/slant-pillar-chronicles.jpg?v=20261028_1645" alt="Daily Chronicles watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
+                      <img src="/slant-pillar-series.jpg?v=20261105_2100" alt="Create a Series watercolor illustration" class="slant-pillar-vertical-img" loading="eager">
                     </div>
                     <div class="slant-pillar-vertical-body">
                       <div class="slant-pillar-vertical-header">
-                        <img src="/slant-icon-chronicles.jpg?v=20261028_1645" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
-                        <h3 class="slant-pillar-vertical-title">Chronicle Your Days</h3>
+                        <img src="/slant-icon-series.jpg?v=20261105_2100" alt="" class="slant-pillar-vertical-icon" width="34" height="34">
+                        <h3 class="slant-pillar-vertical-title">Create a Series</h3>
                       </div>
-                      <p class="slant-pillar-vertical-hook">Capture the life you&rsquo;re living &mdash; strictly for you.</p>
-                      <p class="slant-pillar-vertical-desc">Jot down 2 to 3 daily moments. Slant paints your day into a timeless illustrated postcard and distills your personal reflections in an encrypted private diary.</p>
+                      <p class="slant-pillar-vertical-hook">Keep related posts in one series.</p>
+                      <p class="slant-pillar-vertical-desc">Add reflections as you read a book, explore or write about a topic, or move through a life phase&mdash;one post at a time.</p>
                     </div>
                   </div>
                 </article>
@@ -185,7 +193,7 @@
               <button type="button" class="carousel-nav-btn prev-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(-1)" title="Previous Pillar">&#x2039;</button>
               <button type="button" class="carousel-nav-btn next-btn pillar-carousel-nav" onclick="event.stopPropagation(); stepLoginPillarSlide(1)" title="Next Pillar">&#x203A;</button>
 
-            <!-- Bottom Dot Indicators -->
+              <!-- Bottom Dot Indicators -->
               <div class="carousel-dots pillar-carousel-dots" id="loginPillarsDots">
                 <span class="carousel-dot active" onclick="event.stopPropagation(); goToLoginPillarSlide(0)"></span>
                 <span class="carousel-dot" onclick="event.stopPropagation(); goToLoginPillarSlide(1)"></span>
@@ -209,7 +217,7 @@
             <div class="login-narrative-quote-footer login-auth-top-quote" id="sectionManifesto">
               <blockquote class="manifesto-quote login-integrated-quote">
                 <p class="manifesto-lead">
-                  &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they bring the rain that nourishes the earth.&rdquo;
+                  &ldquo;Thoughts are passing clouds. Left alone, they vanish into thin air. Gathered and condensed, they become the rain that nourishes our actions, wisdom, and lives.&rdquo;
                 </p>
                 <p class="manifesto-question">
                   When an insight crosses your mind, what will you do &mdash; let it drift past, or <span class="manifesto-slant-word">slant it?</span>
@@ -225,7 +233,7 @@
             <div class="login-auth-gateway-body">
               <div class="auth-header">
                 <h2 class="auth-title">Welcome to Slant</h2>
-                <p class="auth-desc" id="authModalDesc">Sign in to synthesize what you read, frame what you observe, and build your private chronicle.</p>
+                <p class="auth-desc" id="authModalDesc">Sign in to turn your perspective into illustrated posters and keep related reflections in one series.</p>
               </div>
 
               <!-- Google 1-Click Sign-In (Direct GSI on slant.today + OAuth Fallback) -->
@@ -282,17 +290,8 @@
 
         </div>
 
-        <!-- Lower Continuous Flow: 3-Step Live Transformation Showcase (Left: Live Input SVG | Middle: Hook Poster | Right: Perspective / Moments & Reflection) -->
-        <section class="login-lower-samples-flow" id="loginLowerSamplesSection" aria-label="How Slant Comes to Life">
-          <div class="login-samples-divider-row">
-            <span class="login-samples-line"></span>
-            <span class="login-samples-kicker">✦ HOW SLANT COMES TO LIFE &bull; 01 LIVE INPUT &rarr; 02 HOOK POSTER &rarr; 03 PERSPECTIVE &bull; POLISHED OP-ED</span>
-            <span class="login-samples-line"></span>
-          </div>
-          <div class="login-showcase-sets-host" id="loginSampleCarouselsGrid">
-            <!-- Dynamically populated with swapping 3-step showcase sets (Web/Video Slant & Daily Chronicle Slant) -->
-          </div>
-        </section>
+        <!-- Lower Sample Carousels & Demo SVG removed per user preference -->
+        <section class="login-lower-samples-flow" id="loginLowerSamplesSection" style="display: none !important;"></section>
       </div>
 
       <!-- Trust Badges -->
@@ -327,35 +326,12 @@
           </div>
         </div>
         <div class="header-actions">
-          <!-- New Slant Creator Button (Header) with 3-Option Spread -->
+          <!-- New Slant Creator Button (Header - Direct Single Action) -->
           <div class="header-slant-spread-wrap" id="headerSlantSpreadWrap">
-            <button class="create-slant-header-btn" id="headerCreateBtn" onclick="toggleSlantSpreadMenu(event, 'header')" title="Create New Slant" aria-expanded="false">
+            <button class="create-slant-header-btn" id="headerCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
               <span class="btn-sparkle">✨</span>
               <span class="create-btn-text">+ New Slant</span>
             </button>
-            <div class="header-spread-menu" id="headerSpreadMenu" role="menu" aria-label="Choose Slant Section">
-              <button type="button" class="slant-spread-btn spread-weblink" onclick="openCreatorModalForSection('digital_link')">
-                <span class="spread-btn-icon">🌐</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Web article, video, podcasts</span>
-                </span>
-              </button>
-              <button type="button" class="slant-spread-btn spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
-                <span class="spread-btn-icon">💭</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Some observation / reflection</span>
-                </span>
-              </button>
-              <button type="button" class="slant-spread-btn spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
-                <span class="spread-btn-icon">📔</span>
-                <span class="spread-btn-copy">
-                  <span class="spread-btn-kicker">SLANT ON</span>
-                  <span class="spread-btn-title">Your daily moments</span>
-                </span>
-              </button>
-            </div>
           </div>
           <!-- Auth Sign In / User Profile -->
           <button class="auth-btn" id="headerAuthBtn" onclick="openAuthModal()" title="Sign In to Slant">
@@ -371,10 +347,13 @@
               <img class="user-avatar-img" id="userAvatarImg" src="" alt="User" style="display:none;" />
             </button>
           </div>
-          <!-- Diary Quick Action Button (All Users -> Directly Opens Diary Calendar) -->
-          <button class="header-diary-btn" id="headerDiaryBtn" onclick="openDiaryCalendarModal()" title="Daily Chronicles Calendar" aria-label="Open Diary Calendar">
+          <!-- Diary Quick Action Button (Held for later stage) -->
+          <button class="header-diary-btn" id="headerDiaryBtn" onclick="openDiaryCalendarModal()" title="Daily Chronicles Calendar" aria-label="Open Diary Calendar" style="display:none !important;">
             <span class="header-diary-icon">📔</span>
-            <span class="header-diary-btn-text">Diary</span>
+          </button>
+          <!-- Direct Founder Feedback Quick Action Button -->
+          <button class="header-diary-btn header-feedback-btn" id="headerFeedbackBtn" onclick="openUserFeedbackModal()" title="Send Feedback or Report a Bug to Founder" aria-label="Send Feedback">
+            <span class="header-diary-icon">💬</span>
           </button>
           <!-- Options Drawer Button -->
           <button class="icon-btn drawer-toggle-btn" id="drawerToggleBtn" onclick="toggleDrawer(event)" title="Options & Settings" aria-label="Open Options Drawer">
@@ -401,7 +380,8 @@
       <!-- Filter Category Pills -->
       <div class="filter-bar" id="categoryFilterBar">
         <div class="filter-pill active" data-cat="all">All Stories</div>
-        <div class="filter-pill user-pill" id="pillDailyChronicles" data-cat="daily_chronicles" style="display:none;">📔 Daily Chronicles (<span id="badgeChroniclesCount">0</span>)</div>
+        <div class="filter-pill user-pill" id="pillSeries" data-cat="series" style="display:none;">📚 Series (<span id="badgeSeriesCount">0</span>)</div>
+        <div class="filter-pill user-pill" id="pillDailyChronicles" data-cat="daily_chronicles" style="display:none !important;">📔 Daily Chronicles (<span id="badgeChroniclesCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillDrafts" data-cat="drafts" style="display:none;">📝 Drafts (<span id="badgeDraftsCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillSaved" data-cat="saved" style="display:none;">🔖 Saved (<span id="badgeSavedCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillMyStories" data-cat="my_stories" style="display:none;">✍️ My Stories (<span id="badgeMyCount">0</span>)</div>
@@ -443,33 +423,9 @@
       </div>
     </div>
 
-    <!-- Floating Action Button for Mobile / Quick Create with 3-Button Spread -->
-    <div class="fab-spread-backdrop" id="fabSpreadBackdrop" onclick="closeSlantSpreadMenu()"></div>
+    <!-- Floating Action Button for Mobile / Quick Create (Single Direct Action) -->
     <div class="fab-slant-speed-dial" id="fabSlantSpeedDial">
-      <div class="fab-spread-menu" id="fabSpreadMenu" role="menu" aria-label="Choose Slant Section">
-        <button type="button" class="slant-spread-btn fab-spread-item spread-weblink" onclick="openCreatorModalForSection('digital_link')">
-          <span class="spread-btn-icon">🌐</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Web article, video, podcasts</span>
-          </span>
-        </button>
-        <button type="button" class="slant-spread-btn fab-spread-item spread-innervoice" onclick="openCreatorModalForSection('inner_voice')">
-          <span class="spread-btn-icon">💭</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Some observation / reflection</span>
-          </span>
-        </button>
-        <button type="button" class="slant-spread-btn fab-spread-item spread-diary" onclick="openCreatorModalForSection('diary_chronicle')">
-          <span class="spread-btn-icon">📔</span>
-          <span class="spread-btn-copy">
-            <span class="spread-btn-kicker">SLANT ON</span>
-            <span class="spread-btn-title">Your daily moments</span>
-          </span>
-        </button>
-      </div>
-      <button class="fab-create-btn" id="fabCreateBtn" onclick="toggleSlantSpreadMenu(event, 'fab')" title="Create New Slant" aria-expanded="false">
+      <button class="fab-create-btn" id="fabCreateBtn" onclick="openCreatorModal()" title="Create New Slant">
         <span class="fab-icon">
           <img src="/slant-logo-divine-splash-transparent.svg?v=20261029_1755" alt="Slant Logo" class="fab-logo-img">
         </span>
@@ -483,78 +439,20 @@
        ========================================== -->
   <div class="modal-overlay creator-modal-overlay" id="creatorModal" onclick="handleCreatorOverlayClick(event)">
     <div class="modal-card creator-modal-card" onclick="event.stopPropagation()">
-      <div class="creator-modal-header">
-        <div class="creator-modal-title-wrap">
-          <div class="creator-badge">STUDIO</div>
-          <h2 class="creator-title" id="creatorModalTitle">Create New Slant</h2>
+      <div class="creator-modal-header" style="flex-shrink: 0;">
+        <div class="creator-modal-title-wrap" style="min-width: 0; flex: 1;">
+          <div class="creator-badge" style="flex-shrink: 0;">STUDIO</div>
+          <h2 class="creator-title" id="creatorModalTitle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0;">Create New Slant</h2>
         </div>
-        <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+        <div class="creator-header-right-actions" style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
           <span id="creatorStudioCreditBadge" onclick="openStudioCreditBadgeAction()" style="display:none; align-items:center; gap:4px; font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; background:rgba(16,185,129,0.14); color:#34D399; border:1px solid rgba(16,185,129,0.35); cursor:pointer; white-space:nowrap;" title="Tap to view your visual illustration credits or request more">⚡ 5 left</span>
           <button class="modal-close" onclick="closeCreatorModal()">&times;</button>
         </div>
       </div>
 
-      <!-- Interactive Section-by-Section Credits Bar on Top of Form (Tap to Expand Details & Request More) -->
-      <div class="creator-credits-top-section" id="creatorCreditsTopSection" style="margin: 0 0 10px 0; border-radius: 12px; border: 1px solid rgba(16,185,129,0.28); background: linear-gradient(135deg, rgba(16,185,129,0.07), rgba(15,23,42,0.03)); overflow: hidden; transition: all 0.2s ease;">
-        <button type="button" onclick="toggleCreatorCreditsSectionDrawer()" style="width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; background: transparent; border: none; cursor: pointer; text-align: left;">
-          <div style="display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0;">
-            <span id="creatorCreditsActiveModeIcon" style="font-size: 13px;">🎨</span>
-            <span id="creatorCreditsActiveModeSummary" style="font-size: 11.8px; font-weight: 800; color: var(--text-primary);">Perspective Visuals: 5 Free Starter Left</span>
-            <span id="creatorCreditsSecondarySummary" style="font-size: 10.8px; font-weight: 700; color: var(--text-secondary); padding: 1px 7px; border-radius: 99px; background: rgba(148,163,184,0.14);">📔 Chronicle: 1/1 Free Today</span>
-          </div>
-          <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 10.8px; font-weight: 800; color: #059669; white-space: nowrap; flex-shrink: 0;">
-            <span id="creatorCreditsExpandLabel">Section Credits</span>
-            <span id="creatorCreditsExpandChevron" style="transition: transform 0.2s ease; display: inline-block;">▾</span>
-          </span>
-        </button>
-
-        <!-- Expandable Section Breakdown Drawer -->
-        <div id="creatorCreditsTopDrawer" style="display: none; padding: 10px 12px 12px; border-top: 1px dashed rgba(16,185,129,0.25); background: rgba(255,255,255,0.65);">
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-            <div id="creatorDrawerCardPerspective" style="padding: 8px 10px; border-radius: 10px; background: rgba(16,185,129,0.09); border: 1.5px solid rgba(16,185,129,0.4);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.4px;">🌐💭 Perspective</div>
-              <div id="creatorDrawerPerspCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">5 / 5 Starter</div>
-              <div id="creatorDrawerPerspSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">5 starter free &bull; then 1/day</div>
-            </div>
-            <div id="creatorDrawerCardChronicle" style="padding: 8px 10px; border-radius: 10px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.4px;">📔 Diary Chronicle</div>
-              <div id="creatorDrawerChronCount" style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">1 / 1 Today</div>
-              <div id="creatorDrawerChronSub" style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">1 montage/day always free</div>
-            </div>
-            <div style="padding: 8px 10px; border-radius: 10px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.22);">
-              <div style="font-size: 9.5px; font-weight: 800; color: #4F46E5; text-transform: uppercase; letter-spacing: 0.4px;">📝📷 Text &amp; Exact Photo</div>
-              <div style="font-size: 13.5px; font-weight: 900; color: var(--text-primary); margin-top: 2px;">∞ Always Free</div>
-              <div style="font-size: 10px; color: var(--text-secondary); margin-top: 1px; line-height: 1.25;">Text edits &amp; Rethink = 0⚡</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 11px; color: var(--text-secondary);">Need more visual illustrations today? Request a bonus top-up anytime.</span>
-            <button type="button" onclick="openUserCreditsAndInviteModal('credits')" style="padding: 5px 11px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-              <span>⚡ Request More Credits</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3-Way Regeneration Scope Toggle (Icon-Only Pills: 📝 Text Only | ✨ Both | 🎨 Visuals Only) -->
-      <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
-        <div class="regen-scope-info-col">
-          <span class="regen-scope-label" id="regenScopeModeLabel">SCOPE: ✨ BOTH (TEXT &amp; VISUALS)</span>
-          <span class="regen-scope-hint" id="regenScopeStatusHint">🔒 Fresh Slant: Generates both text &amp; visuals</span>
-        </div>
-        <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
-          <div class="regen-scope-thumb" id="regenScopeThumb"></div>
-          <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across all 3 slides and keep current poster artwork">
-            <span class="scope-opt-icon">📝</span>
-          </button>
-          <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" aria-label="Both Text and Visuals" title="Both — Generate editorial text and poster visuals">
-            <span class="scope-opt-icon">✨</span>
-          </button>
-          <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled aria-label="Visuals Only" title="Visuals Only — Regenerate poster artwork and keep current editorial text">
-            <span class="scope-opt-icon">🎨</span>
-          </button>
-        </div>
-      </div>
+      <!-- Hidden legacy top credits & zero-credit banners (Admin 0⚡ toggle moved inside Poster 1 Visual Mode; Mental Model is first in form) -->
+      <div id="creatorCreditsTopSection" style="display: none !important;"></div>
+      <div id="creatorZeroCreditsFreeBanner" style="display: none !important;"></div>
 
       <!-- Step Indicator Bar (Hidden per user preference) -->
       <div class="creator-steps-bar" style="display:none !important;">
@@ -577,41 +475,9 @@
       <!-- STEP 1 CONTAINER: Slant & Source (Matches Mobile App Exact Sequence) -->
       <div class="creator-step-content" id="creatorStep1">
 
-        <!-- 1. PILLAR SELECTOR (Perspective vs Diary Chronicle) -->
-        <div class="creator-anchor-section">
-          <div class="creator-anchor-grid is-two-pillar-grid">
-            <!-- 1. Perspective (Merged Web Link & Inner Voice) -->
-            <button type="button" class="anchor-card active" data-mode="perspective" id="anchorPerspectiveBtn" onclick="setAnchorMode(window.lastPerspectiveSparkMode || 'digital_link')">
-              <div class="anchor-icon-circle anchor-web" id="anchorWebIconCircle">🌐</div>
-              <div class="anchor-card-title" id="anchorWebTitle">Perspective</div>
-              <div class="anchor-card-subtitle" id="anchorWebSub">Web Link • Inner Voice</div>
-            </button>
-
-            <!-- 2. Diary Chronicle (Strictly Personal Diary) -->
-            <button type="button" class="anchor-card" data-mode="diary_chronicle" id="anchorDiaryBtn" onclick="setAnchorMode('diary_chronicle')">
-              <div class="anchor-icon-circle anchor-diary">📔</div>
-              <div class="anchor-card-title">Diary Chronicle</div>
-              <div class="anchor-card-subtitle">Your day in moments</div>
-            </button>
-          </div>
-
-          <!-- Perspective Spark Source Switcher (Web Link vs Inner Voice — visible when Perspective is active) -->
-          <div class="perspective-spark-toggle-bar" id="perspectiveSparkToggleBar" role="tablist" aria-label="Perspective Spark Source">
-            <span class="perspective-spark-bar-label">SPARK SOURCE</span>
-            <div class="perspective-spark-pills">
-              <button type="button" class="perspective-spark-pill active" id="perspectiveSparkWebBtn" data-spark="digital_link" onclick="setAnchorMode('digital_link')">
-                <span class="spark-pill-icon">🌐</span>
-                <span class="spark-pill-text">Web Link</span>
-              </button>
-              <button type="button" class="perspective-spark-pill" id="perspectiveSparkVoiceBtn" data-spark="inner_voice" onclick="setAnchorMode('inner_voice')">
-                <span class="spark-pill-icon">💭</span>
-                <span class="spark-pill-text">Inner Voice</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Dynamic Mental Model Banner -->
-          <div class="anchor-mental-model-card" id="anchorMentalModelCard">
+        <!-- 1. MENTAL MODEL BANNER (Hidden: Guiding prompt written directly inside Perspective textarea placeholder) -->
+        <div class="creator-anchor-section" style="display: none !important;">
+          <div class="anchor-mental-model-card" id="anchorMentalModelCard" style="display: none !important;">
             <div class="mental-model-inner">
               <div class="mental-model-badge-row">
                 <span class="mental-model-badge" id="anchorMentalModelBadge">MENTAL MODEL</span>
@@ -624,103 +490,21 @@
           </div>
         </div>
 
-        <!-- 2. Dynamic Lower Panel (Trigger Panel & Source Ledger) -->
-        <div class="creator-trigger-panel">
-          <!-- Web & Video/Audio Anchor Trigger Panel -->
-          <div class="trigger-section" id="triggerWebSection">
-            <div class="trigger-header">
-              <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
-                <span class="trigger-icon" id="triggerLinkIcon">🔗</span>
-                <span class="trigger-title" id="triggerLinkTitle">Source Link</span>
-                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webLinkFieldInfoTip')" title="About Source Link">i</button>
-              </div>
-              <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
-                <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
-                <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
-              </div>
-            </div>
-            <div class="ui-info-popover-box" id="webLinkFieldInfoTip" style="display:none;">
-              Paste any article, YouTube video, Substack, or podcast URL to ground your Slant.
-            </div>
-            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="Paste article, YouTube, or podcast URL (https://...)" autocomplete="off">
-            <!-- Scrape Status Indicator (Matches Mobile App Exactly) -->
-            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
-            <!-- Objective Editorial Research Assistant Ledger Card -->
-            <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
-          </div>
-
-          <!-- Inner Voice & Diary Chronicle Trigger Panel -->
-          <div class="trigger-section" id="triggerVoiceSection" style="display:none;">
-            <!-- Legacy submode bar hidden because Diary Chronicle is now a dedicated top-level category -->
-            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
-              <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
-                <span class="submode-icon">💭</span>
-                <span class="submode-label">Single Reflection</span>
-              </button>
-              <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
-                <span class="submode-icon">📔</span>
-                <span class="submode-label">Diary Chronicle</span>
-              </button>
-            </div>
-
-            <div id="innerVoiceSingleSparkWrap">
-              <div class="trigger-header">
-                <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
-                  <span class="trigger-icon" style="color: #9A5B1A;">⚡</span>
-                  <span class="trigger-title">What Sparked This?</span>
-                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'sparkFieldInfoTip')" title="About The Spark">i</button>
-                </div>
-                <span class="trigger-sub">Optional</span>
-              </div>
-              <div class="ui-info-popover-box" id="sparkFieldInfoTip" style="display:none;">
-                Jot down the real-world observation, memory, or moment that triggered your perspective—or attach a scene photo below to guide visual cues.
-              </div>
-              <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Type what sparked this thought (e.g. A chat with a colleague...)">
-
-              <!-- Scene Photo / Camera Input for Inner Voice -->
-              <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap">
-                <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-                <input type="file" id="innerVoiceFileInput" accept="image/*" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
-                
-                <!-- Empty state: action buttons -->
-                <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty">
-                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceCamera()">
-                    <span class="btn-icon">📷</span>
-                    <span class="btn-label">Snap Scene</span>
-                  </button>
-                  <button type="button" class="inner-voice-photo-btn" onclick="triggerInnerVoiceUpload()">
-                    <span class="btn-icon">🖼️</span>
-                    <span class="btn-label">Upload Photo</span>
-                  </button>
-                </div>
-
-                <!-- Attached state: preview card -->
-                <div class="inner-voice-photo-preview" id="innerVoicePhotoPreview" style="display:none;">
-                  <div class="photo-preview-left">
-                    <img id="innerVoicePhotoThumb" class="photo-preview-thumb" src="" alt="Catalyst Scene">
-                    <div class="photo-preview-info">
-                      <div class="photo-preview-badge">📸 Catalyst Scene Attached</div>
-                      <div class="photo-preview-sub">AI will fuse this scene with your written perspective</div>
-                    </div>
-                  </div>
-                  <button type="button" class="photo-preview-remove" onclick="removeInnerVoicePhoto(event)" title="Remove photo">✕</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Diary Chronicle Banner (Hidden; Mental Model banner above already states privacy once) -->
-            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;">
-              <div class="chronicle-banner-top">
-                <span class="chronicle-banner-badge">📔 DIARY CHRONICLE</span>
-              </div>
-              <p class="chronicle-banner-desc">
-                Record 2 to 3 distinct moments from your day, and tap <strong>★ Star</strong> on the moment you feel is most important to give it more space in Poster 1.
-              </p>
-            </div>
-          </div>
+        <!-- 2-Stage Creation Flow Bar: Stage 1 (Story & Conviction) -> Stage 2 (Photo & Visual Selection) -->
+        <div id="creatorSubStageBar" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; margin-bottom: 10px; border-radius: 11px; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.25);">
+          <button type="button" id="subStageBtn1" onclick="backToCreatorStoryStage()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border-radius: 8px; border: none; background: #253833; color: #FFFFFF; font-size: 11.2px; font-weight: 800; cursor: pointer; transition: all 0.15s ease;">
+            <span>①</span>
+            <span>Story &amp; Polish</span>
+          </button>
+          <button type="button" id="subStageBtn2" onclick="goToCreatorVisualSelectionStage()" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; border-radius: 8px; border: none; background: transparent; color: var(--text-secondary); font-size: 11.2px; font-weight: 800; cursor: pointer; opacity: 0.65; transition: all 0.15s ease;" title="Unlocks after 3/3 story signals, 70%+ conviction depth, and Review & Polish confirmation">
+            <span id="subStageBtn2Icon">🔒</span>
+            <span id="subStageBtn2Label">Photo &amp; Visuals</span>
+          </button>
         </div>
 
-        <!-- 3. Slant Reaction Section: The Slant / Take -->
+        <!-- STAGE 1 WRAPPER: Perspective First + Live Conviction Bar Above Prompt + Spark Below -->
+        <div id="creatorStage1StoryWrap">
+        <!-- 1. Slant Reaction Section: Your Perspective (Opened directly at top) -->
         <div class="creator-hero-slant-card">
           <div class="creator-card-header">
             <div class="creator-card-title-row">
@@ -778,7 +562,35 @@
             </div>
           </div>
 
-          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
+          <!-- Live Conviction Indicators & Depth Progress Bar (Directly OVER the prompt field so changes are visible while typing) -->
+          <div class="slant-live-depth-bar" id="slantLiveDepthBar" style="margin-bottom: 8px; margin-top: 2px;">
+            <div class="slant-depth-top-row">
+              <div class="slant-depth-signals-group" role="group" aria-label="Perspective depth signals (all 3 required)">
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatMoment" onclick="showLiveDepthBeatHint('moment', event)" title="Signal 1: The concrete observation, trigger, or scene (Tap for tip)">
+                  <span class="beat-check" id="liveBeatMomentCheck">○</span>
+                  <span>Moment</span>
+                </button>
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatWhy" onclick="showLiveDepthBeatHint('why', event)" title="Signal 2: Why it matters — the tension, implication, or contrast (Tap for tip)">
+                  <span class="beat-check" id="liveBeatWhyCheck">○</span>
+                  <span>Why It Matters</span>
+                </button>
+                <button type="button" class="depth-beat-pill is-pending" id="liveBeatConviction" onclick="showLiveDepthBeatHint('conviction', event)" title="Signal 3: Your personal stance, belief, or takeaway (Tap for tip)">
+                  <span class="beat-check" id="liveBeatConvictionCheck">○</span>
+                  <span>Conviction</span>
+                </button>
+              </div>
+              <div class="slant-depth-meters-right">
+                <span class="depth-signals-count-pill" id="slantDepthSignalsCountPill" title="All 3 signals (Moment, Why It Matters, Conviction) required">0/3 signals</span>
+                <span class="depth-word-pill" id="slantDepthWordPill" title="Live perspective depth meter">Depth 0%</span>
+              </div>
+            </div>
+            <div class="slant-depth-progress-track" aria-hidden="true">
+              <div class="slant-depth-progress-fill" id="slantDepthProgressFill" style="width: 0%;"></div>
+            </div>
+            <div class="slant-depth-coach-hint" id="slantDepthCoachHint" style="display: none;"></div>
+          </div>
+
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway in your own words..." onpaste="handleBlockedPerspectivePaste(event)" ondrop="handleBlockedPerspectivePaste(event)"></textarea>
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
@@ -795,18 +607,141 @@
             </div>
           </div>
 
+          <!-- Auto-save status line -->
+          <div style="display: flex; align-items: center; justify-content: flex-end; margin: 4px 0 2px;">
+            <span class="slant-take-hint" id="slantAutosaveStatus" style="font-size: 10.5px;">✓ Auto-saves</span>
+          </div>
+        </div>
+
+        <!-- 2. "What sparked this slant?" 4-Icon Bar & Dynamic Context Field (Below Perspective Prompt) -->
+        <div class="creator-trigger-panel" id="creatorTriggerPanel" style="margin-top: 10px;">
+          <div class="slant-spark-icons-section" id="slantSparkIconsSection">
+            <div class="slant-spark-icons-label">What sparked this slant?</div>
+            <div class="slant-spark-icons-row" id="slantSparkIconsRow" role="radiogroup" aria-label="What sparked this slant">
+              <button type="button" class="spark-icon-chip active" data-spark="web" onclick="selectSlantSparkType('web')" title="Web Link — Auto-detects Web, YouTube, Instagram, X, or Substack">
+                <span class="spark-chip-svg-wrap chip-web" id="sparkWebChipSvgWrap">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <!-- Globe (Top-Left) -->
+                    <circle cx="8.5" cy="8.5" r="6"></circle>
+                    <path d="M2.5 8.5h12"></path>
+                    <path d="M8.5 2.5a9.2 9.2 0 0 1 2.4 6 9.2 9.2 0 0 1-2.4 6 9.2 9.2 0 0 1-2.4-6 9.2 9.2 0 0 1 2.4-6z"></path>
+                    <!-- YouTube Play Badge (Bottom-Right) -->
+                    <rect x="11.5" y="13" width="10.5" height="7.5" rx="2.2" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.2"></rect>
+                    <polygon points="15.5,15.1 15.5,18.4 18.6,16.75" fill="#FFFFFF" stroke="none"></polygon>
+                    <!-- Instagram / Social Spark Dot (Top-Right) -->
+                    <rect x="15" y="2.2" width="6.8" height="6.8" rx="2" fill="#E1306C" stroke="#FFFFFF" stroke-width="1"></rect>
+                    <circle cx="18.4" cy="5.6" r="1.4" fill="none" stroke="#FFFFFF" stroke-width="1.2"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text" id="sparkWebChipText">Web Link</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="book" onclick="selectSlantSparkType('book')" title="Reading Book — A book, chapter, or page">
+                <span class="spark-chip-svg-wrap chip-book">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 4.5h6.5a3.5 3.5 0 0 1 3.5 3.5v12.5a2.8 2.8 0 0 0-2.8-2.8H2V4.5z"></path>
+                    <path d="M22 4.5h-6.5A3.5 3.5 0 0 0 12 8v12.5a2.8 2.8 0 0 1 2.8-2.8H22V4.5z"></path>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Reading Book</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="moment" onclick="selectSlantSparkType('moment')" title="Observation — Something you witnessed or noticed">
+                <span class="spark-chip-svg-wrap chip-moment">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Observation</span>
+              </button>
+
+              <button type="button" class="spark-icon-chip" data-spark="experience" onclick="selectSlantSparkType('experience')" title="Experience — Something you lived through">
+                <span class="spark-chip-svg-wrap chip-experience">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9.5"></circle>
+                    <polygon points="15.8 8.2 13.7 13.7 8.2 15.8 10.3 10.3 15.8 8.2"></polygon>
+                  </svg>
+                </span>
+                <span class="spark-chip-text">Experience</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dynamic Spark Field (Adapts Prompt, Subtle Hint & Platform Icon per Selected Option / Pasted Link) -->
+          <div class="trigger-section" id="triggerWebSection">
+            <div class="trigger-header">
+              <div class="trigger-title-row" style="display:flex; align-items:center; gap:6px;">
+                <span class="trigger-icon" id="triggerLinkIcon" style="display:inline-flex; align-items:center; justify-content:center;">🔗</span>
+                <span class="trigger-title" id="triggerLinkTitle">Web Link (Web, YouTube, Instagram, X, Substack)</span>
+              </div>
+              <div class="trigger-header-right" style="display:flex; align-items:center; gap:8px;">
+                <span class="creator-tag-badge badge-required" id="triggerLinkBadge">Required</span>
+                <span class="trigger-sub" id="triggerLinkSub" style="display:none;">Paste &amp; Fetch</span>
+              </div>
+            </div>
+            <div class="spark-field-subtle-hint" id="sparkFieldSubtleHint">
+              Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.
+            </div>
+            <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Paste article, YouTube, Substack, X, or Instagram link)" autocomplete="off">
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;" onpaste="handleBlockedPerspectivePaste(event)" ondrop="handleBlockedPerspectivePaste(event)">
+            <!-- Scrape Status Indicator -->
+            <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
+            <!-- Objective Editorial Research Assistant Ledger Card -->
+            <div id="sourceLedgerCard" class="source-ledger-card" style="display:none;"></div>
+          </div>
+
+          <!-- Legacy Inner Voice Submode Container (Hidden) -->
+          <div class="trigger-section" id="triggerVoiceSection" style="display:none !important;">
+            <div class="inner-voice-submode-bar" id="innerVoiceSubmodeBar" style="display:none !important;">
+              <button type="button" class="inner-voice-submode-pill active" id="innerVoiceSubSingleBtn" onclick="setInnerVoiceSubmode('single')">
+                <span class="submode-icon">💭</span>
+                <span class="submode-label">Single Reflection</span>
+              </button>
+              <button type="button" class="inner-voice-submode-pill" id="innerVoiceSubChronicleBtn" onclick="setInnerVoiceSubmode('chronicle')">
+                <span class="submode-icon">📔</span>
+                <span class="submode-label">Diary Chronicle</span>
+              </button>
+            </div>
+            <div class="daily-chronicle-intro-banner" id="dailyChronicleIntroBanner" style="display:none !important;"></div>
+          </div>
+        </div>
+
+        <!-- 3. Review & Polish Action Bar + Coaching Review Card -->
+        <div class="creator-polish-stage-footer" style="margin-top: 10px;">
           <div class="slant-take-action-bar">
             <div class="slant-take-action-btns">
               <button type="button" class="slant-polish-action-btn" id="slantPolishActionBtn" onclick="polishUserTake()">
-                <span class="btn-spark-icon">✨</span>
-                <span class="btn-text">Review &amp; Polish</span>
+                <span class="btn-spark-icon" id="slantPolishBtnIcon">✨</span>
+                <span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>
               </button>
               <button type="button" class="slant-save-draft-btn" id="slantSaveDraftBtn" onclick="saveCreatorFormDraft(true)" style="display: none !important;" title="Save your written thought to Drafts to continue later">
                 <span class="btn-draft-icon">📝</span>
                 <span class="btn-draft-text" id="slantSaveDraftBtnText">Save Draft</span>
               </button>
             </div>
-            <span class="slant-take-hint" id="slantAutosaveStatus">✓ Auto-saves</span>
+
+            <!-- Equal-Sized Visual / Text Scope Toggle beside Review & Polish -->
+            <div class="creator-regen-scope-bar is-locked-fresh" id="creatorRegenScopeBar">
+              <span id="regenScopeModeLabel" style="display: none;"></span>
+              <span id="regenScopeStatusHint" style="display: none;"></span>
+              <div class="regen-scope-track" id="regenScopeTrack" data-scope="both" role="radiogroup" aria-label="Generation Scope">
+                <div class="regen-scope-thumb" id="regenScopeThumb"></div>
+                <button type="button" class="regen-scope-option" id="regenScopeBtnText" data-scope="text_only" onclick="setCreatorRegenScope('text_only', true)" disabled aria-label="Text Only" title="Text Only — Regenerate text across slides and keep current poster artwork">
+                  <span class="scope-opt-icon">📝</span>
+                </button>
+                <button type="button" class="regen-scope-option active" id="regenScopeBtnBoth" data-scope="both" onclick="setCreatorRegenScope('both', true)" aria-label="Both Text and Visuals" title="Both — Generate editorial text and poster visuals">
+                  <span class="scope-opt-icon">✨</span>
+                </button>
+                <button type="button" class="regen-scope-option" id="regenScopeBtnVisuals" data-scope="visuals_only" onclick="setCreatorRegenScope('visuals_only', true)" disabled aria-label="Visuals Only" title="Visuals Only — Regenerate poster artwork and keep current editorial text">
+                  <span class="scope-opt-icon">🎨</span>
+                </button>
+              </div>
+              <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'regenScopeInfoTip')" title="About Scope">i</button>
+            </div>
+          </div>
+          <div class="ui-info-popover-box" id="regenScopeInfoTip" style="display: none; margin-top: 6px;">
+            <strong>Scope:</strong> 📝 Text Only &bull; ✨ Both Text &amp; Visuals &bull; 🎨 Visuals Only (unlocks when regenerating an existing Slant).
           </div>
 
           <!-- Review & Approve Polished Take Card with Pedagogical Coaching Highlighters -->
@@ -826,6 +761,25 @@
                   </button>
                 </div>
                 <span class="review-fidelity-badge" id="reviewFidelityBadge">100% Your Voice</span>
+              </div>
+            </div>
+
+            <!-- 3-Beat Structure Check (Passive Mirror: Moment • Why It Matters • Core Conviction) -->
+            <div class="polish-structure-beats-bar" id="polishStructureBeatsBar" style="display: none;">
+              <div class="polish-structure-top-row">
+                <div class="polish-structure-left">
+                  <span class="polish-structure-label">Structure:</span>
+                  <div class="polish-structure-pills" id="polishStructurePills">
+                    <span class="structure-beat-pill is-present" id="beatPillMoment">✓ Moment</span>
+                    <span class="structure-beat-pill is-present" id="beatPillWhy">✓ Why It Matters</span>
+                    <span class="structure-beat-pill is-missing" id="beatPillConviction">○ Core Conviction</span>
+                  </div>
+                </div>
+                <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'polishStructureInfoTip')" title="About 3-Beat Structure">i</button>
+              </div>
+              <div class="polish-structure-nudge-line" id="polishStructureNudgeLine" style="display: none;"></div>
+              <div class="ui-info-popover-box" id="polishStructureInfoTip" style="display: none;">
+                <strong>3-Beat Essay Structure:</strong> Each beat powers 1 paragraph of your broadsheet essay — <strong>1. Moment / Trigger</strong> (Para 1) → <strong>2. Why It Matters</strong> (Para 2) → <strong>3. Core Conviction</strong> (Para 3 &amp; Pull-Quote).
               </div>
             </div>
 
@@ -892,6 +846,32 @@
               <span class="review-tap-hint">Tap any highlighted word to inspect why it was polished</span>
             </div>
           </div>
+        </div>
+
+        <!-- Stage 1 Bottom Bar: Advances to Photo & Visual Selection ONLY when 3/3 Story Signals, 70%+ Conviction Depth & Review Confirmation are met -->
+        <div class="creator-bottom-nav creator-step1-nav" id="creatorStage1BottomNav" style="margin-top: 12px;">
+          <button type="button" class="creator-synthesize-btn creator-nav-main-btn" id="stage1NextToVisualsBtn" onclick="goToCreatorVisualSelectionStage()" style="width: 100%; justify-content: center; opacity: 0.65;">
+            <span class="btn-stars" id="stage1NextBtnIcon">🔒</span>
+            <span class="btn-text" id="stage1NextBtnText">Next: Photo &amp; Visual Selection →</span>
+          </button>
+        </div>
+        </div>
+
+        <!-- STAGE 2 WRAPPER: Photo & Visual Selection (Unlocked after Review & Polish confirmation + Conviction Depth & Key Story Elements met) -->
+        <div id="creatorStage2VisualsWrap" style="display: none;">
+          <!-- Confirmed Story Status Banner with Quick Back Button -->
+          <div id="stage2ConfirmedStoryBanner" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; margin-bottom: 10px; border-radius: 12px; background: rgba(16, 185, 129, 0.08); border: 1.5px solid rgba(16, 185, 129, 0.32);">
+            <div style="display: flex; align-items: center; gap: 7px; min-width: 0;">
+              <span style="font-size: 14px; flex-shrink: 0;">✓</span>
+              <div style="display: flex; flex-direction: column; min-width: 0;">
+                <span style="font-size: 11px; font-weight: 900; color: #065F46; letter-spacing: 0.2px;">STORY &amp; CONVICTION CONFIRMED</span>
+                <span id="stage2ConfirmedDepthSummary" style="font-size: 10px; font-weight: 700; color: #047857; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">3/3 Key Elements • Ready for Visuals</span>
+              </div>
+            </div>
+            <button type="button" onclick="backToCreatorStoryStage()" style="flex-shrink: 0; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(15, 23, 42, 0.2); background: #FFFFFF; color: var(--text-primary); font-size: 10.5px; font-weight: 800; cursor: pointer;">
+              ← Edit Story
+            </button>
+          </div>
 
           <!-- Auto-Identified Core Visual Subject / Per-Moment Scene Projection Picker -->
           <div class="polish-visual-subject-picker" id="polishVisualSubjectPicker" style="display: none;">
@@ -914,15 +894,249 @@
             </div>
           </div>
 
-        </div>
+          <!-- Unified Poster 1 Visual Source Selector Strip (Clear 3-Way Choice — Flat Layout, No Outer Frame) -->
+          <div id="creatorPosterVisualSourceStrip" style="margin-top: 8px; padding: 4px 0; border-radius: 0; background: transparent; border: none;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+              <div style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="font-size: 13.5px;">🖼️</span>
+                <span style="font-size: 10.8px; font-weight: 900; letter-spacing: 0.45px; text-transform: uppercase; color: var(--text-primary);">Poster 1 Visual Mode</span>
+              </div>
+              <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <button type="button" id="masterSimulateZeroCreditsBtn" onclick="toggleMasterSimulateZeroCredits(event)" style="display:none; align-items:center; gap:3px; font-size:10px; font-weight:800; padding:3px 8px; border-radius:99px; background:rgba(148,163,184,0.16); color:var(--text-secondary); border:1px dashed rgba(148,163,184,0.45); cursor:pointer; white-space:nowrap;" title="Admin Toggle: Switch between ∞ Credits and 0 Credits">🧪 Test 0⚡: OFF</button>
+                <span id="posterVisualCostBadge" style="font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: rgba(99, 102, 241, 0.14); color: #4F46E5; border: 1px solid rgba(99, 102, 241, 0.3);">1⚡ Credit</span>
+              </div>
+            </div>
 
-        <!-- 4. Bottom Navigation Bar (Step 1 - Option A: One-Click Direct Synthesis with Optional Equalizer) -->
+            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡ Default), 2) Web Source (0⚡), 3) AI Concept Art (1⚡) -->
+            <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
+              <!-- Card 1: Original / Attached Photo (Free 0⚡ Default) -->
+              <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 2px solid #059669; background: rgba(16,185,129,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckOriginal" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #059669; background: #059669; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;">✓</span>
+                    <span id="posterModeOrigIcon" style="font-size: 13.5px;">📸</span>
+                  </div>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                </div>
+                <div id="posterModeOrigTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Original Photo</div>
+                <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Snap / upload 1–3</div>
+              </button>
+
+              <!-- Card 2: Web Source (Free 0⚡) -->
+              <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckCollage" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
+                    <span style="font-size: 13.5px;">🖼️</span>
+                  </div>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                </div>
+                <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Source</div>
+                <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
+              </button>
+
+              <!-- Card 3: AI Concept Art (1⚡ Credit — Disabled when 0 Credits) -->
+              <button type="button" id="posterModeCardAiArt" onclick="selectUnifiedPosterVisualMode('ai_art')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
+                  <div style="display: inline-flex; align-items: center; gap: 5px;">
+                    <span id="posterModeCheckAiArt" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
+                    <span style="font-size: 13.5px;">🎨</span>
+                  </div>
+                  <span id="posterModeAiBadge" style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(79,70,229,0.16); color: #4F46E5;">1⚡ Credit</span>
+                </div>
+                <div id="posterModeAiTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">AI Concept Art</div>
+                <div id="posterModeAiSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">For abstract thoughts</div>
+              </button>
+            </div>
+
+            <!-- Snap Scene / Upload Photos (Aligned 2-Tap Bar: Camera Icon + Multi-Photo Carousel Icon, No Extra Outer Frame) -->
+            <div class="inner-voice-photo-wrap" id="innerVoicePhotoWrap" style="display: none; margin-top: 6px; padding: 8px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
+              <input type="file" id="innerVoiceCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+              <input type="file" id="innerVoiceFileInput" accept="image/*" multiple style="display:none;" onchange="handleInnerVoicePhotoSelect(event)">
+
+              <!-- Aligned 3-Tap Buttons in Same Row: 1) Camera (Snap Scene) | 2) Upload Photos | 3) + Web Photo -->
+              <div class="inner-voice-photo-empty" id="innerVoicePhotoEmpty" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; margin-top: 0;">
+                <button type="button" class="inner-voice-photo-btn" id="attachedSnapSceneBtn" onclick="triggerInnerVoiceCamera()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span class="btn-label" id="attachedSnapBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Snap Scene</span>
+                </button>
+                <button type="button" class="inner-voice-photo-btn" id="attachedUploadPhotoBtn" onclick="triggerInnerVoiceUpload()" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;">
+                  <!-- Multi-Photo Carousel / Stack Icon -->
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                    <rect x="2" y="6" width="15" height="15" rx="2.5"></rect>
+                    <path d="M7 3h13a2 2 0 0 1 2 2v13"></path>
+                    <circle cx="7" cy="11" r="1.5"></circle>
+                    <path d="M17 16l-3.5-3.5L6 20"></path>
+                  </svg>
+                  <span class="btn-label" id="attachedUploadBtnLabel" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Upload Photos</span>
+                </button>
+                <button type="button" class="inner-voice-photo-btn" id="attachedAddWebPhotoBtn" onclick="selectUnifiedPosterVisualMode('web_collage')" style="height: 36px; min-height: 36px; max-height: 36px; padding: 0 6px; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border-radius: 9px; width: 100%; box-sizing: border-box;" title="Combine uploaded photos with web search photos (up to 3 total)">
+                  <span style="font-size: 12px; flex-shrink: 0;">🌐</span>
+                  <span class="btn-label" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">+ Web Photo</span>
+                </button>
+              </div>
+
+              <!-- Attached 1–3 Photos Strip with ★ Star Prominence, Slot Reorder & Frame Panning (Clean Flat Layout) -->
+              <div id="innerVoicePhotoPreview" style="display: none; flex-direction: column; gap: 6px; margin-top: 8px;">
+                <div id="attachedScenePhotosGrid" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px;">
+                  <!-- Populated dynamically by renderAttachedScenePhotosUI() -->
+                </div>
+                <div id="attachedSceneCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
+                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo or slide border</span>
+                    <div style="display: inline-flex; align-items: center; gap: 3px;">
+                      <button type="button" onclick="adjustCollageFrameZoom('attached', -0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom out active photo">−</button>
+                      <button type="button" onclick="adjustCollageFrameZoom('attached', 0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom in active photo">+</button>
+                      <button type="button" onclick="resetCollageFramePan('attached')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame &amp; borders">↺</button>
+                    </div>
+                  </div>
+                  <canvas id="attachedScenePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
+                  <div id="attachedCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: center; width: 100%; max-width: 220px; margin-top: 2px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 4px; background: rgba(148,163,184,0.16); padding: 3px; border-radius: 9px;">
+                      <button type="button" id="attachedCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'attached')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF; transition: all 0.15s ease;" title="Wide horizontal split">⬒ Wide</button>
+                      <button type="button" id="attachedCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'attached')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.15s ease;" title="Tall vertical split">◧ Tall</button>
+                    </div>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 6px;">
+                  <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'attachedPhotoStarInfoTip')" title="About Collage Controls">i</button>
+                  <button type="button" onclick="removeInnerVoicePhoto(event)" style="border: none; background: transparent; color: #DC2626; font-size: 10px; font-weight: 800; cursor: pointer; padding: 2px 4px;">Clear All</button>
+                </div>
+                <div class="ui-info-popover-box" id="attachedPhotoStarInfoTip" style="display: none;">
+                  Use <strong>◀ ▶</strong> to swap slot positions, <strong>★</strong> for 60% hero slot, and <strong>drag inside any photo frame</strong> to pan/crop.
+                </div>
+                <img id="innerVoicePhotoThumb" src="" alt="" style="display: none;">
+              </div>
+            </div>
+
+            <!-- Web Source Picker directly below Web Source card in Visual Mode (Clean Flat Layout — No Nested Frames) -->
+            <div class="web-collage-studio-card" id="creatorWebCollageStudioCard" style="display: none; margin-top: 6px; padding: 10px 0 2px; border-top: 1px solid rgba(148, 163, 184, 0.25); background: transparent; border-left: none; border-right: none; border-bottom: none; border-radius: 0;">
+              <!-- Subject Tabs Bar -->
+              <div id="webCollageSubjectTabs" style="display: flex; align-items: center; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px;">
+                <!-- Populated dynamically by renderWebCollageSubjectTabs() -->
+              </div>
+
+              <!-- Full-Width Taller Search Prompt Field -->
+              <div style="margin-bottom: 8px;">
+                <input type="text" id="webCollageTabSearchInput" placeholder="Search any person, place, or object..." style="width: 100%; min-height: 40px; padding: 9px 12px; border-radius: 10px; border: 1.5px solid rgba(148,163,184,0.45); background: #FFFFFF; color: var(--text-primary); font-size: 13px; font-weight: 600; box-sizing: border-box;" onkeydown="if(event.key==='Enter'){event.preventDefault();runActiveTabWebImageSearch();}">
+              </div>
+
+              <!-- Side-by-Side Action Buttons: Search & Re-scan -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <button type="button" onclick="runActiveTabWebImageSearch()" style="min-height: 36px; padding: 8px 12px; border-radius: 9px; border: none; background: #4F46E5; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                  <span>🔍</span>
+                  <span>Search</span>
+                </button>
+                <button type="button" onclick="refreshWebCollageSubjectsFromContext()" style="min-height: 36px; padding: 8px 12px; border-radius: 9px; border: 1.5px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.08); color: #4F46E5; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;" title="Re-extract subjects from your current text">
+                  <span>↻</span>
+                  <span>Re-scan</span>
+                </button>
+              </div>
+
+              <!-- Image Results Grid for the Active Subject Tab -->
+              <div id="webCollageResultsStatus" style="font-size: 10.5px; color: var(--text-secondary); margin-bottom: 5px; display: none;">Searching web images...</div>
+              <div id="webCollageResultsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 7px; max-height: 215px; overflow-y: auto; padding: 2px;">
+                <!-- Populated dynamically by renderWebCollageTabGrid() -->
+              </div>
+
+              <!-- Selected Images & Live Collage Preview Strip -->
+              <div id="webCollageComposerStrip" style="margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(148,163,184,0.22);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+                  <div style="display: inline-flex; align-items: center; gap: 5px; font-size: 10.8px; font-weight: 800; color: var(--text-primary);">
+                    <span>Selected (<span id="webCollageSelectedCount">0</span>/3)</span>
+                    <button type="button" class="ui-info-dot-btn" onclick="toggleInfoTip(event, 'webCollageInfoTip')" title="About Web Source">i</button>
+                  </div>
+                  <div style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                    <button type="button" onclick="triggerInnerVoiceCamera()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.06); color: #4F46E5; font-size: 9.8px; font-weight: 800; cursor: pointer;" title="Snap a photo to mix into this 3-photo collage">📷 Snap</button>
+                    <button type="button" onclick="triggerInnerVoiceUpload()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(79,70,229,0.35); background: rgba(79,70,229,0.06); color: #4F46E5; font-size: 9.8px; font-weight: 800; cursor: pointer;" title="Upload your own photo to mix with web photos (up to 3 total)">+ Upload</button>
+                    <button type="button" onclick="clearWebCollageSelection()" style="padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(220,38,38,0.3); background: transparent; color: #DC2626; font-size: 9.8px; font-weight: 800; cursor: pointer;">Clear</button>
+                  </div>
+                </div>
+                <div class="ui-info-popover-box" id="webCollageInfoTip" style="display: none; margin-bottom: 6px;">
+                  Combine up to 3 web &amp; uploaded photos. Use <strong>◀ ▶</strong> to swap slots, <strong>★</strong> for 60% hero prominence, <strong>⬒ Wide / ◧ Tall</strong> for hero split, and <strong>drag inside any photo frame</strong> to pan/crop.
+                </div>
+
+                <!-- Selected Slots Row -->
+                <div id="webCollageSelectedSlotsRow" style="display: flex; align-items: center; gap: 7px; margin-bottom: 6px; flex-wrap: wrap;">
+                  <!-- Populated dynamically -->
+                </div>
+
+                <!-- Live Canvas Preview (Auto-applied to Poster 1, Clean Edge-to-Edge without Extra Wrapper Box) -->
+                <div id="webCollageCanvasPreviewWrap" style="display: none; flex-direction: column; align-items: center; gap: 6px; padding: 4px 0 0; background: transparent; border: none;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 220px; gap: 4px;">
+                    <span style="font-size: 9.8px; font-weight: 700; color: var(--text-secondary);">🖐️ Drag photo or slide border</span>
+                    <div style="display: inline-flex; align-items: center; gap: 3px;">
+                      <button type="button" onclick="adjustCollageFrameZoom('web', -0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom out active photo">−</button>
+                      <button type="button" onclick="adjustCollageFrameZoom('web', 0.15)" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-primary); border-radius: 5px; padding: 1px 6px; font-size: 10px; font-weight: 800; cursor: pointer;" title="Zoom in active photo">+</button>
+                      <button type="button" onclick="resetCollageFramePan('web')" style="border: 1px solid rgba(148,163,184,0.4); background: #FFFFFF; color: var(--text-secondary); border-radius: 5px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="Reset frame &amp; borders">↺</button>
+                    </div>
+                  </div>
+                  <canvas id="webCollagePreviewCanvas" width="800" height="1000" style="width: 100%; max-width: 220px; aspect-ratio: 4 / 5; border-radius: 8px; box-shadow: 0 3px 10px rgba(15,23,42,0.12); background: #18181B; cursor: grab; touch-action: none;"></canvas>
+                  <div id="webCollageCompositionToggleRow" style="display: none; align-items: center; justify-content: center; width: 100%; max-width: 220px; margin-top: 2px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 4px; background: rgba(148,163,184,0.16); padding: 3px; border-radius: 9px;">
+                      <button type="button" id="webCollageCompWideBtn" onclick="setCollageHeroComposition('wide', 'web')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: #253833; color: #FFFFFF; transition: all 0.15s ease;" title="Wide horizontal split">⬒ Wide</button>
+                      <button type="button" id="webCollageCompTallBtn" onclick="setCollageHeroComposition('tall', 'web')" style="border: none; border-radius: 7px; padding: 6px 10px; font-size: 11px; font-weight: 800; cursor: pointer; background: transparent; color: var(--text-secondary); transition: all 0.15s ease;" title="Tall vertical split">◧ Tall</button>
+                    </div>
+                  </div>
+                  <div id="webCollageAppliedStatus" style="display: none; font-size: 10.5px; font-weight: 800; color: #059669; text-align: center;">
+                    ✓ Ready for Poster 1 (0⚡ Free)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hidden Expectation Bar per user preference (Cards & Checkmarks are self-explanatory) -->
+            <div id="posterVisualExpectationBar" style="display: none !important;">
+              <img id="posterVisualExpectationThumb" src="" alt="" style="display: none;">
+              <div id="posterVisualExpectationIcon"></div>
+              <div id="posterVisualExpectationTitle"></div>
+              <div id="posterVisualExpectationDesc"></div>
+            </div>
+          </div>
+
+          <!-- Slant Series Selector (Step 1 - Synchronized with Step 3, Flat Top Divider) -->
+          <div id="creatorSeriesRow" class="creator-series-row" style="margin-top: 8px; padding: 10px 0 4px; background: transparent; border: none; border-top: 1px solid rgba(148, 163, 184, 0.25); border-radius: 0;">
+            <div class="creator-series-title-wrap">
+              <span class="creator-series-icon">📚</span>
+              <span class="creator-series-label-title">Slant Series</span>
+            </div>
+            <div class="creator-series-controls" id="creatorSeriesControls1">
+              <div class="creator-series-select-group" id="creatorSeriesSelectGroup1">
+                <select id="creatorSeriesSelect1" class="creator-series-dropdown" onchange="onCreatorSeriesDropdownChange(this.value)" aria-label="Select Slant Series">
+                  <option value="">None (Standalone)</option>
+                </select>
+                <button type="button" class="creator-series-add-btn" id="creatorSeriesAddBtn1" onclick="toggleCreatorSeriesNewInput(1, true)" title="Create new series">+</button>
+              </div>
+              <div class="creator-series-create-group" id="creatorSeriesCreateGroup1" style="display: none;">
+                <input type="text" id="creatorSeriesNewInput1" class="creator-series-new-input" placeholder="New series name..." maxlength="46" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();createNewCreatorSeriesInline(1);}else if(event.key==='Escape'){toggleCreatorSeriesNewInput(1,false);}">
+                <button type="button" class="creator-series-create-confirm-btn" onclick="createNewCreatorSeriesInline(1)">Add</button>
+                <button type="button" class="creator-series-create-cancel-btn" onclick="toggleCreatorSeriesNewInput(1, false)" title="Cancel">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Post Comment Permission Toggle (Removed from Step 1 Creation Deck; shown only in Step 3 Preview Deck before publishing/saving) -->
+          <div id="creatorAllowCommentsRow" style="display: none !important;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 13.5px;">💬</span>
+              <span style="font-size: 11.2px; font-weight: 800; color: var(--text-primary);">Accept Comments</span>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="creatorAllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 15px; height: 15px; accent-color: #4F46E5; cursor: pointer;">
+              <span id="creatorAllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
+            </label>
+          </div>
+
+        <!-- 4. Bottom Navigation Bar (Stage 2 - Visual Selection & One-Click Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
-          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Visual Focus, Portrayal & Regional Setting">
+          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Art Style, Family Cast & Regional Setting">
             <span class="equalizer-icon">🎚️</span>
             <div class="equalizer-text-wrap">
               <span class="equalizer-label">SETTINGS</span>
-              <span class="equalizer-summary" id="creatorEqualizerSummary">Source Grounded • AI Illustration • 🇮🇳 India</span>
+              <span class="equalizer-summary" id="creatorEqualizerSummary">AI Illustration • 🇮🇳 India</span>
             </div>
             <span class="equalizer-badge" id="creatorEqualizerBadge">Tune ▾</span>
           </button>
@@ -930,6 +1144,7 @@
             <span class="btn-stars">✨</span>
             <span class="btn-text">Synthesize Posters</span>
           </button>
+        </div>
         </div>
         <div class="creator-scroll-spacer"></div>
       </div>
@@ -947,11 +1162,11 @@
             </div>
           </div>
 
-          <!-- Creative Direction Control Matrix (Visual Focus, Voice, Setting, Character Portrayal) -->
+          <!-- Creative Direction Control Matrix (Setting, Character Portrayal, Family Cast) -->
           <div class="creative-direction-panel">
 
-            <!-- 1. Visual Focus (Curator Angle vs Hybrid vs Source Grounded) -->
-            <div class="slant-perspective-card" id="slantPerspectiveCardStage2">
+            <!-- 1. Visual Focus (Hidden: Replaced by Core Scene Visual + Unified Poster 1 Visual Mode) -->
+            <div class="slant-perspective-card" id="slantPerspectiveCardStage2" style="display: none !important;">
               <div class="slant-perspective-header">
                 <div class="slant-perspective-left">
                   <div class="slant-perspective-icon-box">
@@ -1180,7 +1395,7 @@
             <!-- Rendered dynamically -->
           </div>
 
-          <!-- Sleek Action Toolbar: Regen, Edit, Clear Text (Eye View), Share -->
+          <!-- Sleek Action Toolbar: Regen, Edit, Share (Centrally Aligned) -->
           <div class="creator-result-action-panel" id="creatorResultActionPanel">
             <!-- 1. Regen -->
             <button type="button" class="action-icon-btn regen" id="step3RegenBtn" onclick="handleStep3Regenerate()" title="Reopen from beginning without changing visual cues">
@@ -1205,28 +1420,12 @@
               <span class="action-icon-label" id="step3EditLabel">Edit</span>
             </button>
 
-            <!-- 3. Eye View (Clear text overlays to inspect pure artwork directly on deck) -->
-            <button type="button" class="action-icon-btn eye-view" id="step3EyeViewBtn" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </div>
-              <span class="action-icon-label" id="step3EyeViewLabel">Clear Text</span>
-            </button>
-
-            <!-- 4. Save as Private Draft (Visible only to you in Feed & Drafts) -->
-            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" title="Save to your Drafts so you can keep editing later without pushing to your Diary Calendar">
-              <div class="action-icon-circle">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-                </svg>
-              </div>
+            <!-- 3. Save hidden per user preference (Save Draft button is directly below) -->
+            <button type="button" class="action-icon-btn save save-draft" id="step3SaveBtn" onclick="saveSynthesizedPost({ asDraftOnly: true })" style="display: none !important;">
               <span class="action-icon-label" id="step3SaveLabel">Save</span>
             </button>
 
-            <!-- 5. Share (With shareable app) -->
+            <!-- 4. Share (With shareable app) -->
             <button type="button" class="action-icon-btn share" id="step3ShareBtn" onclick="handleStep3Share()" title="Share with apps">
               <div class="action-icon-circle">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1239,6 +1438,39 @@
               </div>
               <span class="action-icon-label" id="step3ShareLabel">Share</span>
             </button>
+          </div>
+
+          <!-- Step 3 Slant Series Selector (Synchronized with Step 1) -->
+          <div id="step3SeriesRow" class="creator-series-row" style="margin: 6px 0 6px;">
+            <div class="creator-series-title-wrap">
+              <span class="creator-series-icon">📚</span>
+              <span class="creator-series-label-title">Slant Series</span>
+            </div>
+            <div class="creator-series-controls" id="creatorSeriesControls3">
+              <div class="creator-series-select-group" id="creatorSeriesSelectGroup3">
+                <select id="creatorSeriesSelect3" class="creator-series-dropdown" onchange="onCreatorSeriesDropdownChange(this.value)" aria-label="Select Slant Series">
+                  <option value="">None (Standalone)</option>
+                </select>
+                <button type="button" class="creator-series-add-btn" id="creatorSeriesAddBtn3" onclick="toggleCreatorSeriesNewInput(3, true)" title="Create new series">+</button>
+              </div>
+              <div class="creator-series-create-group" id="creatorSeriesCreateGroup3" style="display: none;">
+                <input type="text" id="creatorSeriesNewInput3" class="creator-series-new-input" placeholder="New series name..." maxlength="46" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();createNewCreatorSeriesInline(3);}else if(event.key==='Escape'){toggleCreatorSeriesNewInput(3,false);}">
+                <button type="button" class="creator-series-create-confirm-btn" onclick="createNewCreatorSeriesInline(3)">Add</button>
+                <button type="button" class="creator-series-create-cancel-btn" onclick="toggleCreatorSeriesNewInput(3, false)" title="Cancel">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3 Comment Permission Toggle (Synchronized with Step 1) -->
+          <div id="step3AllowCommentsRow" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; margin: 6px 0 8px; border-radius: 10px; background: var(--bg-surface, #F8FAFC); border: 1px solid var(--border-subtle, rgba(148,163,184,0.3));">
+            <div style="display: flex; align-items: center; gap: 7px;">
+              <span style="font-size: 13.5px;">💬</span>
+              <span style="font-size: 11px; font-weight: 800; color: var(--text-primary);">Accept Comments on Published Post</span>
+            </div>
+            <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="step3AllowCommentsToggle" checked onchange="setCreatorAllowComments(this.checked)" style="width: 15px; height: 15px; accent-color: #4F46E5; cursor: pointer;">
+              <span id="step3AllowCommentsBadge" style="font-size: 10.5px; font-weight: 800; color: #059669;">Allowed</span>
+            </label>
           </div>
 
           <!-- Bottom Navigation Bar (Step 3: Left Arrow + Save Draft + Publish) -->
@@ -1277,12 +1509,12 @@
         <button type="button" class="equalizer-close-btn" onclick="closeCreatorEqualizer()" aria-label="Close Equalizer">&times;</button>
       </div>
       <div class="ui-info-popover-box" id="eqHeaderTip" style="display:none; margin: 0 18px 10px;">
-        Fine-tune visual focus, image portrayal style, regional setting, and family cast.
+        Fine-tune image portrayal style, regional setting, and family cast.
       </div>
 
       <div class="equalizer-sheet-body">
-        <!-- 1. Visual Focus (Source Grounded vs Hybrid vs Curator) -->
-        <div class="equalizer-section">
+        <!-- 1. Visual Focus (Hidden: Replaced by Core Scene Visual + Unified Poster 1 Visual Mode) -->
+        <div class="equalizer-section" style="display: none !important;">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">⚖️</span>
             <div class="equalizer-title-inline-row">
@@ -1332,12 +1564,12 @@
           <!-- Compact Dropdown Selector -->
           <div class="equalizer-portrayal-dropdown-row">
             <select id="equalizerPortrayalSelect" class="equalizer-portrayal-select" onchange="selectEqualizerPortrayal(this.value)">
-              <option value="realistic">🎨 AI Illustration (Default)</option>
+              <option value="realistic">🎨 Editorial Realism (Default)</option>
               <option value="watercolor">🖌️ Watercolor Illustration</option>
               <option value="painting">🖼️ Artistic Broadsheet Painting</option>
               <option value="cinematic">📸 Cinematic Editorial Photo</option>
               <option value="silhouette">👥 Minimalist Silhouette</option>
-              <option value="exact" id="eqSelectOptExact" style="display:none;">📷 Authentic Source Photo</option>
+              <option value="exact" id="eqSelectOptExact">📷 Authentic Source Photo (From Post / Link)</option>
             </select>
           </div>
 
@@ -1992,18 +2224,34 @@
     </div>
   </div>
 
-  <!-- Admin Beta Access, Invites & Credit Manager Modal (Exclusive to Master Admin) -->
+  <!-- Admin Beta Access, Invites, Feedback & System Health Modal (Exclusive to Master Admin) -->
   <div class="modal-overlay" id="adminBetaModal" onclick="if(event.target===this) closeAdminBetaModal()">
-    <div class="modal-card" style="max-width: 580px; max-height: 88vh; display: flex; flex-direction: column; padding: 22px 24px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
+    <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; padding: 20px 22px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
         <div>
-          <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Curator Admin &amp; Credit Manager</div>
-          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Community Roster &amp; Visual Credits</h2>
+          <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Founder Command Center</div>
+          <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Curators, Feedback &amp; System Health</h2>
         </div>
         <button class="modal-close" onclick="closeAdminBetaModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
       </div>
 
-      <div style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
+      <!-- 3-Tab Switcher: Curators | User Feedback | Vercel & Supabase Health -->
+      <div class="admin-command-tabs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; background: rgba(148,163,184,0.08); padding: 4px; border-radius: 12px;">
+        <button type="button" id="adminTabBtnRoster" onclick="switchAdminCommandTab('roster')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(99,102,241,0.4); background: rgba(99,102,241,0.18); color: #818CF8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>👥 Curators</span>
+        </button>
+        <button type="button" id="adminTabBtnFeedback" onclick="switchAdminCommandTab('feedback')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>💬 Feedback</span>
+          <span id="adminTabFeedbackBadge" style="display:none; background:#F59E0B; color:#0F172A; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">0</span>
+        </button>
+        <button type="button" id="adminTabBtnHealth" onclick="switchAdminCommandTab('health')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <span>🩺 Health &amp; Alerts</span>
+          <span id="adminTabHealthBadge" style="display:none; background:#EF4444; color:#FFF; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">!</span>
+        </button>
+      </div>
+
+      <!-- TAB PANE 1: Curators & Visual Credits -->
+      <div id="adminPaneRoster" style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
         <!-- Live Beta Activity & Credits Summary -->
         <div id="adminStatsSummaryRow" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
           <div style="padding: 8px 8px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; text-align: center;">
@@ -2040,9 +2288,9 @@
         <!-- 1. Add New Email Form -->
         <div>
           <label style="font-size: 12px; font-weight: 700; color: var(--text-primary); display: block; margin-bottom: 6px;">Invite Whitelisted Curator / Grant Bonus Credits by Email</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="email" id="adminNewInviteEmail" placeholder="member@gmail.com" style="flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13.5px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
-            <button type="button" class="creator-publish-btn" style="padding: 10px 18px; font-size: 13px; white-space: nowrap;" onclick="handleAdminAddEmail()">
+          <div style="display: flex; gap: 8px; width: 100%; box-sizing: border-box; flex-wrap: wrap;">
+            <input type="email" id="adminNewInviteEmail" placeholder="member@gmail.com" style="flex: 1 1 150px; min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: var(--bg-card, #FFF); color: var(--text-primary, #0F172A); font-size: 13px;" onkeydown="if(event.key==='Enter') handleAdminAddEmail()">
+            <button type="button" class="creator-publish-btn" style="flex-shrink: 0; padding: 10px 14px; font-size: 12.5px; white-space: nowrap;" onclick="handleAdminAddEmail()">
               + Whitelist &amp; Grant
             </button>
           </div>
@@ -2087,6 +2335,78 @@
             <p style="font-size: 11.8px; color: var(--text-secondary); margin: 0; line-height: 1.42; font-style: italic;">
               "Hey! Came across Slant (https://www.slant.today) — it’s a quiet space that turns reading notes and everyday thoughts into illustrated, print-style editorial cards. Thought you'd appreciate it, check it out."
             </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB PANE 2: User Feedback & Post-Publish Micro-Pulse Inbox -->
+      <div id="adminPaneFeedback" style="overflow-y: auto; flex: 1; padding-right: 4px; display: none; flex-direction: column; gap: 14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:12.5px; font-weight:800; color:var(--text-primary);">Direct User Feedback &amp; Micro-Pulse Log</div>
+            <div style="font-size:11px; color:var(--text-secondary);">Captures in-app notes, bug reports &amp; post-publish voice ratings</div>
+          </div>
+          <button type="button" onclick="loadAdminBetaData(true)" style="background:rgba(99,102,241,0.12); border:1px solid rgba(99,102,241,0.3); color:#818CF8; font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:8px; cursor:pointer;">↻ Refresh</button>
+        </div>
+        <div id="adminFeedbackList" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:12px; color:var(--text-secondary); padding:14px; text-align:center;">No user feedback submitted yet.</div>
+        </div>
+      </div>
+
+      <!-- TAB PANE 3: Vercel / Supabase / Gemini System Health & Instant Alert Webhook -->
+      <div id="adminPaneHealth" style="overflow-y: auto; flex: 1; padding-right: 4px; display: none; flex-direction: column; gap: 14px;">
+        <!-- Live Health Banner -->
+        <div id="adminHealthStatusCard" style="padding:14px 16px; border-radius:14px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.28);">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+            <strong id="adminHealthStatusTitle" style="font-size:14px; color:#34D399;">🟢 All Systems Nominal</strong>
+            <button type="button" onclick="loadAdminBetaData(true)" style="background:transparent; border:1px solid rgba(148,163,184,0.3); color:var(--text-primary); font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">↻ Re-check</button>
+          </div>
+          <div id="adminHealthRecommendations" style="font-size:12px; color:var(--text-secondary); line-height:1.45;">
+            Checking Vercel, Supabase &amp; Gemini API status...
+          </div>
+        </div>
+
+        <!-- 4 Live Infrastructure Metrics -->
+        <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;">
+          <div style="padding:9px 8px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#38BDF8; text-transform:uppercase;">Supabase Ping</div>
+            <div id="adminMetricSupabasePing" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">- ms</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#FBBF24; text-transform:uppercase;">24h 429 Quota</div>
+            <div id="adminMetric429Count" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">0</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#F87171; text-transform:uppercase;">24h 504 Timeout</div>
+            <div id="adminMetric504Count" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">0</div>
+          </div>
+          <div style="padding:9px 8px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.24); border-radius:10px; text-align:center;">
+            <div style="font-size:9px; font-weight:800; color:#C084FC; text-transform:uppercase;">DB Post Rows</div>
+            <div id="adminMetricDbRows" style="font-size:15px; font-weight:800; color:var(--text-primary); margin-top:2px;">-</div>
+          </div>
+        </div>
+
+        <!-- Instant Phone / Slack / Discord / Webhook Alert Configuration -->
+        <div style="padding:12px 14px; background:rgba(99,102,241,0.06); border:1px solid rgba(99,102,241,0.2); border-radius:12px;">
+          <div style="font-size:12px; font-weight:800; color:var(--text-primary); margin-bottom:3px;">🔔 Instant Alert Webhook (Slack, Discord, or Custom URL)</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">
+            Get an instant alert on your phone whenever Vercel times out (504), Gemini hits rate limits (429), Supabase errors, or a user reports a bug.
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; width:100%; box-sizing:border-box;">
+            <input type="url" id="adminAlertWebhookInput" placeholder="https://hooks.slack.com/... or Discord webhook URL" style="flex:1 1 140px; min-width:0; width:100%; box-sizing:border-box; padding:8px 11px; border-radius:8px; border:1px solid var(--border-subtle, #CBD5E1); background:var(--bg-card, #FFF); color:var(--text-primary); font-size:12px;">
+            <button type="button" onclick="handleSaveAdminAlertWebhook(false)" style="flex-shrink:0; background:#4F46E5; color:#FFF; border:none; padding:8px 12px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap;">Save URL</button>
+            <button type="button" onclick="handleSaveAdminAlertWebhook(true)" style="flex-shrink:0; background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); padding:8px 11px; border-radius:8px; font-size:11.5px; font-weight:800; cursor:pointer; white-space:nowrap;">Test Ping 🔔</button>
+          </div>
+        </div>
+
+        <!-- Recent Telemetry Error / Slow Call Log -->
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+            <span style="font-size:11.5px; font-weight:800; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Recent API Errors, Quota Hits &amp; Slow Requests (&gt;25s)</span>
+            <button type="button" onclick="handleAdminClearTelemetry()" style="background:none; border:none; color:#F87171; font-size:11px; font-weight:700; cursor:pointer;">Clear Log</button>
+          </div>
+          <div id="adminTelemetryList" style="display:flex; flex-direction:column; gap:8px; max-height:240px; overflow-y:auto;">
+            <div style="font-size:12px; color:var(--text-secondary); padding:10px; text-align:center;">No API errors, 429 rate limits, or 504 timeouts recorded.</div>
           </div>
         </div>
       </div>
@@ -2142,18 +2462,18 @@
           <div class="drawer-user-actions">
             <button class="drawer-menu-row drawer-admin-row" id="drawerAdminBetaRow" style="display:none;" onclick="openAdminBetaModal();">
               <span class="row-icon">🛡️</span>
-              <span class="row-label">Admin Credits &amp; Requests</span>
+              <span class="row-label">Admin, Feedback &amp; System Health</span>
               <span class="row-pill" id="drawerPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:800;">0</span>
+            </button>
+            <button class="drawer-menu-row" id="drawerUserFeedbackRow" onclick="closeDrawer(); openUserFeedbackModal();">
+              <span class="row-icon">💬</span>
+              <span class="row-label">Send Feedback / Report Bug</span>
+              <span class="row-pill" style="background:rgba(56,189,248,0.18); color:#38BDF8; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">Direct</span>
             </button>
             <button class="drawer-menu-row" id="drawerUserCreditsRow" onclick="closeDrawer(); openUserCreditsAndInviteModal('credits');">
               <span class="row-icon">🎨</span>
-              <span class="row-label">Visual Credits &amp; Request More</span>
+              <span class="row-label">Visual Credits &amp; Invite</span>
               <span class="row-pill" id="drawerUserCreditPill" style="background:rgba(16,185,129,0.16); color:#34D399; font-size:10px; font-weight:800; padding:2px 8px; border-radius:10px;">⚡ Free</span>
-            </button>
-            <button class="drawer-menu-row" id="drawerInviteCommunityRow" onclick="closeDrawer(); openUserCreditsAndInviteModal('invite');">
-              <span class="row-icon">💌</span>
-              <span class="row-label">Invite Friends to Slant</span>
-              <span class="row-pill" style="background:rgba(245,158,11,0.18); color:#FBBF24; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">Share</span>
             </button>
             <button class="drawer-menu-row" id="drawerStyleProfileRow" onclick="closeDrawer(); openCuratorStyleModal();">
               <span class="row-icon">🧬</span>
@@ -2174,8 +2494,8 @@
         </div>
       </div>
 
-      <!-- Dedicated Diary Section (Calendar & Private Feed of Daily Chronicle Moments) -->
-      <div class="drawer-section" id="drawerDiarySection">
+      <!-- Dedicated Diary Section (Held for later stage) -->
+      <div class="drawer-section" id="drawerDiarySection" style="display:none !important;">
         <div class="drawer-section-title">Private Diary • Only Visible to You</div>
         <div class="drawer-card drawer-diary-card" style="display:flex; flex-direction:column; gap:6px;">
           <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); selectCategory('daily_chronicles');">
@@ -2276,7 +2596,7 @@
         <span class="curator-style-sparkle">📊</span>
         <div>
           <div class="curator-style-title">Curator Writing &amp; Slant Analytics</div>
-          <div class="curator-style-subtitle">Live visual breakdown of Slant Take corrections, broad topics, and emotional tone</div>
+          <div class="curator-style-subtitle">Live visual breakdown of conviction depth, broad topics, and emotional tone</div>
         </div>
       </div>
       <button type="button" class="curator-style-close-btn" onclick="closeCuratorStyleModal()">&times;</button>
@@ -2291,16 +2611,78 @@
   <div class="diary-calendar-modal-overlay" id="diaryCalendarModalOverlay" onclick="closeDiaryCalendarModal()" style="display: none;"></div>
   <div class="diary-calendar-modal" id="diaryCalendarModal" style="display: none;" role="dialog" aria-modal="true">
     <div class="diary-calendar-modal-header">
-      <div class="diary-calendar-title-wrap">
-        <span class="diary-calendar-icon">📔</span>
-        <div class="diary-calendar-title">Diary — Daily Chronicles Calendar</div>
-        <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; margin-left:6px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:10px; font-weight:800; white-space:nowrap;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 Encrypted</span>
+      <div class="diary-calendar-title-wrap" style="min-width: 0; flex: 1; overflow: hidden;">
+        <span class="diary-calendar-icon" style="flex-shrink: 0;">📔</span>
+        <div class="diary-calendar-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Daily Chronicles</div>
+        <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:99px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.32); color:#34D399; font-size:9.5px; font-weight:800; white-space:nowrap; flex-shrink:0;" title="Encrypted in your browser with AES-256-GCM — readable only by you">🔒 E2EE</span>
       </div>
-      <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal()" aria-label="Close Diary Calendar">&times;</button>
+      <div style="display:inline-flex; align-items:center; gap:6px; flex-shrink: 0;">
+        <button type="button" onclick="openDiaryWelcomeBriefingModal(true)" style="padding:5px 9px; border-radius:99px; border:1px solid rgba(245,158,11,0.4); background:rgba(245,158,11,0.12); color:#FBBF24; font-size:10.5px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;" title="Why Daily Chronicles, Privacy &amp; Family Vault">
+          <span>✨</span>
+          <span>Guide</span>
+        </button>
+        <button type="button" onclick="openChronicleStudioFromDiary()" style="padding:6px 11px; border-radius:99px; border:none; background:#253833; color:#FFFFFF; font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px; white-space:nowrap;" title="Pen today's 2–3 daily moments">
+          <span>＋</span>
+          <span>Pen Today</span>
+        </button>
+        <button type="button" class="diary-calendar-close-btn" onclick="closeDiaryCalendarModal(event)" aria-label="Close Diary Calendar" title="Close Diary">✕ Close</button>
+      </div>
     </div>
 
     <div class="diary-calendar-modal-body" id="diaryCalendarModalRoot">
       <!-- Rendered dynamically by renderDiaryCalendarModal() in app.js -->
+    </div>
+  </div>
+
+  <!-- First-Time Colorful Daily Chronicles Welcome Briefing Card Modal -->
+  <div class="diary-welcome-modal-overlay" id="diaryWelcomeBriefingOverlay" style="display: none;" onclick="dismissDiaryWelcomeBriefing()">
+    <div class="diary-welcome-card" onclick="event.stopPropagation()" role="dialog" aria-modal="true" aria-labelledby="diaryWelcomeTitle">
+      <div class="diary-welcome-hero">
+        <div class="diary-welcome-top-row">
+          <span class="diary-welcome-pill">📔 PERSONAL DAILY CHRONICLES</span>
+          <button type="button" class="diary-welcome-close-btn" onclick="dismissDiaryWelcomeBriefing()" aria-label="Close">&times;</button>
+        </div>
+        <h2 class="diary-welcome-title" id="diaryWelcomeTitle">Your Days Deserve to Be Remembered</h2>
+        <p class="diary-welcome-subtitle">A private visual life journal that turns 2–3 daily moments and one honest reflection into lasting memory.</p>
+      </div>
+
+      <div class="diary-welcome-pillars">
+        <!-- Pillar 1: Why Writing Moments & Reflection Matters -->
+        <div class="diary-welcome-pillar pillar-amber">
+          <div class="diary-pillar-icon-box">🌟</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">Why Moments &amp; Reflection Matter</div>
+            <div class="diary-pillar-desc">Capturing <strong>2–3 key moments</strong> from your day alongside a <strong>personal reflection</strong> preserves small victories, family milestones, and quiet lessons before they fade — building self-clarity and a living memoir over time.</div>
+          </div>
+        </div>
+
+        <!-- Pillar 2: End-to-End Encrypted Privacy -->
+        <div class="diary-welcome-pillar pillar-emerald">
+          <div class="diary-pillar-icon-box">🔒</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">100% Protected &amp; Private to You</div>
+            <div class="diary-pillar-desc">Your moments are <strong>strictly for your eyes only</strong>. Every diary entry is locked in your browser with <strong>AES-256-GCM End-to-End Encryption</strong> — never shown on the public feed and unreadable by anyone else.</div>
+          </div>
+        </div>
+
+        <!-- Pillar 3: Family Vault Integration -->
+        <div class="diary-welcome-pillar pillar-violet">
+          <div class="diary-pillar-icon-box">👨‍👩‍👦‍👦</div>
+          <div class="diary-pillar-content">
+            <div class="diary-pillar-heading">Family Vault Portrays You &amp; Your Family</div>
+            <div class="diary-pillar-desc">Add your <strong>Self</strong> photo and family members in the <strong>Reference &amp; Family Vault</strong>. When Slant paints your Daily Chronicle watercolor poster, it portrays <em>you and your real family</em> authentically with zero public digital footprint.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="diary-welcome-footer">
+        <button type="button" class="diary-welcome-vault-btn" onclick="openFamilyVaultFromDiaryWelcome()">
+          <span>👥 Set Up Family Vault</span>
+        </button>
+        <button type="button" class="diary-welcome-start-btn" onclick="dismissDiaryWelcomeBriefing()">
+          <span>📔 Continue to My Diary &rarr;</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -2465,9 +2847,9 @@
 
   <!-- User Visual Credits, Request More Credits & Community Invite Modal -->
   <div class="modal-overlay" id="userCreditsModal" style="display:none; z-index:11500;" onclick="if(event.target===this) closeUserCreditsAndInviteModal()">
-    <div class="modal-card" style="max-width: 460px; padding: 22px 22px 20px; border-radius: 20px; text-align: left; display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
+    <div class="modal-card" style="max-width: 460px; width: min(460px, calc(100vw - 24px)); box-sizing: border-box; overflow-x: hidden; padding: 20px 18px; border-radius: 20px; text-align: left; display: flex; flex-direction: column; gap: 14px;" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
-        <div>
+        <div style="min-width: 0; padding-right: 36px;">
           <div style="font-size: 10px; font-weight: 800; color: #10B981; letter-spacing: 0.8px; text-transform: uppercase;">Slant Studio &bull; Open Community</div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Visual Credits &amp; Community</h2>
         </div>
@@ -2476,34 +2858,32 @@
 
       <!-- Welcome Intro Banner (Shown automatically the first time a user starts Slanting) -->
       <div id="userCreditsFirstTimeWelcomeBanner" style="display: none; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08)); border: 1px solid rgba(16,185,129,0.35); font-size: 12px; color: var(--text-primary); line-height: 1.42;">
-        👋 <strong>Welcome to Slant Studio!</strong> Here is a quick guide to how your free visual illustration credits work and how to request a top-up anytime:
+        👋 <strong>Welcome to Slant Studio!</strong> Publishing with your own photos or Web Search is always <strong>0⚡ Free</strong>. Here is how your AI Concept Art credits work:
       </div>
 
-      <!-- Credit Breakdown Cards -->
-      <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div style="padding: 12px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
-          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🌐💭 Perspective Art</div>
-          <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">5 Free Left</div>
-          <div id="userModalPerspectiveSubText" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">First 5 free &bull; then 1/day</div>
-        </div>
-        <div style="padding: 12px; border-radius: 14px; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.3);">
-          <div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.5px;">📔 Daily Chronicle Art</div>
-          <div id="userModalChronicleCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">1 / 1 Today</div>
-          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">1 visual/day always free</div>
+      <!-- Credit Breakdown Card -->
+      <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+        <div style="padding: 12px 14px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
+          <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🎨 AI Concept Art Credits</div>
+          <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">3 Starter Free</div>
+          <div id="userModalPerspectiveSubText" style="font-size: 11.5px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4;">3 starter credits &bull; then 1/day + instant Request top-up anytime</div>
         </div>
       </div>
 
-      <div style="padding: 9px 12px; border-radius: 11px; background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); font-size: 11.8px; color: var(--text-secondary); line-height: 1.4;">
-        ✨ <strong style="color: var(--text-primary);">Text, Exact Photos &amp; Reflection Rethinking are Always Free:</strong> Only generating or regenerating AI-illustrated poster artwork uses a visual credit.
+      <div style="padding: 11px 13px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
+        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">✨ Real &amp; Web Photo Slants Are Always 0⚡ Free:</div>
+        <div><strong>1. 📸 Snap / Upload Photos (0⚡ Free):</strong> Attach 1–3 personal or camera photos directly to your Slant.</div>
+        <div style="margin-top: 3px;"><strong>2. 🖼️ Web Source &amp; Link Thumbnail (0⚡ Free):</strong> Extract the photo from your pasted link or pick 1–3 photos via Web Search.</div>
+        <div style="margin-top: 4px; font-size: 11px; opacity: 0.92;"><strong>🎨 AI Concept Art (1⚡ Credit):</strong> Only needed when expressing an abstract visual thought with no real reference image.</div>
       </div>
 
       <!-- Request More Credits Section -->
-      <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px;">
-        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ How to Request More Visual Credits</div>
-        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Need extra visual illustrations today? Tap <strong>Request +Credits</strong> below — our curator admin gets notified immediately and grants bonus credits (+5 / +15) to your account.</div>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. Working on a series of perspectives)" style="flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
-          <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="padding: 9px 14px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
+      <div style="padding: 12px; border-radius: 14px; background: var(--bg-card, rgba(15,23,42,0.03)); border: 1px solid var(--border-subtle, rgba(15,23,42,0.1)); display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
+        <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">⚡ Need More AI Concept Credits?</div>
+        <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Working on abstract visual thoughts that need AI illustration? Tap <strong>Request +Credits</strong> below — our curator admin is notified immediately and grants bonus credits to your account.</div>
+        <div style="display: flex; align-items: stretch; gap: 8px; width: 100%; box-sizing: border-box;">
+          <input type="text" id="userCreditRequestReasonInput" placeholder="Optional note (e.g. series idea)..." style="flex: 1 1 0%; min-width: 0; width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border-subtle, #CBD5E1); background: #FFFFFF; color: #0F172A; font-size: 12.5px;">
+          <button type="button" id="userCreditRequestSubmitBtn" onclick="submitUserCreditRequest()" style="flex-shrink: 0; padding: 9px 13px; border-radius: 10px; border: none; background: #253833; color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;">
             Request +Credits
           </button>
         </div>
@@ -2511,25 +2891,25 @@
       </div>
 
       <!-- First-Time Start Slanting CTA Button -->
-      <button type="button" id="userCreditsFirstTimeGotItBtn" onclick="closeUserCreditsAndInviteModal()" style="display: none; width: 100%; padding: 11px 16px; border-radius: 12px; border: none; background: linear-gradient(135deg, #059669, #10B981); color: #FFFFFF; font-size: 13px; font-weight: 800; cursor: pointer; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
+      <button type="button" id="userCreditsFirstTimeGotItBtn" onclick="closeUserCreditsAndInviteModal()" style="display: none; width: 100%; box-sizing: border-box; padding: 11px 16px; border-radius: 12px; border: none; background: linear-gradient(135deg, #059669, #10B981); color: #FFFFFF; font-size: 13px; font-weight: 800; cursor: pointer; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.25);">
         <span>Got It — Start Slanting ✨</span>
       </button>
 
       <!-- Invite Others to Slant Community Section -->
-      <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px;">
+      <div id="userInviteCommunitySection" style="padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(245,158,11,0.10), rgba(99,102,241,0.08)); border: 1px solid rgba(217,119,6,0.3); display: flex; flex-direction: column; gap: 8px; width: 100%; box-sizing: border-box;">
         <div style="display: flex; align-items: center; gap: 10px;">
           <img src="/slant_logo_animated.gif" alt="Slant" style="width: 48px; height: 48px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(15,23,42,0.14); flex-shrink: 0; background: #F1EBDD;">
-          <div>
+          <div style="min-width: 0;">
             <div style="font-size: 12.5px; font-weight: 800; color: var(--text-primary);">💌 Invite Friends to the Slant Community</div>
             <div style="font-size: 11.5px; color: var(--text-secondary); line-height: 1.38;">Sends the animated Slant logo along with your invite link to <strong>slant.today</strong>.</div>
           </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button type="button" onclick="shareSlantCommunityInvite()" style="flex: 1; padding: 10px 12px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box;">
+          <button type="button" onclick="shareSlantCommunityInvite()" style="min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: none; background: linear-gradient(135deg, #0F172A, #1E293B); color: #FFFFFF; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
             <span>📤</span>
             <span>Share Invite</span>
           </button>
-          <button type="button" onclick="copyPersonalInviteMessage()" style="padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.2); background: #FFFFFF; color: #0F172A; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+          <button type="button" onclick="copyPersonalInviteMessage()" style="min-width: 0; width: 100%; box-sizing: border-box; padding: 10px 10px; border-radius: 10px; border: 1px solid rgba(15,23,42,0.2); background: #FFFFFF; color: #0F172A; font-size: 12px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap;">
             <span>📋</span>
             <span>Copy Link</span>
           </button>
@@ -2611,6 +2991,88 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261031_2345"></script>
+  <!-- Curator Public Profile & Wall Quote Studio Modal -->
+  <div class="curator-style-modal-overlay" id="curatorWallProfileModalOverlay" style="display:none; z-index: 1000010;" onclick="closeCuratorWallProfileModal()"></div>
+  <div class="curator-style-modal curator-wall-profile-modal" id="curatorWallProfileModal" style="display:none; z-index: 1000011;" role="dialog" aria-modal="true" aria-labelledby="curatorWallModalTitle">
+    <div class="curator-style-modal-header">
+      <div class="curator-style-title-wrap">
+        <span class="curator-style-sparkle">🏛️</span>
+        <div>
+          <div class="curator-style-title" id="curatorWallModalTitle">Profile &amp; Wall Quote Studio</div>
+          <div class="curator-style-subtitle">Your State of Mind banner &amp; intellectual lens when readers visit your @handle</div>
+        </div>
+      </div>
+      <button type="button" class="curator-style-close-btn" onclick="closeCuratorWallProfileModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="curator-style-modal-body" id="curatorWallProfileModalBody" style="padding: 16px 18px 20px; overflow-y: auto; max-height: 78vh;">
+      <!-- Populated dynamically by renderCuratorWallProfileModalContent() -->
+    </div>
+  </div>
+
+  <!-- User Feedback, Bug Report & Founder Direct Note Modal -->
+  <div class="modal-overlay" id="userFeedbackModal" style="display:none; z-index: 1000020;" onclick="if(event.target===this) closeUserFeedbackModal()">
+    <div class="modal-card" style="max-width: 480px; width: 92vw; padding: 20px 22px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:12px;">
+        <div>
+          <div style="font-size:10.5px; font-weight:800; color:#F59E0B; letter-spacing:0.8px; text-transform:uppercase;">✦ Direct Line to Founder</div>
+          <h3 style="font-size:18px; font-weight:800; color:var(--text-primary); margin:2px 0 3px;">Share Feedback or Report a Hiccup</h3>
+          <p style="font-size:12px; color:var(--text-secondary); margin:0;">Your note goes directly to Shridhar to improve Slant's voice, visuals &amp; speed.</p>
+        </div>
+        <button class="modal-close" onclick="closeUserFeedbackModal()" style="color:var(--text-primary); background:rgba(128,128,128,0.15); font-size:22px; cursor:pointer;" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Category Selector Pills -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">What is this about?</label>
+        <div id="userFeedbackCategoryRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+          <button type="button" class="fb-cat-chip active" data-cat="voice_quality" onclick="selectUserFeedbackCategory('voice_quality')" style="padding:8px 6px; border-radius:10px; border:1.5px solid #F59E0B; background:rgba(245,158,11,0.14); color:#FBBF24; font-size:11.5px; font-weight:800; cursor:pointer;">🎯 Voice &amp; AI</button>
+          <button type="button" class="fb-cat-chip" data-cat="feature_idea" onclick="selectUserFeedbackCategory('feature_idea')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">💡 Feature Idea</button>
+          <button type="button" class="fb-cat-chip" data-cat="bug_report" onclick="selectUserFeedbackCategory('bug_report')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">🐛 Bug / Slow</button>
+        </div>
+      </div>
+
+      <!-- 1-Tap Experience Pulse -->
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">How is Slant feeling right now?</label>
+        <div id="userFeedbackRatingRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+          <button type="button" class="fb-rate-chip" data-rate="nailed_it" onclick="selectUserFeedbackRating('nailed_it')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">😍 Nailed it</button>
+          <button type="button" class="fb-rate-chip active" data-rate="needed_tweaks" onclick="selectUserFeedbackRating('needed_tweaks')" style="padding:7px 6px; border-radius:9px; border:1.5px solid #818CF8; background:rgba(99,102,241,0.14); color:#818CF8; font-size:11px; font-weight:800; cursor:pointer;">✍️ Needs Polish</button>
+          <button type="button" class="fb-rate-chip" data-rate="missed_point" onclick="selectUserFeedbackRating('missed_point')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">⚠️ Had a Hiccup</button>
+        </div>
+      </div>
+
+      <!-- Message Textarea -->
+      <div style="margin-bottom:12px;">
+        <label for="userFeedbackTextarea" style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">Your Note</label>
+        <textarea id="userFeedbackTextarea" rows="4" maxlength="1000" placeholder="Tell me what felt great, what needed tweaking, or what broke..." style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border-subtle, rgba(148,163,184,0.3)); background:var(--bg-card, rgba(15,23,42,0.4)); color:var(--text-primary); font-size:13px; line-height:1.45; resize:vertical;"></textarea>
+      </div>
+
+      <!-- Auto-Diagnostic Pill -->
+      <div id="userFeedbackDiagNote" style="font-size:10.5px; color:var(--text-secondary); margin-bottom:14px; padding:7px 10px; border-radius:8px; background:rgba(148,163,184,0.08); display:flex; align-items:center; gap:6px;">
+        <span>🛡️</span>
+        <span>Device &amp; recent error context attached automatically so you don't need to explain technical details.</span>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" onclick="closeUserFeedbackModal()" style="padding:10px 14px; border-radius:10px; border:1px solid rgba(148,163,184,0.3); background:transparent; color:var(--text-secondary); font-size:12.5px; font-weight:700; cursor:pointer;">Cancel</button>
+        <button type="button" id="userFeedbackSubmitBtn" onclick="submitUserFeedbackForm()" style="padding:10px 18px; border-radius:10px; border:none; background:linear-gradient(135deg, #F59E0B, #D97706); color:#0F172A; font-size:13px; font-weight:800; cursor:pointer;">Send to Founder ➔</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Post-Publish Contextual 1-Tap Micro-Pulse Banner -->
+  <div id="postPublishMicroPulseBar" style="display:none; position:fixed; bottom:22px; left:50%; transform:translateX(-50%); z-index:1000018; width:min(440px, 92vw); padding:12px 15px; border-radius:16px; background:rgba(15, 23, 42, 0.96); border:1.5px solid rgba(245, 158, 11, 0.55); box-shadow:0 16px 38px rgba(0,0,0,0.55); color:#F8FAFC; backdrop-filter:blur(12px);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
+      <div style="font-size:12px; font-weight:800; color:#FBBF24;">✨ Published! Did Slant capture your voice today?</div>
+      <button type="button" onclick="dismissPostPublishMicroPulse()" style="background:none; border:none; color:#94A3B8; font-size:16px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
+      <button type="button" onclick="handlePostPublishMicroPulseTap('nailed_it')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(16,185,129,0.45); background:rgba(16,185,129,0.16); color:#34D399; font-size:11.5px; font-weight:800; cursor:pointer;">🎯 Nailed it</button>
+      <button type="button" onclick="handlePostPublishMicroPulseTap('needed_tweaks')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(245,158,11,0.45); background:rgba(245,158,11,0.15); color:#FBBF24; font-size:11.5px; font-weight:800; cursor:pointer;">✍️ Needed tweaks</button>
+      <button type="button" onclick="handlePostPublishMicroPulseTap('missed_point')" style="padding:8px 6px; border-radius:9px; border:1px solid rgba(248,113,113,0.45); background:rgba(239,68,68,0.15); color:#F87171; font-size:11.5px; font-weight:800; cursor:pointer;">🐛 Had a hiccup</button>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261106_1655"></script>
 </body>
 </html>

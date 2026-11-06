@@ -358,6 +358,173 @@ module.exports = async function handler(req, res) {
         postData = JSON.parse(postData);
       }
 
+      // Social Engagement Actions (Heart, Like, Comment, Allow Comments Toggle)
+      if (postData && postData.action && ['toggle_reaction', 'add_comment', 'delete_comment', 'set_allow_comments'].includes(postData.action)) {
+        const postId = String(postData.postId || postData.id || '').trim();
+        if (!postId) {
+          return res.status(400).json({ error: 'Missing postId for engagement action' });
+        }
+
+        // Load existing post from Supabase first, falling back to in-memory fallbackPosts
+        let targetPost = null;
+        try {
+          const getResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.${encodeURIComponent(postId)}&select=*`, {
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+              'Accept': 'application/json'
+            }
+          });
+          if (getResp.ok) {
+            const rows = await getResp.json();
+            if (Array.isArray(rows) && rows.length > 0 && rows[0].data) {
+              targetPost = rows[0].data;
+            }
+          }
+        } catch (fetchErr) {
+          console.warn('Error fetching post for interaction:', fetchErr);
+        }
+
+        if (!targetPost) {
+          const fallbackMatch = fallbackPosts.find(p => p && p.id === postId);
+          if (fallbackMatch) {
+            targetPost = { ...fallbackMatch };
+          }
+        }
+
+        if (!targetPost) {
+          return res.status(404).json({ error: 'Post not found' });
+        }
+
+        // Initialize engagement arrays safely
+        targetPost.heartedBy = Array.isArray(targetPost.heartedBy) ? targetPost.heartedBy : [];
+        targetPost.likedBy = Array.isArray(targetPost.likedBy) ? targetPost.likedBy : [];
+        targetPost.comments = Array.isArray(targetPost.comments) ? targetPost.comments : [];
+        if (typeof targetPost.allowComments !== 'boolean') {
+          targetPost.allowComments = true;
+        }
+
+        const saveUpdatedPost = async (updated) => {
+          try {
+            await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates'
+              },
+              body: JSON.stringify({ id: updated.id, data: updated })
+            });
+          } catch (saveErr) {
+            console.warn('Supabase social update error:', saveErr);
+          }
+          const memIdx = fallbackPosts.findIndex(p => p && p.id === updated.id);
+          if (memIdx >= 0) {
+            fallbackPosts[memIdx] = updated;
+          }
+        };
+
+        if (postData.action === 'toggle_reaction') {
+          const reactionType = postData.reactionType === 'like' ? 'like' : 'heart';
+          const userKey = String(postData.userKey || postData.userEmail || postData.userHandle || '').trim().toLowerCase();
+          if (!userKey) {
+            return res.status(400).json({ error: 'Missing user identifier for reaction' });
+          }
+          const listKey = reactionType === 'like' ? 'likedBy' : 'heartedBy';
+          const list = Array.isArray(targetPost[listKey]) ? [...targetPost[listKey]] : [];
+          const existingIdx = list.findIndex(k => String(k || '').toLowerCase() === userKey);
+          let active = false;
+          if (existingIdx >= 0) {
+            list.splice(existingIdx, 1);
+            active = false;
+          } else {
+            list.push(userKey);
+            active = true;
+          }
+          targetPost[listKey] = list;
+          targetPost.heartCount = targetPost.heartedBy.length;
+          targetPost.likeCount = targetPost.likedBy.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            reactionType,
+            active,
+            heartCount: targetPost.heartCount,
+            likeCount: targetPost.likeCount,
+            heartedBy: targetPost.heartedBy,
+            likedBy: targetPost.likedBy
+          });
+        }
+
+        if (postData.action === 'add_comment') {
+          if (targetPost.allowComments === false) {
+            return res.status(403).json({ error: 'Comments are turned off for this post.' });
+          }
+          const rawText = String(postData.text || '').trim().slice(0, 500);
+          if (!rawText) {
+            return res.status(400).json({ error: 'Comment text cannot be empty.' });
+          }
+          const userHandle = String(postData.userHandle || '@reader').trim();
+          const userEmail = String(postData.userEmail || '').trim().toLowerCase();
+          const newComment = {
+            id: 'cmt-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            handle: userHandle.startsWith('@') ? userHandle : ('@' + userHandle),
+            email: userEmail,
+            text: rawText,
+            createdAt: new Date().toISOString()
+          };
+          targetPost.comments.push(newComment);
+          targetPost.commentCount = targetPost.comments.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            comment: newComment,
+            comments: targetPost.comments,
+            commentCount: targetPost.commentCount
+          });
+        }
+
+        if (postData.action === 'delete_comment') {
+          const commentId = String(postData.commentId || '').trim();
+          const userEmail = String(postData.userEmail || '').trim().toLowerCase();
+          const userHandle = String(postData.userHandle || '').trim().toLowerCase();
+          const isMaster = userEmail === 'shridharoct16@gmail.com';
+          const isPostOwner = (userEmail && String(targetPost.userEmail || '').toLowerCase() === userEmail)
+            || (userHandle && String(targetPost.creatorHandle || '').toLowerCase() === userHandle);
+
+          targetPost.comments = targetPost.comments.filter(c => {
+            if (!c || c.id !== commentId) return true;
+            const isCommentOwner = (userEmail && String(c.email || '').toLowerCase() === userEmail)
+              || (userHandle && String(c.handle || '').toLowerCase() === userHandle);
+            return !(isMaster || isPostOwner || isCommentOwner);
+          });
+          targetPost.commentCount = targetPost.comments.length;
+
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            comments: targetPost.comments,
+            commentCount: targetPost.commentCount
+          });
+        }
+
+        if (postData.action === 'set_allow_comments') {
+          targetPost.allowComments = Boolean(postData.allowComments);
+          await saveUpdatedPost(targetPost);
+          return res.status(200).json({
+            success: true,
+            postId,
+            allowComments: targetPost.allowComments
+          });
+        }
+      }
+
       if (!postData || (!postData.adaptedHeadline && !postData.originalHeadline)) {
         return res.status(400).json({ error: 'Invalid post data: missing headline' });
       }
@@ -368,6 +535,66 @@ module.exports = async function handler(req, res) {
       }
       if (!postData.createdAt) {
         postData.createdAt = new Date().toISOString();
+      }
+
+      // Enforce unique curator handle across accounts via system_user_directory
+      if (postData.userEmail && String(postData.userEmail).includes('@') && postData.creatorHandle) {
+        try {
+          const cleanEmail = String(postData.userEmail).trim().toLowerCase();
+          const normKey = (h) => String(h || '').replace(/^@+/, '').trim().toLowerCase().replace(/\s+/g, ' ');
+          const dirResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=eq.system_user_directory&select=data`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+          });
+          if (dirResp.ok) {
+            const dirRows = await dirResp.json();
+            const dir = (dirRows && dirRows[0] && dirRows[0].data) || { users: {} };
+            if (!dir.users || typeof dir.users !== 'object') dir.users = {};
+            const takenByOther = new Set();
+            for (const [uEmail, uObj] of Object.entries(dir.users)) {
+              const em = String(uEmail || '').trim().toLowerCase();
+              if (!em || em === cleanEmail || !uObj) continue;
+              if (uObj.curatorHandle) takenByOther.add(normKey(uObj.curatorHandle));
+              if (uObj.handle) takenByOther.add(normKey(uObj.handle));
+              if (uObj.name) takenByOther.add(normKey(uObj.name));
+            }
+            let rawHandle = String(postData.creatorHandle).trim();
+            if (!rawHandle.startsWith('@')) rawHandle = '@' + rawHandle;
+            if (takenByOther.has(normKey(rawHandle))) {
+              const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+              const baseClean = rawHandle.replace(/^@+/, '').trim();
+              const withPrefix = `@${baseClean} (${emailPrefix})`;
+              if (emailPrefix && !takenByOther.has(normKey(withPrefix))) {
+                rawHandle = withPrefix;
+              } else {
+                let counter = 2;
+                while (takenByOther.has(normKey(`@${baseClean} ${counter}`))) counter++;
+                rawHandle = `@${baseClean} ${counter}`;
+              }
+            }
+            postData.creatorHandle = rawHandle;
+            const existing = dir.users[cleanEmail] || { email: cleanEmail };
+            if (existing.curatorHandle !== rawHandle) {
+              dir.users[cleanEmail] = {
+                ...existing,
+                email: cleanEmail,
+                curatorHandle: rawHandle,
+                name: existing.name || rawHandle.replace(/^@+/, '').trim(),
+                handle: existing.handle || ('@' + rawHandle.replace(/^@+/, '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '')),
+                updatedAt: new Date().toISOString()
+              };
+              await fetch(`${SUPABASE_URL}/rest/v1/posts`, {
+                method: 'POST',
+                headers: {
+                  'apikey': SUPABASE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_KEY}`,
+                  'Content-Type': 'application/json',
+                  'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify({ id: 'system_user_directory', data: dir })
+              }).catch(() => {});
+            }
+          }
+        } catch (_) {}
       }
 
       // Automatically persist poster to Supabase Storage if illustrationBase64 or posterBase64 is provided
@@ -423,6 +650,42 @@ module.exports = async function handler(req, res) {
       delete postData.originalPhotoBase64;
       delete postData.sourceImageBase64;
       delete postData.catalystPhotoBase64;
+      if (typeof postData.referencePhotoUrl === 'string' && postData.referencePhotoUrl.startsWith('data:image/')) {
+        if (postData.illustrationUrl && postData.illustrationUrl.startsWith('http')) {
+          postData.referencePhotoUrl = postData.illustrationUrl;
+        } else {
+          try {
+            const refMatch = postData.referencePhotoUrl.match(/^data:(image\/[^;]+);base64,/);
+            const refMime = refMatch ? refMatch[1] : 'image/jpeg';
+            const refExt = refMime.includes('png') ? 'png' : (refMime.includes('webp') ? 'webp' : 'jpg');
+            const refCleanB64 = refMatch ? postData.referencePhotoUrl.slice(refMatch[0].length) : postData.referencePhotoUrl.replace(/^data:image\/[^;]+;base64,/, '');
+            const refBuf = Buffer.from(refCleanB64, 'base64');
+            const refFileName = `${postData.id}_ref.${refExt}`;
+            const refUpResp = await fetch(`${SUPABASE_URL}/storage/v1/object/posters/${refFileName}`, {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': refMime,
+                'x-upsert': 'true'
+              },
+              body: refBuf
+            });
+            if (refUpResp.ok) {
+              postData.referencePhotoUrl = `${SUPABASE_URL}/storage/v1/object/public/posters/${refFileName}`;
+            } else {
+              delete postData.referencePhotoUrl;
+            }
+          } catch (_) {
+            delete postData.referencePhotoUrl;
+          }
+        }
+      }
+      if (typeof postData.sourceImageUrl === 'string' && postData.sourceImageUrl.startsWith('data:image/')) {
+        postData.sourceImageUrl = (postData.referencePhotoUrl && postData.referencePhotoUrl.startsWith('http'))
+          ? postData.referencePhotoUrl
+          : (postData.illustrationUrl && postData.illustrationUrl.startsWith('http') ? postData.illustrationUrl : undefined);
+      }
       if (typeof postData.catalystPhoto === 'string' && postData.catalystPhoto.startsWith('data:image/')) {
         delete postData.catalystPhoto;
       }
@@ -434,7 +697,11 @@ module.exports = async function handler(req, res) {
           delete postData.generationInputs.catalystPhoto;
         }
         if (typeof postData.generationInputs.referencePhotoUrl === 'string' && postData.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-          delete postData.generationInputs.referencePhotoUrl;
+          if (postData.referencePhotoUrl && postData.referencePhotoUrl.startsWith('http')) {
+            postData.generationInputs.referencePhotoUrl = postData.referencePhotoUrl;
+          } else {
+            delete postData.generationInputs.referencePhotoUrl;
+          }
         }
       }
 

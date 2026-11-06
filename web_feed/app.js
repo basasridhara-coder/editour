@@ -61,6 +61,7 @@ function applyAtmosphere(pref) {
 }
 
 function openDrawer() {
+  document.getElementById('drawerPublicWallProfileRow')?.remove();
   if (typeof syncDrawerDiaryCounts === 'function') {
     syncDrawerDiaryCounts();
   }
@@ -299,7 +300,8 @@ async function init() {
     openPrivatePreviewGateModal(gateEmail);
   }
   const deepPostId = typeof getDeepLinkedPostId === 'function' ? getDeepLinkedPostId() : null;
-  if (!currentUser && !deepPostId) {
+  const hasPublicDeepLink = typeof hasPublicDeepLinkInUrl === 'function' ? hasPublicDeepLinkInUrl() : Boolean(deepPostId);
+  if (!currentUser && !hasPublicDeepLink) {
     dismissInitialFeedLoader(true);
     renderLoginPostsPreview();
   }
@@ -335,6 +337,317 @@ let currentUserCredits = null;
 let savedPostIds = new Set(JSON.parse(localStorage.getItem('slant_saved_posts') || localStorage.getItem('editour_saved_posts') || '[]'));
 let myCreatedPostIds = new Set(JSON.parse(localStorage.getItem('slant_my_posts') || '[]'));
 let deletedPostIds = new Set(JSON.parse(localStorage.getItem('slant_deleted_posts') || '[]'));
+const SAVE_BUCKETS_STORAGE_KEY = 'slant_save_buckets_v1';
+let activeSavedBucketFilter = 'all';
+
+function getDefaultSaveBuckets() {
+  return [
+    { id: 'reading_list', name: 'Reading List', icon: '🔖', postIds: [] },
+    { id: 'inspiration', name: 'Inspiration', icon: '💡', postIds: [] },
+    { id: 'worth_sharing', name: 'Worth Sharing', icon: '✨', postIds: [] }
+  ];
+}
+
+function loadSaveBucketsFromStorage() {
+  let buckets = null;
+  try {
+    const raw = localStorage.getItem(SAVE_BUCKETS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        buckets = parsed
+          .filter(b => b && typeof b.name === 'string' && b.name.trim())
+          .map(b => ({
+            id: String(b.id || ('bucket_' + b.name.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+            name: String(b.name).trim(),
+            icon: String(b.icon || '📁'),
+            postIds: Array.isArray(b.postIds)
+              ? Array.from(new Set(b.postIds.map(String).filter(id => id && !deletedPostIds.has(id))))
+              : []
+          }));
+      }
+    }
+  } catch (_) {}
+
+  if (!buckets || buckets.length === 0) {
+    buckets = getDefaultSaveBuckets();
+  }
+
+  // Ensure any legacy savedPostIds that aren't in a bucket yet live in Reading List
+  const assigned = new Set();
+  buckets.forEach(b => b.postIds.forEach(id => assigned.add(id)));
+  let primaryBucket = buckets.find(b => b.id === 'reading_list') || buckets[0];
+  savedPostIds.forEach(id => {
+    if (id && !deletedPostIds.has(id) && !assigned.has(id)) {
+      primaryBucket.postIds.push(id);
+      assigned.add(id);
+    }
+  });
+
+  return buckets;
+}
+
+let saveBuckets = loadSaveBucketsFromStorage();
+
+function rebuildSavedPostIdsFromBuckets() {
+  const nextSet = new Set();
+  if (Array.isArray(saveBuckets)) {
+    saveBuckets.forEach(b => {
+      if (b && Array.isArray(b.postIds)) {
+        b.postIds = b.postIds.filter(id => id && !deletedPostIds.has(id));
+        b.postIds.forEach(id => nextSet.add(id));
+      }
+    });
+  }
+  savedPostIds = nextSet;
+}
+rebuildSavedPostIdsFromBuckets();
+
+function persistSaveBuckets(syncCloud = true) {
+  rebuildSavedPostIdsFromBuckets();
+  try {
+    localStorage.setItem(SAVE_BUCKETS_STORAGE_KEY, JSON.stringify(saveBuckets));
+    localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+  } catch (_) {}
+  if (syncCloud && typeof syncUserMetadataToCloud === 'function') {
+    syncUserMetadataToCloud();
+  }
+}
+
+function mergeCloudSaveBuckets(cloudBuckets, cloudSavedIds) {
+  if (Array.isArray(cloudBuckets) && cloudBuckets.length > 0) {
+    cloudBuckets.forEach(cb => {
+      if (!cb || typeof cb.name !== 'string' || !cb.name.trim()) return;
+      const cleanName = cb.name.trim();
+      const cbId = String(cb.id || ('bucket_' + cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_')));
+      let existing = saveBuckets.find(b => b.id === cbId || b.name.toLowerCase() === cleanName.toLowerCase());
+      if (!existing) {
+        existing = {
+          id: cbId,
+          name: cleanName,
+          icon: String(cb.icon || '📁'),
+          postIds: []
+        };
+        saveBuckets.push(existing);
+      }
+      if (Array.isArray(cb.postIds)) {
+        cb.postIds.forEach(id => {
+          const sId = String(id || '');
+          if (sId && !deletedPostIds.has(sId) && !existing.postIds.includes(sId)) {
+            existing.postIds.push(sId);
+          }
+        });
+      }
+    });
+  }
+  if (Array.isArray(cloudSavedIds) && cloudSavedIds.length > 0) {
+    const assigned = new Set();
+    saveBuckets.forEach(b => b.postIds.forEach(id => assigned.add(id)));
+    const primary = saveBuckets.find(b => b.id === 'reading_list') || saveBuckets[0];
+    cloudSavedIds.forEach(id => {
+      const sId = String(id || '');
+      if (sId && !deletedPostIds.has(sId) && !assigned.has(sId) && primary) {
+        primary.postIds.push(sId);
+        assigned.add(sId);
+      }
+    });
+  }
+  persistSaveBuckets(false);
+}
+
+/* ============================================================
+   CREATOR SERIES (TOPIC NOTEBOOKS) STATE & HELPERS
+   ============================================================ */
+const CREATOR_SERIES_STORAGE_KEY = 'slant_creator_series_v1';
+let activeCreatorSeriesId = null;
+let activeFeedSeriesFilter = 'all';
+
+function loadCreatorSeriesFromStorage() {
+  try {
+    const raw = localStorage.getItem(CREATOR_SERIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter(s => s && typeof s.title === 'string' && s.title.trim())
+          .map(s => ({
+            id: String(s.id || ('series_' + s.title.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+            title: String(s.title).trim(),
+            description: String(s.description || '').trim(),
+            customCoverImage: String(s.customCoverImage || '').trim(),
+            icon: String(s.icon || '📚'),
+            createdAt: s.createdAt || new Date().toISOString()
+          }));
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+let creatorSeriesList = loadCreatorSeriesFromStorage();
+const DELETED_SERIES_STORAGE_KEY = 'slant_deleted_series_v1';
+let deletedSeriesTombstones = new Set((() => {
+  try {
+    const raw = localStorage.getItem(DELETED_SERIES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (_) {
+    return [];
+  }
+})());
+
+function persistDeletedSeriesTombstones() {
+  try {
+    localStorage.setItem(DELETED_SERIES_STORAGE_KEY, JSON.stringify(Array.from(deletedSeriesTombstones)));
+  } catch (_) {}
+}
+
+function isSeriesTombstoned(id, title) {
+  if (id && deletedSeriesTombstones.has(String(id))) return true;
+  if (title && deletedSeriesTombstones.has('title:' + String(title).trim().toLowerCase())) return true;
+  return false;
+}
+
+function clearSeriesTombstone(id, title) {
+  let changed = false;
+  if (id && deletedSeriesTombstones.delete(String(id))) changed = true;
+  if (title && deletedSeriesTombstones.delete('title:' + String(title).trim().toLowerCase())) changed = true;
+  if (changed) persistDeletedSeriesTombstones();
+}
+
+function persistCreatorSeries(syncCloud = true) {
+  try {
+    localStorage.setItem(CREATOR_SERIES_STORAGE_KEY, JSON.stringify(creatorSeriesList));
+  } catch (_) {}
+  if (syncCloud && typeof syncUserMetadataToCloud === 'function') {
+    syncUserMetadataToCloud();
+  }
+}
+
+function mergeCloudCreatorSeries(cloudSeries) {
+  if (!Array.isArray(cloudSeries) || cloudSeries.length === 0) return;
+  let changed = false;
+  cloudSeries.forEach(cs => {
+    if (!cs || typeof cs.title !== 'string' || !cs.title.trim()) return;
+    const cleanTitle = cs.title.trim();
+    const csId = String(cs.id || ('series_' + cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_')));
+    if (isSeriesTombstoned(csId, cleanTitle)) return;
+    const exists = creatorSeriesList.find(s => s.id === csId || s.title.toLowerCase() === cleanTitle.toLowerCase());
+    if (!exists) {
+      creatorSeriesList.push({
+        id: csId,
+        title: cleanTitle,
+        description: String(cs.description || '').trim(),
+        customCoverImage: String(cs.customCoverImage || '').trim(),
+        icon: String(cs.icon || '📚'),
+        createdAt: cs.createdAt || new Date().toISOString()
+      });
+      changed = true;
+    } else {
+      if (!exists.description && cs.description) {
+        exists.description = String(cs.description).trim();
+        changed = true;
+      }
+      if (!exists.customCoverImage && cs.customCoverImage) {
+        exists.customCoverImage = String(cs.customCoverImage).trim();
+        changed = true;
+      }
+    }
+  });
+  if (changed) {
+    persistCreatorSeries(false);
+  }
+}
+
+function getPostSeriesInfo(post) {
+  if (!post) return null;
+  const sId = String(post.seriesId || post.generationInputs?.seriesId || '').trim();
+  const sTitle = String(post.seriesTitle || post.generationInputs?.seriesTitle || '').trim();
+  const sDesc = String(post.seriesDescription || post.generationInputs?.seriesDescription || '').trim();
+  const sCover = String(post.seriesCoverImage || post.generationInputs?.seriesCoverImage || '').trim();
+  if (!sId && !sTitle) return null;
+  if (isSeriesTombstoned(sId, sTitle)) return null;
+  const matched = Array.isArray(creatorSeriesList)
+    ? creatorSeriesList.find(s => (sId && s.id === sId) || (sTitle && s.title.toLowerCase() === sTitle.toLowerCase()))
+    : null;
+  return {
+    id: matched ? matched.id : (sId || ('series_' + sTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_'))),
+    title: matched ? matched.title : (sTitle || 'Untitled Series'),
+    description: matched ? (matched.description || sDesc) : sDesc,
+    customCoverImage: matched ? (matched.customCoverImage || sCover) : sCover,
+    icon: matched ? (matched.icon || '📚') : '📚'
+  };
+}
+
+function syncSeriesFromLoadedPosts() {
+  if (!Array.isArray(allPosts)) return;
+  let changed = false;
+  allPosts.forEach(p => {
+    if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id)) return;
+    if (typeof isPostOwnedByCurrentUser === 'function' && !isPostOwnedByCurrentUser(p)) return;
+    const info = getPostSeriesInfo(p);
+    if (!info || !info.title) return;
+    if (isSeriesTombstoned(info.id, info.title)) return;
+    const exists = creatorSeriesList.find(s => s.id === info.id || s.title.toLowerCase() === info.title.toLowerCase());
+    if (!exists) {
+      creatorSeriesList.push({
+        id: info.id,
+        title: info.title,
+        description: info.description || '',
+        customCoverImage: info.customCoverImage || '',
+        icon: info.icon || '📚',
+        createdAt: p.createdAt || new Date().toISOString()
+      });
+      changed = true;
+    } else {
+      if (!exists.description && info.description) {
+        exists.description = info.description;
+        changed = true;
+      }
+      if (!exists.customCoverImage && info.customCoverImage) {
+        exists.customCoverImage = info.customCoverImage;
+        changed = true;
+      }
+    }
+  });
+  if (changed) {
+    persistCreatorSeries(false);
+  }
+}
+
+function getSeriesStats(seriesId) {
+  let total = 0;
+  let pubCount = 0;
+  let privCount = 0;
+  let coverImage = '';
+  let latestHeadline = '';
+  let latestTs = -1;
+  if (Array.isArray(allPosts)) {
+    allPosts.forEach(p => {
+      if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isPostChronicleDiary(p)) return;
+      const isOwned = typeof isPostOwnedByCurrentUser === 'function' ? isPostOwnedByCurrentUser(p) : false;
+      const isPriv = typeof isPostPrivateOrDraft === 'function' ? isPostPrivateOrDraft(p) : false;
+      if (isPriv && !isOwned) return;
+      const info = getPostSeriesInfo(p);
+      if (info && info.id === seriesId) {
+        total++;
+        if (isPriv) privCount++;
+        else pubCount++;
+        const img = p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl || '';
+        const hl = String(p.adaptedHeadline || p.originalHeadline || '').trim();
+        const ts = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+        if ((!coverImage && img) || (img && ts >= latestTs)) {
+          coverImage = img;
+          latestHeadline = hl;
+          latestTs = ts;
+        } else if (!latestHeadline && hl) {
+          latestHeadline = hl;
+        }
+      }
+    });
+  }
+  return { total, pubCount, privCount, coverImage, latestHeadline };
+}
 
 function applyDeletedPostsTombstone(ids) {
   if (!Array.isArray(ids) || ids.length === 0) return false;
@@ -352,6 +665,14 @@ function applyDeletedPostsTombstone(ids) {
       savedPostIds.delete(id);
       changed = true;
     }
+    if (Array.isArray(saveBuckets)) {
+      saveBuckets.forEach(b => {
+        if (b && Array.isArray(b.postIds) && b.postIds.includes(id)) {
+          b.postIds = b.postIds.filter(pid => pid !== id);
+          changed = true;
+        }
+      });
+    }
   });
   const beforeLen = allPosts.length;
   allPosts = allPosts.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
@@ -363,6 +684,7 @@ function applyDeletedPostsTombstone(ids) {
     localStorage.setItem('slant_deleted_posts', JSON.stringify(Array.from(deletedPostIds)));
     localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
     localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
+    localStorage.setItem(SAVE_BUCKETS_STORAGE_KEY, JSON.stringify(saveBuckets));
     const cached = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
     const filteredCache = cached.filter(p => p && !deletedPostIds.has(p.id) && !p.deleted && !p.isDeleted);
     if (filteredCache.length !== cached.length) {
@@ -430,30 +752,65 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     if (topSection) topSection.style.display = 'none';
     return;
   }
-  if (topSection) topSection.style.display = 'block';
+  if (topSection) topSection.style.display = 'none';
 
   const email = (currentUser.email || '').toLowerCase().trim();
-  const isMaster = email === 'shridharoct16@gmail.com';
-  if (!isMaster && currentUserCredits && currentUserCredits.isUnlimited) {
+  const isRealMaster = email === 'shridharoct16@gmail.com';
+  const simZeroActive = isRealMaster && Boolean(window._masterSimulateZeroCredits);
+  const isMaster = isRealMaster && !simZeroActive;
+  if (!isRealMaster && currentUserCredits && currentUserCredits.isUnlimited) {
     currentUserCredits = null;
   }
+
+  // Show/update Master Admin "Test 0 Credits" toggle buttons
+  const masterHeaderToggleBtn = document.getElementById('masterSimulateZeroCreditsBtn');
+  const masterDrawerToggleBtn = document.getElementById('masterDrawerSimulateZeroBtn');
+  if (masterHeaderToggleBtn) {
+    masterHeaderToggleBtn.style.display = isRealMaster ? 'inline-flex' : 'none';
+    if (simZeroActive) {
+      masterHeaderToggleBtn.textContent = '🧪 Test 0⚡: ON';
+      masterHeaderToggleBtn.style.background = 'rgba(245,158,11,0.2)';
+      masterHeaderToggleBtn.style.color = '#D97706';
+      masterHeaderToggleBtn.style.borderColor = 'rgba(245,158,11,0.65)';
+      masterHeaderToggleBtn.style.borderStyle = 'solid';
+    } else {
+      masterHeaderToggleBtn.textContent = '🧪 Test 0⚡: OFF';
+      masterHeaderToggleBtn.style.background = 'rgba(148,163,184,0.16)';
+      masterHeaderToggleBtn.style.color = 'var(--text-secondary)';
+      masterHeaderToggleBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+      masterHeaderToggleBtn.style.borderStyle = 'dashed';
+    }
+  }
+  if (masterDrawerToggleBtn) {
+    masterDrawerToggleBtn.style.display = isRealMaster ? 'inline-flex' : 'none';
+    masterDrawerToggleBtn.textContent = simZeroActive
+      ? '🧪 Simulate 0 Credits: ON (Tap for ∞)'
+      : '🧪 Simulate 0 Credits: OFF (Tap to Test 0⚡)';
+  }
+
   const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
   const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
-  const activePerspectiveLabel = isInnerVoiceActive ? 'Inner Voice Visuals' : 'Web Link Visuals';
-  const activePerspectiveEmoji = isInnerVoiceActive ? '💭' : '🌐';
+  const activePerspectiveLabel = 'AI Concept Art';
+  const activePerspectiveEmoji = '🎨';
 
-  const starterRemaining = currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 5) : 5;
-  const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 5) : 5;
-  const perspLeft = currentUserCredits
-    ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 5)
-    : 5;
-  const chronFreeLeft = currentUserCredits
-    ? Number(currentUserCredits.chronicleFreeRemainingToday ?? 1)
-    : 1;
-  const chronTotalLeft = currentUserCredits
-    ? Number(currentUserCredits.chronicleRemainingToday ?? 1)
-    : 1;
-  const bonus = currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0;
+  const starterRemaining = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.starterRemaining ?? 3) : 3);
+  const starterTotal = currentUserCredits ? Number(currentUserCredits.starterTotal ?? 3) : 3;
+  const perspLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 3)
+        : 3);
+  const chronFreeLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.chronicleFreeRemainingToday ?? 1)
+        : 1);
+  const chronTotalLeft = simZeroActive
+    ? 0
+    : (currentUserCredits
+        ? Number(currentUserCredits.chronicleRemainingToday ?? 1)
+        : 1);
+  const bonus = simZeroActive ? 0 : (currentUserCredits ? Number(currentUserCredits.bonusCredits || 0) : 0);
   const dailyLimit = currentUserCredits ? Number(currentUserCredits.dailyLimit || 1) : 1;
 
   // 1. Update Top-of-Form Section Credits Bar & Expandable Drawer
@@ -492,26 +849,52 @@ function updateCreatorStudioCreditBadge(creditsObj) {
 
   if (activeModeIcon && activeModeSummary && secondarySummary) {
     if (isMaster) {
-      activeModeIcon.textContent = isChronicleActive ? '📔' : activePerspectiveEmoji;
-      activeModeSummary.textContent = isChronicleActive
-        ? 'Diary Chronicle Visuals: ⚡ ∞ Unlimited'
-        : `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
-      secondarySummary.textContent = isChronicleActive
-        ? '🌐💭 Perspective: ∞'
-        : '📔 Chronicle: ∞';
-    } else if (isChronicleActive) {
-      activeModeIcon.textContent = '📔';
-      activeModeSummary.textContent = chronFreeLeft > 0
-        ? `Diary Chronicle Visuals: ${chronFreeLeft}/1 Free Left Today`
-        : (chronTotalLeft > 0 ? `Diary Chronicle Visuals: ${chronTotalLeft} Bonus Left` : 'Diary Chronicle Visuals: 0 Left Today (Text Free)');
-      secondarySummary.textContent = `🌐💭 Perspective: ${perspLeft} Left`;
+      activeModeIcon.textContent = activePerspectiveEmoji;
+      activeModeSummary.textContent = `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
     } else {
       activeModeIcon.textContent = activePerspectiveEmoji;
       activeModeSummary.textContent = starterRemaining > 0
         ? `${activePerspectiveLabel}: ${perspLeft} Free Left (${starterRemaining}/${starterTotal} Starter)`
-        : (perspLeft > 0 ? `${activePerspectiveLabel}: ${perspLeft} Left Today` : `${activePerspectiveLabel}: 0 Left Today (Text Free)`);
-      secondarySummary.textContent = `📔 Chronicle: ${chronFreeLeft}/1 Free Today`;
+        : (perspLeft > 0
+            ? `${activePerspectiveLabel}: ${perspLeft} Left Today`
+            : '0 AI Concept Credits • Use Upload / Web Photos (0⚡ Free)');
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
     }
+  }
+
+  // Keep legacy Zero-Credit banner hidden per clean form layout preference
+  const zeroCreditsBanner = document.getElementById('creatorZeroCreditsFreeBanner');
+  const activePillarZeroCredits = !isMaster && (isChronicleActive ? (chronTotalLeft <= 0) : (perspLeft <= 0));
+  if (zeroCreditsBanner) {
+    zeroCreditsBanner.style.display = 'none';
+  }
+  if (activePillarZeroCredits) {
+    window._wasForcedZeroCreditsMode = true;
+    if (typeof creatorPerspectiveMode !== 'undefined' && creatorPerspectiveMode !== 'source') {
+      creatorPerspectiveMode = 'source';
+    }
+    if (!window._selectedPosterVisualMode || window._selectedPosterVisualMode === 'ai_art') {
+      window._selectedPosterVisualMode = window._isWebCollageAttached ? 'web_collage' : 'original_photo';
+    }
+    if (typeof creatorCharacterRepresentation !== 'undefined' && creatorCharacterRepresentation !== 'exact') {
+      creatorCharacterRepresentation = 'exact';
+    }
+  } else if (window._wasForcedZeroCreditsMode) {
+    // User regained credits -> keep default 0⚡ Free photo mode unless user taps AI Concept Art
+    window._wasForcedZeroCreditsMode = false;
+    if (!window._selectedPosterVisualMode) {
+      window._selectedPosterVisualMode = window._isWebCollageAttached ? 'web_collage' : 'original_photo';
+    }
+  }
+  if (typeof updateEqualizerSummary === 'function') {
+    try { updateEqualizerSummary(); } catch (_) {}
+  }
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+  if (typeof renderPolishVisualSubjects === 'function') {
+    try { renderPolishVisualSubjects(); } catch (_) {}
   }
 
   // Update User Credits Modal cards if present
@@ -526,16 +909,9 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   }
   if (perspSubEl) {
     if (starterRemaining > 0) {
-      perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter visual credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free visual credit per day</strong>.`;
+      perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter AI Concept Art credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free AI credit per day</strong> (+ instant Request top-up anytime).`;
     } else {
-      perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily visual credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
-    }
-  }
-  if (chronTextEl) {
-    if (isMaster) {
-      chronTextEl.textContent = '⚡ ∞ Always Free';
-    } else {
-      chronTextEl.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : (chronTotalLeft > 0 ? `📔 ${chronTotalLeft} Bonus Left` : '📔 Used Today (Resets Tomorrow)');
+      perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily AI Concept Art credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
     }
   }
 
@@ -543,7 +919,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     if (isMaster) {
       drawerPill.textContent = '⚡ ∞';
     } else {
-      drawerPill.textContent = `${perspLeft} 🎨 · ${chronFreeLeft}/1 📔`;
+      drawerPill.textContent = `🎨 ${perspLeft} AI`;
     }
   }
 
@@ -551,28 +927,11 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   badge.style.display = 'inline-flex';
 
   if (isMaster) {
-    badge.textContent = isChronicleActive ? '📔 ⚡ ∞' : `${activePerspectiveEmoji} ⚡ ∞`;
+    badge.textContent = `${activePerspectiveEmoji} ⚡ ∞`;
     badge.style.background = 'rgba(99,102,241,0.15)';
     badge.style.color = '#818CF8';
     badge.style.borderColor = 'rgba(99,102,241,0.38)';
     badge.title = 'Unlimited Master Admin Credits · Tap to open Credit Manager';
-    return;
-  }
-
-  if (isChronicleActive) {
-    if (chronTotalLeft <= 0) {
-      badge.textContent = '📔 0 left · Request +';
-      badge.style.background = 'rgba(239,68,68,0.16)';
-      badge.style.color = '#F87171';
-      badge.style.borderColor = 'rgba(239,68,68,0.45)';
-      badge.title = 'Your free Daily Chronicle visual credit is used for today (text edits & rethinking reflection remain free). Tap to request more credits!';
-    } else {
-      badge.textContent = chronFreeLeft > 0 ? `📔 ${chronFreeLeft}/1 Free Today` : `📔 ${chronTotalLeft} left`;
-      badge.style.background = 'rgba(16,185,129,0.14)';
-      badge.style.color = '#34D399';
-      badge.style.borderColor = 'rgba(16,185,129,0.35)';
-      badge.title = '1 Daily Chronicle visual illustration is always free every day (text-only & reflection rethink are always free). Tap for details.';
-    }
     return;
   }
 
@@ -581,23 +940,1906 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
-    badge.title = 'Perspective visual credits used for today (Text-Only mode & Daily Chronicle remain free). Tap to request more credits from Admin!';
+    badge.title = 'AI Concept Art credits used for today (Uploaded & Web Source photos remain 0⚡ Free). Tap to request more credits!';
   } else if (starterRemaining > 0) {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} free left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
-    badge.title = `${starterRemaining}/${starterTotal} free starter Perspective visual credits remaining (Text-Only & Daily Chronicle are always free). Tap for details or to request more.`;
+    badge.title = `${starterRemaining}/${starterTotal} free starter AI Concept Art credits remaining (Uploaded & Web Source photos are always 0⚡ Free). Tap for details or to request more.`;
   } else {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
     badge.title = bonus > 0
-      ? `${perspLeft} Perspective visual credits available today (includes +${bonus} bonus credits). Tap to request more.`
-      : `${perspLeft} daily Perspective visual credit available today. Tap to request more.`;
+      ? `${perspLeft} AI Concept Art credits available today (includes +${bonus} bonus credits). Tap to request more.`
+      : `${perspLeft} daily AI Concept Art credit available today. Tap to request more.`;
   }
 }
+
+function isZeroVisualCreditsForActivePillar() {
+  if (!currentUser) return false;
+  const email = (currentUser.email || '').toLowerCase().trim();
+  const isRealMaster = email === 'shridharoct16@gmail.com';
+  if (isRealMaster && window._masterSimulateZeroCredits) {
+    return true;
+  }
+  if (!currentUserCredits) return false;
+  if (isRealMaster || currentUserCredits.isUnlimited) return false;
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  if (isChronicleActive) {
+    const chronTotalLeft = Number(currentUserCredits.chronicleRemainingToday ?? 1);
+    return chronTotalLeft <= 0;
+  }
+  const perspLeft = Number(currentUserCredits.perspectiveRemainingToday ?? currentUserCredits.remainingToday ?? 3);
+  return perspLeft <= 0;
+}
+
+function toggleMasterSimulateZeroCredits(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  window._masterSimulateZeroCredits = !Boolean(window._masterSimulateZeroCredits);
+  try {
+    sessionStorage.setItem('slant_master_sim_zero_credits', window._masterSimulateZeroCredits ? '1' : '0');
+  } catch (_) {}
+  updateCreatorStudioCreditBadge();
+  if (typeof updateEqualizerPortrayalUI === 'function') {
+    try { updateEqualizerPortrayalUI(); } catch (_) {}
+  }
+  if (typeof updateEqualizerSummary === 'function') {
+    try { updateEqualizerSummary(); } catch (_) {}
+  }
+  if (window._masterSimulateZeroCredits) {
+    showTemporaryToast('🧪 Master Admin Test Mode ON: Simulating 0 Visual Credits! Zero-credit banner & Web Collage Studio are now active.');
+  } else {
+    if (creatorCharacterRepresentation === 'exact' && !window._isWebCollageAttached) {
+      creatorCharacterRepresentation = 'realistic';
+      if (typeof updateEqualizerSummary === 'function') {
+        try { updateEqualizerSummary(); } catch (_) {}
+      }
+    }
+    showTemporaryToast('⚡ Master Admin Restored: Back to ∞ Unlimited Visual Credits.');
+  }
+}
+window.toggleMasterSimulateZeroCredits = toggleMasterSimulateZeroCredits;
+
+try {
+  if (sessionStorage.getItem('slant_master_sim_zero_credits') === '1') {
+    window._masterSimulateZeroCredits = true;
+  }
+} catch (_) {}
+
+function extractInstantYouTubeThumbnailUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const clean = rawUrl.trim();
+    const m = clean.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i);
+    if (m && m[1]) {
+      return `https://i.ytimg.com/vi/${m[1]}/maxresdefault.jpg`;
+    }
+  } catch (_) {}
+  return '';
+}
+window.extractInstantYouTubeThumbnailUrl = extractInstantYouTubeThumbnailUrl;
+
+function restoreOriginalScrapedSourcePhoto() {
+  window._isWebCollageAttached = false;
+  const urlInput = document.getElementById('creatorUrlInput');
+  const rawUrl = urlInput ? urlInput.value.trim() : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const origImg = (typeof currentScrapedArticle !== 'undefined' && (currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl))
+    || ytThumb
+    || null;
+  if (origImg) {
+    creatorReferenceImageBase64 = origImg;
+    creatorReferenceImageMimeType = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageMimeType) || 'image/jpeg';
+    const isVid = Boolean((typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.isVideo) || ytThumb || (typeof isVideoAudioUrl === 'function' && isVideoAudioUrl(rawUrl)));
+    const siteName = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.siteName) || (ytThumb ? 'YouTube' : 'Web');
+    creatorReferenceImageSourceLabel = (isVid ? 'Video Thumbnail' : 'Article Lead Photo') + ` (${siteName})`;
+  } else if (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource !== 'inner_voice') {
+    creatorReferenceImageBase64 = null;
+  }
+  if (typeof updateReferencePhotoUI === 'function') {
+    try { updateReferencePhotoUI(); } catch (_) {}
+  }
+}
+window.restoreOriginalScrapedSourcePhoto = restoreOriginalScrapedSourcePhoto;
+
+function applyFreeOriginalPhotoModeFromBanner() {
+  restoreOriginalScrapedSourcePhoto();
+  setPerspectiveMode('source', true);
+  selectCharacterRepresentation('exact');
+  if (typeof updateEqualizerSummary === 'function') {
+    updateEqualizerSummary();
+  }
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  if (isInnerVoiceActive && !innerVoicePhotoBase64) {
+    const photoWrap = document.getElementById('innerVoicePhotoWrap');
+    if (photoWrap && typeof photoWrap.scrollIntoView === 'function') {
+      photoWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showTemporaryToast('📷 Attach a photo (Snap Scene / Upload Photo) — your Inner Voice post & full AI text generation will be 100% FREE!');
+  } else if (isChronicleActive) {
+    showTemporaryToast('📷 Attach a photo to your moment(s) — your Chronicle post & full AI text generation will be 100% FREE!');
+  } else {
+    showTemporaryToast('✓ Set to Source Grounded + Original Photo (Free • 0 visual credits)! Paste your link & tap Synthesize.');
+  }
+}
+window.applyFreeOriginalPhotoModeFromBanner = applyFreeOriginalPhotoModeFromBanner;
+
+function selectUnifiedPosterVisualMode(mode) {
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  const isLinkActive = !isChronicleActive && !isInnerVoiceActive;
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+
+  if (mode === 'ai_art' && zeroCredits) {
+    showTemporaryToast('🔒 AI Illustration is disabled when you have 0 credits today. Use Original/Attached Photo (0⚡) or Web Source (0⚡), or get credits via request/subscription!');
+    updateUnifiedPosterVisualStripUI();
+    return;
+  }
+
+  window._selectedPosterVisualMode = mode;
+
+  if (mode === 'original_photo') {
+    if (typeof closeWebCollageBuilder === 'function') {
+      closeWebCollageBuilder(true);
+    }
+    restoreOriginalScrapedSourcePhoto();
+    if (Array.isArray(window._attachedScenePhotos) && window._attachedScenePhotos.length > 0 && typeof syncAttachedScenePhotosCollage === 'function') {
+      syncAttachedScenePhotosCollage(true);
+    }
+    setPerspectiveMode('source', true);
+    selectCharacterRepresentation('exact');
+    const attachedCount = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+    if (isInnerVoiceActive && attachedCount === 0 && !innerVoicePhotoBase64) {
+      showTemporaryToast('✓ Checked Attached Photo — snap or upload 1–3 photos directly below (★ Starred photo takes prominence)!');
+    } else if (isChronicleActive) {
+      const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+      if (!hasAnyMomentPhoto) {
+        showTemporaryToast('✓ Checked Moment Photos — attach a photo to any moment above (★ Starred moment takes prominence)!');
+      } else {
+        showTemporaryToast('✓ Checked Moment Photos (0⚡ Free • ★ Starred moment takes prominence)!');
+      }
+    } else if (isLinkActive) {
+      const hasOrig = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageUrl || currentScrapedArticle?.imageBase64);
+      if (hasOrig) {
+        showTemporaryToast('✓ Checked Original / Attached Photo (0⚡ Free) — or snap/upload up to 3 photos below!');
+      } else {
+        showTemporaryToast('✓ Checked Original / Attached Photo — paste a link above or snap/upload 1–3 photos below!');
+      }
+    }
+  } else if (mode === 'web_collage') {
+    selectCharacterRepresentation('exact');
+    if (typeof openWebCollageBuilderFromContext === 'function') {
+      openWebCollageBuilderFromContext();
+    }
+    if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems) && window._webCollageState.selectedItems.length > 0) {
+      applyWebCollageToPost(true);
+    }
+  } else if (mode === 'ai_art') {
+    if (typeof closeWebCollageBuilder === 'function') {
+      closeWebCollageBuilder(true);
+    }
+    restoreOriginalScrapedSourcePhoto();
+    // Default to Editorial Realism ('realistic') when switching to AI Illustration unless user already picked a portrayal in Settings
+    const targetStyle = (creatorCharacterRepresentation && creatorCharacterRepresentation !== 'exact')
+      ? creatorCharacterRepresentation
+      : (isChronicleActive ? 'watercolor' : 'realistic');
+    selectCharacterRepresentation(targetStyle);
+    showTemporaryToast(`✓ Checked AI Illustration (${isChronicleActive ? 'Watercolor Art' : 'Editorial Realism'} default • tune portrayals in 🎚️ Settings)!`);
+  }
+  updateUnifiedPosterVisualStripUI();
+}
+window.selectUnifiedPosterVisualMode = selectUnifiedPosterVisualMode;
+
+function updateUnifiedPosterVisualStripUI() {
+  const stripEl = document.getElementById('creatorPosterVisualSourceStrip');
+  if (!stripEl) return;
+
+  const isChronicleActive = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  const isInnerVoiceActive = !isChronicleActive && (typeof creatorSelectedSource !== 'undefined' && creatorSelectedSource === 'inner_voice');
+  const isLinkActive = !isChronicleActive && !isInnerVoiceActive;
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const isVid = Boolean((typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.isVideo) || ytThumb || (typeof isVideoAudioUrl === 'function' && isVideoAudioUrl(rawUrl)));
+
+  const origLinkPhoto = (!window._isWebCollageAttached && creatorReferenceImageBase64)
+    || (typeof currentScrapedArticle !== 'undefined' && (currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl))
+    || ytThumb
+    || '';
+  const hasChroniclePhotos = isChronicleActive && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+  const starredChroniclePhoto = hasChroniclePhotos
+    ? (dailyChronicleMoments.find(m => m && m.isStarred && m.imageBase64)?.imageBase64 || dailyChronicleMoments.find(m => m && m.imageBase64)?.imageBase64 || '')
+    : '';
+  const firstChroniclePhoto = starredChroniclePhoto;
+  const attachedSceneCount = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+  const hasInnerVoicePhoto = Boolean(innerVoicePhotoBase64) || attachedSceneCount > 0;
+
+  // Resolve explicit checked mode (only 1 mode can be checked at a time; defaults to 0⚡ Free Original/Attached Photo)
+  let checkedMode = window._selectedPosterVisualMode;
+  if (!checkedMode) {
+    if (window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen)) {
+      checkedMode = 'web_collage';
+    } else {
+      checkedMode = 'original_photo';
+    }
+    window._selectedPosterVisualMode = checkedMode;
+  }
+  // If user has 0 credits, AI Illustration MUST be disabled and cannot be checked
+  if (zeroCredits && checkedMode === 'ai_art') {
+    checkedMode = (window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
+      ? 'web_collage'
+      : 'original_photo';
+    window._selectedPosterVisualMode = checkedMode;
+  }
+
+  const isOriginalPhotoMode = checkedMode === 'original_photo';
+  const isWebCollageMode = checkedMode === 'web_collage';
+  const isAiArtMode = checkedMode === 'ai_art';
+
+  // Ensure Web Collage Studio visibility strictly matches whether Web Collage is checked
+  const collageCardEl = document.getElementById('creatorWebCollageStudioCard');
+  if (collageCardEl) {
+    if (isWebCollageMode) {
+      collageCardEl.style.display = 'block';
+      if (window._webCollageState) window._webCollageState.isOpen = true;
+    } else {
+      collageCardEl.style.display = 'none';
+      if (window._webCollageState) window._webCollageState.isOpen = false;
+    }
+  }
+
+  // Ensure Snap Scene / Upload Photo (Max 3 + ★ Starred Prominence) Drawer right below Attached Photo is shown ONLY when Original/Attached Photo mode is checked!
+  const attachedPhotoDrawer = document.getElementById('innerVoicePhotoWrap');
+  if (attachedPhotoDrawer) {
+    attachedPhotoDrawer.style.display = (isOriginalPhotoMode && !isChronicleActive) ? 'block' : 'none';
+    if (isOriginalPhotoMode && !isChronicleActive && typeof renderAttachedScenePhotosUI === 'function') {
+      try { renderAttachedScenePhotosUI(); } catch (_) {}
+    }
+  }
+
+  // 1. Update Card 1 (Original / Attached Photo)
+  const cardOrig = document.getElementById('posterModeCardOriginal');
+  const origIcon = document.getElementById('posterModeOrigIcon');
+  const origTitle = document.getElementById('posterModeOrigTitle');
+  const origSub = document.getElementById('posterModeOrigSub');
+  if (origIcon && origTitle && origSub) {
+    if (isLinkActive) {
+      origIcon.textContent = isVid ? '🎬' : '📸';
+      origTitle.textContent = attachedSceneCount > 0 ? 'Attached Collage' : (isVid ? 'YouTube Photo' : 'Original Photo');
+      origSub.textContent = attachedSceneCount > 0
+        ? `✓ ${attachedSceneCount} photo${attachedSceneCount > 1 ? 's' : ''} (★ Hero)`
+        : (origLinkPhoto ? (isVid ? '✓ Thumbnail ready' : '✓ Lead photo ready') : 'Link or upload 1–3');
+    } else if (isInnerVoiceActive) {
+      origIcon.textContent = '📷';
+      origTitle.textContent = 'Attached Photo';
+      origSub.textContent = attachedSceneCount > 0
+        ? `✓ ${attachedSceneCount}/3 (${attachedSceneCount > 1 ? '★ Collage' : 'Ready'})`
+        : (hasInnerVoicePhoto ? '✓ Photo attached' : 'Snap / upload 1–3');
+    } else {
+      origIcon.textContent = (zeroCredits && !hasChroniclePhotos) ? '📔' : '📷';
+      origTitle.textContent = (zeroCredits && !hasChroniclePhotos) ? 'Moments & Reflection' : 'Moment Photos';
+      origSub.textContent = hasChroniclePhotos
+        ? '✓ ★ Starred prominence'
+        : (zeroCredits ? '✓ 2 Cards Only (No Watercolor)' : 'Attach to moment');
+    }
+  }
+
+  // 2. Update Card 2 (Web Source)
+  const cardCollage = document.getElementById('posterModeCardCollage');
+  const colTitle = document.getElementById('posterModeCollageTitle');
+  const colSub = document.getElementById('posterModeCollageSub');
+  const selCount = (window._webCollageState && Array.isArray(window._webCollageState.selectedItems))
+    ? window._webCollageState.selectedItems.length
+    : 0;
+  if (colTitle && colSub) {
+    colTitle.textContent = 'Web Source';
+    colSub.textContent = selCount > 0 ? `✓ ${selCount}/3 (${selCount > 1 ? '★ Collage' : 'Ready'})` : 'Pick 1–3 web photos';
+  }
+
+  // 3. Update Card 3 (AI Illustration)
+  const cardAi = document.getElementById('posterModeCardAiArt');
+  const aiBadge = document.getElementById('posterModeAiBadge');
+  const aiTitle = document.getElementById('posterModeAiTitle');
+  const aiSub = document.getElementById('posterModeAiSub');
+  const styleNames = {
+    realistic: 'Editorial Realism',
+    cinematic: 'Cinematic Photo',
+    likeness: 'Cinematic Photo',
+    painting: 'Gouache Painting',
+    watercolor: 'Watercolor Art',
+    silhouette: 'Minimalist Silhouette'
+  };
+  const currentStyleLabel = styleNames[creatorCharacterRepresentation] || (isChronicleActive ? 'Watercolor Art' : 'Editorial Realism');
+  if (aiTitle && aiSub && aiBadge) {
+    aiTitle.textContent = isChronicleActive ? 'AI Watercolor' : 'AI Concept Art';
+    aiSub.textContent = zeroCredits ? '🔒 Needs Credits' : (isAiArtMode ? currentStyleLabel : 'For abstract thoughts');
+    if (zeroCredits) {
+      aiBadge.textContent = '🔒 0⚡';
+      aiBadge.style.background = 'rgba(148,163,184,0.22)';
+      aiBadge.style.color = '#64748B';
+    } else {
+      aiBadge.textContent = '1⚡ Credit';
+      aiBadge.style.background = 'rgba(79,70,229,0.16)';
+      aiBadge.style.color = '#4F46E5';
+    }
+  }
+
+  // Style active vs inactive cards + Checkmarks (✓)
+  const checkOrig = document.getElementById('posterModeCheckOriginal');
+  const checkCollage = document.getElementById('posterModeCheckCollage');
+  const checkAi = document.getElementById('posterModeCheckAiArt');
+
+  const applyCardAndCheckmarkStyle = (card, checkEl, isActive, accentColor, tintBg, isDisabled = false) => {
+    if (card) {
+      card.style.border = isActive ? `2px solid ${accentColor}` : '1.5px solid rgba(148,163,184,0.35)';
+      card.style.background = isDisabled ? '#F1F5F9' : (isActive ? tintBg : '#FFFFFF');
+      card.style.boxShadow = isActive ? `0 4px 12px ${tintBg}` : 'none';
+      card.style.opacity = isDisabled ? '0.48' : '1';
+      card.style.filter = isDisabled ? 'grayscale(0.75)' : 'none';
+      card.style.cursor = isDisabled ? 'not-allowed' : 'pointer';
+      card.setAttribute('aria-checked', isActive ? 'true' : 'false');
+      card.setAttribute('aria-disabled', isDisabled ? 'true' : 'false');
+    }
+    if (checkEl) {
+      if (isDisabled) {
+        checkEl.textContent = '🔒';
+        checkEl.style.background = '#E2E8F0';
+        checkEl.style.borderColor = '#CBD5E1';
+        checkEl.style.color = '#64748B';
+      } else if (isActive) {
+        checkEl.textContent = '✓';
+        checkEl.style.background = accentColor;
+        checkEl.style.borderColor = accentColor;
+        checkEl.style.color = '#FFFFFF';
+      } else {
+        checkEl.textContent = '';
+        checkEl.style.background = '#FFFFFF';
+        checkEl.style.borderColor = '#CBD5E1';
+        checkEl.style.color = 'transparent';
+      }
+    }
+  };
+
+  applyCardAndCheckmarkStyle(cardOrig, checkOrig, isOriginalPhotoMode, '#059669', 'rgba(16,185,129,0.08)', false);
+  applyCardAndCheckmarkStyle(cardCollage, checkCollage, isWebCollageMode, '#059669', 'rgba(16,185,129,0.08)', false);
+  applyCardAndCheckmarkStyle(cardAi, checkAi, isAiArtMode, '#4F46E5', 'rgba(79,70,229,0.08)', zeroCredits);
+
+  // 4. Cost badge at top right of strip
+  const costBadge = document.getElementById('posterVisualCostBadge');
+  if (costBadge) {
+    if (isAiArtMode) {
+      costBadge.textContent = '1⚡ Credit';
+      costBadge.style.background = 'rgba(79, 70, 229, 0.14)';
+      costBadge.style.color = '#4F46E5';
+      costBadge.style.borderColor = 'rgba(79, 70, 241, 0.3)';
+    } else {
+      costBadge.textContent = '0⚡ Free';
+      costBadge.style.background = 'rgba(16, 185, 129, 0.15)';
+      costBadge.style.color = '#059669';
+      costBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+    }
+  }
+
+  // 5. Enable/Disable CORE SCENE VISUAL & SETTINGS (only enabled when user has credits AND AI mode is active)
+  if (typeof renderPolishVisualSubjects === 'function') {
+    try { renderPolishVisualSubjects(); } catch (_) {}
+  }
+  const eqBtn = document.getElementById('creatorEqualizerBtn');
+  const eqSummary = document.getElementById('creatorEqualizerSummary');
+  if (eqBtn) {
+    if (zeroCredits) {
+      eqBtn.style.opacity = '0.45';
+      eqBtn.style.filter = 'grayscale(0.85)';
+      eqBtn.style.cursor = 'not-allowed';
+      eqBtn.setAttribute('aria-disabled', 'true');
+      if (eqSummary) {
+        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today)';
+      }
+    } else if (!isAiArtMode) {
+      eqBtn.style.opacity = '0.6';
+      eqBtn.style.filter = 'grayscale(0.5)';
+      eqBtn.style.cursor = 'pointer';
+      eqBtn.setAttribute('aria-disabled', 'false');
+      if (eqSummary) {
+        eqSummary.textContent = isWebCollageMode ? 'Web Source (0⚡)' : 'Original Photo (0⚡)';
+      }
+    } else {
+      eqBtn.style.opacity = '1';
+      eqBtn.style.filter = 'none';
+      eqBtn.style.cursor = 'pointer';
+      eqBtn.setAttribute('aria-disabled', 'false');
+      if (typeof updateEqualizerSummaryUI === 'function') {
+        try { updateEqualizerSummaryUI(); } catch (_) {}
+      }
+    }
+  }
+
+  // 6. Keep Expectation Bar hidden (Visual Mode cards & checkmarks are self-explanatory)
+  const expBar = document.getElementById('posterVisualExpectationBar');
+  const expThumb = document.getElementById('posterVisualExpectationThumb');
+  const expIcon = document.getElementById('posterVisualExpectationIcon');
+  const expTitle = document.getElementById('posterVisualExpectationTitle');
+  const expDesc = document.getElementById('posterVisualExpectationDesc');
+
+  if (expBar) {
+    expBar.style.display = 'none';
+  }
+
+  let thumbSrc = '';
+  let iconEmoji = '🎨';
+  let titleText = '';
+  let descText = '';
+
+  const activeSceneTitle = (typeof selectedPolishVisualSubject !== 'undefined' && selectedPolishVisualSubject && selectedPolishVisualSubject.title)
+    ? String(selectedPolishVisualSubject.title).trim()
+    : '';
+
+  if (isWebCollageMode) {
+    // Handled directly inside the compact Web Source drawer above!
+  } else if (isOriginalPhotoMode) {
+    // STRICTLY Original / Attached Photo preview only
+    if (attachedSceneCount > 0) {
+      thumbSrc = innerVoicePhotoBase64 || creatorReferenceImageBase64 || '';
+      iconEmoji = '📷';
+      if (attachedSceneCount === 1) {
+        titleText = '✓ Checked: 1 Attached Photo (0⚡ Free • ★ Hero)';
+        descText = 'Poster 1 will display your attached photo directly. Snap or upload up to 2 more to create a collage!';
+      } else {
+        titleText = `✓ Checked: ${attachedSceneCount}-Photo Attached Collage (0⚡ Free • ★ Starred Hero)`;
+        descText = 'Your ★ Starred photo takes 60% hero prominence in Poster 1, framed with your supporting photo(s).';
+      }
+    } else if (isLinkActive) {
+      thumbSrc = origLinkPhoto;
+      iconEmoji = isVid ? '🎬' : '📸';
+      if (origLinkPhoto) {
+        titleText = `✓ Checked: Exact ${isVid ? 'YouTube Thumbnail' : 'Original Source Photo'} (0⚡ Free)`;
+        descText = 'Poster 1 will display this exact extracted source photo (or snap/upload 1–3 photos above).';
+      } else {
+        titleText = '✓ Checked: Original / Attached Photo (0⚡ Free)';
+        descText = 'Paste a link above to extract its photo, or snap/upload 1–3 photos in the drawer directly above.';
+      }
+    } else if (isInnerVoiceActive) {
+      thumbSrc = hasInnerVoicePhoto ? innerVoicePhotoBase64 : '';
+      iconEmoji = '📷';
+      if (hasInnerVoicePhoto) {
+        titleText = '✓ Checked: Your Attached Photo (0⚡ Free)';
+        descText = 'Poster 1 will display your uploaded/snapped photo directly at 0 visual credits.';
+      } else {
+        titleText = '✓ Checked: Attached Photo Mode (0⚡ Free)';
+        descText = 'Tap "Snap Scene" or "Upload Photos (1–3)" directly above — ★ Starred photo takes prominence.';
+      }
+    } else {
+      thumbSrc = firstChroniclePhoto;
+      iconEmoji = '📷';
+      if (hasChroniclePhotos) {
+        titleText = '✓ Checked: Attached Moment Photo Montage (0⚡ Free • ★ Starred Hero)';
+        descText = 'Your ★ Starred moment photo takes hero prominence on Poster 1 at 0 visual credits.';
+      } else {
+        titleText = '✓ Checked: Moment Photos Mode (0⚡ Free)';
+        descText = 'Attach a photo to Moment 01–03 above — ★ Starred moment photo takes prominence.';
+      }
+    }
+  } else {
+    // STRICTLY AI Illustration preview only — shows AI Art icon & Editorial Realism (default) or chosen portrayal from Settings
+    thumbSrc = '';
+    iconEmoji = '🎨';
+    if (isLinkActive) {
+      titleText = `✓ Checked: AI Illustration • ${currentStyleLabel} (1⚡ Credit)`;
+      if (activeSceneTitle) {
+        descText = `Active Core Scene: "${activeSceneTitle}" • Change image portrayal anytime in 🎚️ Settings.`;
+      } else {
+        descText = `Default: Editorial Realism grounded in your ${isVid ? 'YouTube video' : 'source link'} & perspective. Tune portrayal in 🎚️ Settings.`;
+      }
+    } else if (isInnerVoiceActive) {
+      titleText = `✓ Checked: AI Illustration • ${currentStyleLabel} (1⚡ Credit)`;
+      if (activeSceneTitle) {
+        descText = `Active Core Scene: "${activeSceneTitle}" • Change image portrayal anytime in 🎚️ Settings.`;
+      } else {
+        descText = 'Default: Editorial Realism (auto-portrays your Family Cast or Public Figures). Tune portrayal in 🎚️ Settings.';
+      }
+    } else {
+      titleText = `✓ Checked: Multi-Vignette AI ${currentStyleLabel} (1⚡ Chronicle Credit)`;
+      descText = 'Hand-painted vignette page grounded in your Family Cast Vault and recorded moments.';
+    }
+  }
+
+  if (expThumb && expIcon) {
+    if (thumbSrc) {
+      expThumb.src = thumbSrc;
+      expThumb.style.display = 'block';
+      expIcon.style.display = 'none';
+    } else {
+      expThumb.style.display = 'none';
+      expIcon.style.display = 'flex';
+      expIcon.textContent = iconEmoji;
+    }
+  }
+  if (expTitle) expTitle.textContent = titleText;
+  if (expDesc) expDesc.textContent = descText;
+}
+window.updateUnifiedPosterVisualStripUI = updateUnifiedPosterVisualStripUI;
+
+// ============================================================
+// ZERO-CREDIT MULTI-SUBJECT WEB SEARCH & EDITORIAL COLLAGE COMPOSER
+// ============================================================
+
+window._webCollageState = {
+  isOpen: false,
+  isLoading: false,
+  isLoadingMore: false,
+  sourceThumbExtracted: false,
+  isExtractingSourceThumb: false,
+  activeTabIndex: 0, // 0, 1, 2 = Subject Tabs
+  layoutStyle: 'archival', // 'archival' | 'bleed'
+  heroComposition: 'wide', // 'wide' (Top Horizontal Hero) | 'tall' (Left Vertical Hero for tall subjects)
+  heroCompositionManual: false,
+  subjects: [
+    { id: 'subj_1', label: 'Subject 1', query: '' },
+    { id: 'subj_2', label: 'Subject 2', query: '' },
+    { id: 'subj_3', label: 'Subject 3', query: '' }
+  ],
+  tabImagesMap: {}, // query -> array of image items
+  tabPageMap: {}, // query -> current pageOffset
+  selectedItems: [], // up to 3 items: { url, thumbUrl, title, source, tabIndex, dataUrl, isUploadedPhoto }
+  compositedDataUrl: null
+};
+window._attachedCollageComposition = 'wide';
+window._attachedCollageCompositionManual = false;
+window._webCollageBase64Cache = new Map();
+window._webCollageImageElementCache = new Map();
+window._isWebCollageAttached = false;
+
+function syncUploadedScenePhotosIntoWebCollageTray() {
+  const state = window._webCollageState;
+  const photos = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos : [];
+  if (!state || photos.length === 0) return;
+  photos.forEach((p, idx) => {
+    if (!p || !p.base64) return;
+    const alreadyExists = state.selectedItems.some(it => it && (it.uploadedId === p.id || it.url === p.base64));
+    if (!alreadyExists && state.selectedItems.length < 3) {
+      state.selectedItems.push({
+        uploadedId: p.id,
+        url: p.base64,
+        thumbUrl: p.base64,
+        title: p.label || `My Photo ${idx + 1}`,
+        source: 'Curator Photo',
+        tabIndex: -1,
+        isUploadedPhoto: true,
+        isStarred: state.selectedItems.length === 0,
+        panX: typeof p.panX === 'number' ? p.panX : 0.5,
+        panY: typeof p.panY === 'number' ? p.panY : 0.35,
+        zoom: typeof p.zoom === 'number' ? p.zoom : 1.0
+      });
+    }
+  });
+  state.selectedItems.forEach((it, i) => {
+    it.isStarred = (i === 0);
+  });
+}
+
+function getCreatorWrittenContextForCollage() {
+  const slantEl = document.getElementById('creatorSlantTakeInput');
+  const sparkEl = document.getElementById('creatorSparkInput');
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
+  const isChron = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+  let textParts = [];
+  if (isChron && typeof dailyChronicleMoments !== 'undefined' && Array.isArray(dailyChronicleMoments)) {
+    dailyChronicleMoments.forEach(m => {
+      if (m && m.text) textParts.push(m.text);
+    });
+  }
+  if (slantEl && slantEl.value) textParts.push(slantEl.value.trim());
+  if (sparkEl && sparkEl.value) textParts.push(sparkEl.value.trim());
+  const scrapedTitle = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.title) ? currentScrapedArticle.title : '';
+  const scrapedContent = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.content) ? currentScrapedArticle.content.slice(0, 600) : '';
+  const ytThumb = extractInstantYouTubeThumbnailUrl(rawUrl);
+  const resolvedSourceImageUrl = (typeof currentScrapedArticle !== 'undefined' && currentScrapedArticle?.imageUrl)
+    ? currentScrapedArticle.imageUrl
+    : (ytThumb || (!window._isWebCollageAttached && typeof creatorReferenceImageBase64 === 'string' && creatorReferenceImageBase64.startsWith('http') ? creatorReferenceImageBase64 : ''));
+  return {
+    contextText: [textParts.join('. '), scrapedContent].filter(Boolean).join('. ').trim(),
+    scrapedTitle,
+    sourceImageUrl: resolvedSourceImageUrl
+  };
+}
+
+async function openWebCollageBuilderFromContext() {
+  const card = document.getElementById('creatorWebCollageStudioCard');
+  if (!card) return;
+  window._selectedPosterVisualMode = 'web_collage';
+  card.style.display = 'block';
+  window._webCollageState.isOpen = true;
+  syncUploadedScenePhotosIntoWebCollageTray();
+  renderWebCollageSelectedSlotsUI();
+  if (window._webCollageState.selectedItems.length > 0) {
+    renderWebCollageCanvas(true);
+  }
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+  setTimeout(() => {
+    try {
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (_) {}
+  }, 60);
+  await refreshWebCollageSubjectsFromContext();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+}
+window.openWebCollageBuilderFromContext = openWebCollageBuilderFromContext;
+
+function closeWebCollageBuilder(skipUiSync = false) {
+  const card = document.getElementById('creatorWebCollageStudioCard');
+  if (card) card.style.display = 'none';
+  window._webCollageState.isOpen = false;
+  if (!skipUiSync && window._selectedPosterVisualMode === 'web_collage') {
+    window._selectedPosterVisualMode = 'original_photo';
+  }
+  if (!skipUiSync && typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+}
+window.closeWebCollageBuilder = closeWebCollageBuilder;
+
+async function refreshWebCollageSubjectsFromContext() {
+  const state = window._webCollageState;
+  const statusEl = document.getElementById('webCollageResultsStatus');
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = '🔎 Extracting key characters/objects from your context & searching web photos...';
+  }
+  if (gridEl && Object.keys(state.tabImagesMap).length === 0) {
+    gridEl.innerHTML = '';
+  }
+
+  const { contextText, scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+  state.isLoading = true;
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search_collage_images',
+        extractSubjects: true,
+        includeSlantCommons: false,
+        contextText,
+        scrapedTitle,
+        sourceImageUrl
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        if (Array.isArray(data.subjects) && data.subjects.length > 0) {
+          state.subjects = data.subjects.slice(0, 3);
+        }
+        if (data.tabResults && typeof data.tabResults === 'object') {
+          Object.assign(state.tabImagesMap, data.tabResults);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Web collage subject search notice:', err);
+  } finally {
+    state.isLoading = false;
+    if (statusEl) statusEl.style.display = 'none';
+  }
+
+  if (state.activeTabIndex >= state.subjects.length) {
+    state.activeTabIndex = 0;
+  }
+  renderWebCollageSubjectTabs();
+  syncWebCollageSearchInputToTab();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+}
+window.refreshWebCollageSubjectsFromContext = refreshWebCollageSubjectsFromContext;
+
+function renderWebCollageSubjectTabs() {
+  const tabsEl = document.getElementById('webCollageSubjectTabs');
+  if (!tabsEl) return;
+  const state = window._webCollageState;
+  const selectedByTab = new Set(state.selectedItems.map(it => it.tabIndex));
+
+  const subjectBtnsHtml = state.subjects.map((subj, idx) => {
+    const isActive = state.activeTabIndex === idx;
+    const hasPick = selectedByTab.has(idx);
+    const bg = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.12)' : 'rgba(148,163,184,0.14)');
+    const col = isActive ? '#FFFFFF' : (hasPick ? '#047857' : 'var(--text-primary)');
+    const border = isActive ? '#4F46E5' : (hasPick ? 'rgba(16,185,129,0.45)' : 'rgba(148,163,184,0.35)');
+    return `<button type="button" onclick="selectWebCollageTab(${idx})" style="padding: 6px 11px; border-radius: 99px; border: 1.5px solid ${border}; background: ${bg}; color: ${col}; font-size: 11.5px; font-weight: 800; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;">
+      <span>${idx + 1}. ${escapeHtml(subj.label || subj.query || ('Subject ' + (idx + 1)))}</span>
+      ${hasPick ? '<span style="font-size:10px; background:rgba(16,185,129,0.25); color:' + (isActive ? '#fff' : '#047857') + '; border-radius:50%; width:15px; height:15px; display:inline-flex; align-items:center; justify-content:center;">✓</span>' : ''}
+    </button>`;
+  }).join('');
+
+  tabsEl.innerHTML = subjectBtnsHtml;
+}
+
+function syncWebCollageSearchInputToTab() {
+  const inputEl = document.getElementById('webCollageTabSearchInput');
+  if (!inputEl) return;
+  const state = window._webCollageState;
+  const subj = state.subjects[state.activeTabIndex];
+  inputEl.value = subj ? (subj.query || subj.label || '') : '';
+  inputEl.placeholder = `Search web images for Subject ${state.activeTabIndex + 1} (e.g. person, object, place)...`;
+}
+
+async function selectWebCollageTab(tabIndex) {
+  const state = window._webCollageState;
+  state.activeTabIndex = tabIndex;
+  renderWebCollageSubjectTabs();
+  syncWebCollageSearchInputToTab();
+
+  const subj = state.subjects[tabIndex];
+  if (subj && subj.query && !state.tabImagesMap[subj.query]) {
+    await fetchWebImagesForQuery(subj.query);
+  }
+  renderWebCollageTabGrid();
+}
+window.selectWebCollageTab = selectWebCollageTab;
+
+async function runActiveTabWebImageSearch() {
+  const inputEl = document.getElementById('webCollageTabSearchInput');
+  const q = inputEl ? inputEl.value.trim() : '';
+  if (!q) {
+    showTemporaryToast('Type a character, person, place, or object to search.');
+    return;
+  }
+  const state = window._webCollageState;
+  if (state.activeTabIndex >= state.subjects.length) {
+    state.activeTabIndex = 0;
+  }
+  const idx = state.activeTabIndex;
+  if (!state.subjects[idx]) {
+    state.subjects[idx] = { id: `subj_${idx + 1}`, label: q, query: q };
+  } else {
+    state.subjects[idx].label = q.length > 24 ? (q.slice(0, 22) + '…') : q;
+    state.subjects[idx].query = q;
+  }
+  renderWebCollageSubjectTabs();
+  await fetchWebImagesForQuery(q);
+  renderWebCollageTabGrid();
+}
+window.runActiveTabWebImageSearch = runActiveTabWebImageSearch;
+
+async function fetchWebImagesForQuery(queryStr, pageOffset = 0, appendMode = false) {
+  const q = String(queryStr || '').trim();
+  if (!q) return;
+  const state = window._webCollageState;
+  const statusEl = document.getElementById('webCollageResultsStatus');
+  if (statusEl && !appendMode) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = `🔍 Searching web images for "${q}"...`;
+  }
+  try {
+    const { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'search_collage_images',
+        query: q,
+        scrapedTitle,
+        sourceImageUrl,
+        pageOffset
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        const incoming = Array.isArray(data.images) ? data.images : [];
+        if (appendMode && Array.isArray(state.tabImagesMap[q])) {
+          const existingUrls = new Set(state.tabImagesMap[q].map(it => it && it.url));
+          const freshItems = incoming.filter(it => it && it.url && !existingUrls.has(it.url));
+          state.tabImagesMap[q] = [...state.tabImagesMap[q], ...freshItems];
+        } else {
+          state.tabImagesMap[q] = incoming;
+          state.tabPageMap[q] = 0;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('fetchWebImagesForQuery error:', err);
+  } finally {
+    if (statusEl && !appendMode) statusEl.style.display = 'none';
+  }
+}
+
+async function loadMoreWebImagesForActiveTab() {
+  const state = window._webCollageState;
+  if (!state || state.isLoading || state.isLoadingMore) return;
+  const subj = state.subjects[state.activeTabIndex];
+  const q = subj ? String(subj.query || subj.label || '').trim() : '';
+  if (!q) return;
+
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  const prevScrollTop = gridEl ? gridEl.scrollTop : 0;
+
+  state.isLoadingMore = true;
+  renderWebCollageTabGrid();
+  if (gridEl && prevScrollTop > 0) gridEl.scrollTop = prevScrollTop;
+
+  const nextPage = ((state.tabPageMap && typeof state.tabPageMap[q] === 'number') ? state.tabPageMap[q] : 0) + 1;
+  if (!state.tabPageMap) state.tabPageMap = {};
+  state.tabPageMap[q] = nextPage;
+
+  try {
+    await fetchWebImagesForQuery(q, nextPage, true);
+  } finally {
+    state.isLoadingMore = false;
+    renderWebCollageTabGrid();
+    if (gridEl && prevScrollTop > 0) gridEl.scrollTop = prevScrollTop;
+  }
+}
+window.loadMoreWebImagesForActiveTab = loadMoreWebImagesForActiveTab;
+
+async function extractAndUnblurSourceThumbnailTile(event, forceRefresh = false) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const state = window._webCollageState;
+  if (!state || state.isExtractingSourceThumb) return;
+
+  const urlEl = document.getElementById('creatorUrlInput');
+  const rawUrl = urlEl ? urlEl.value.trim() : '';
+  let { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+
+  if ((forceRefresh || !sourceImageUrl) && rawUrl && typeof handleUrlInput === 'function') {
+    state.isExtractingSourceThumb = true;
+    renderWebCollageTabGrid();
+    try {
+      await handleUrlInput(rawUrl);
+    } catch (_) {}
+    state.isExtractingSourceThumb = false;
+    const updated = getCreatorWrittenContextForCollage();
+    scrapedTitle = updated.scrapedTitle;
+    sourceImageUrl = updated.sourceImageUrl;
+  }
+
+  if (!sourceImageUrl) {
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('⚠️ Could not extract a thumbnail from this source link.');
+    }
+    renderWebCollageTabGrid();
+    return;
+  }
+
+  state.sourceThumbExtracted = true;
+  const alreadySelected = state.selectedItems.some(s => s.url === sourceImageUrl);
+  if (!alreadySelected && state.selectedItems.length < 3) {
+    await toggleSelectCollageImage(
+      encodeURIComponent(sourceImageUrl),
+      encodeURIComponent(sourceImageUrl),
+      encodeURIComponent(scrapedTitle ? `Source: ${scrapedTitle}` : 'Extracted Source Thumbnail'),
+      encodeURIComponent('Source Link')
+    );
+    return;
+  }
+  renderWebCollageTabGrid();
+}
+window.extractAndUnblurSourceThumbnailTile = extractAndUnblurSourceThumbnailTile;
+
+function renderWebCollageTabGrid() {
+  const gridEl = document.getElementById('webCollageResultsGrid');
+  if (!gridEl) return;
+  const state = window._webCollageState;
+
+  if (!gridEl.dataset.infiniteScrollBound) {
+    gridEl.dataset.infiniteScrollBound = 'true';
+    gridEl.addEventListener('scroll', () => {
+      if (state.isLoading || state.isLoadingMore) return;
+      if (gridEl.scrollTop + gridEl.clientHeight >= gridEl.scrollHeight - 48) {
+        loadMoreWebImagesForActiveTab();
+      }
+    });
+  }
+
+  const subj = state.subjects[state.activeTabIndex];
+  const q = subj ? (subj.query || subj.label || '') : '';
+  const rawItems = (q && state.tabImagesMap[q]) ? state.tabImagesMap[q] : [];
+
+  const { scrapedTitle, sourceImageUrl } = getCreatorWrittenContextForCollage();
+  const hasExtractableSourcePhoto = Boolean(sourceImageUrl && /^https?:\/\//i.test(sourceImageUrl));
+
+  // Filter out the auto-injected source_hero_img from regular items so we render it cleanly as Tile #1
+  const items = rawItems.filter(it => it && it.id !== 'source_hero_img' && (!hasExtractableSourcePhoto || it.url !== sourceImageUrl));
+
+  if (!hasExtractableSourcePhoto && (!items || items.length === 0)) {
+    gridEl.innerHTML = `<div style="grid-column: 1 / -1; padding: 18px 12px; text-align: center; color: var(--text-secondary); font-size: 11.5px; background: rgba(148,163,184,0.08); border-radius: 10px;">
+      ${state.isLoading ? 'Searching web images...' : 'No images found for this phrase. Type a simpler noun or person name above and tap <strong>🔍 Search</strong>!'}
+    </div>`;
+    return;
+  }
+
+  let sourceTileHtml = '';
+  if (hasExtractableSourcePhoto) {
+    const selIdx = state.selectedItems.findIndex(s => s.url === sourceImageUrl);
+    const isSelected = selIdx >= 0;
+    const isUnlocked = Boolean(state.sourceThumbExtracted || isSelected);
+    const encUrl = encodeURIComponent(sourceImageUrl);
+    const encThumb = encodeURIComponent(sourceImageUrl);
+    const encTitle = encodeURIComponent(scrapedTitle ? `Source: ${scrapedTitle}` : 'Extracted Source Thumbnail');
+    const encSource = encodeURIComponent('Source Link');
+
+    if (!isUnlocked) {
+      sourceTileHtml = `<div onclick="extractAndUnblurSourceThumbnailTile(event, false)" title="Tap to extract & use source thumbnail photo" style="position: relative; border-radius: 9px; overflow: hidden; border: 1.5px dashed #4F46E5; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(79,70,229,0.18);">
+        <img src="${escapeHtml(sourceImageUrl)}" alt="Source Thumbnail" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(6px) brightness(0.68); transform: scale(1.12); transition: filter 0.22s ease;">
+        <div style="position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; text-align: center;">
+          <span style="width: 28px; height: 28px; border-radius: 50%; background: rgba(79, 70, 229, 0.92); color: #FFFFFF; font-size: 14px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,0.35); border: 1.5px solid rgba(255,255,255,0.85);">
+            ${state.isExtractingSourceThumb ? '⏳' : '↻'}
+          </span>
+          <span style="font-size: 9.5px; font-weight: 800; color: #FFFFFF; line-height: 1.15; text-shadow: 0 1px 3px rgba(0,0,0,0.85); background: rgba(15,23,42,0.72); padding: 2px 6px; border-radius: 99px;">
+            ${state.isExtractingSourceThumb ? 'Extracting...' : 'Extract Thumbnail'}
+          </span>
+        </div>
+        <div style="position: absolute; bottom: 0; inset-inline: 0; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.92), rgba(15,23,42,0.0)); padding: 10px 5px 4px; color: #E2E8F0; font-size: 8.8px; font-weight: 700; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          🔗 Source Photo
+        </div>
+      </div>`;
+    } else {
+      sourceTileHtml = `<div onclick="toggleSelectCollageImage('${encUrl}', '${encThumb}', '${encTitle}', '${encSource}')" style="position: relative; border-radius: 9px; overflow: hidden; border: ${isSelected ? '2.5px solid #059669' : '1.5px solid #4F46E5'}; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: ${isSelected ? '0 0 0 2px rgba(16,185,129,0.28)' : 'none'}; transition: transform 0.15s ease;">
+        <img src="${escapeHtml(sourceImageUrl)}" alt="Source Thumbnail" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+        <button type="button" onclick="extractAndUnblurSourceThumbnailTile(event, true)" title="Re-extract thumbnail from source link" style="position: absolute; top: 5px; left: 5px; z-index: 3; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.75); background: rgba(15,23,42,0.78); color: #FFFFFF; font-size: 11px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;">↻</button>
+        ${isSelected ? `<div style="position: absolute; top: 5px; right: 5px; z-index: 2; width: 22px; height: 22px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">✓${selIdx + 1}</div>` : ''}
+        <div style="position: relative; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.88), rgba(15,23,42,0.0)); padding: 14px 5px 4px; color: #F8FAFC; font-size: 9.5px; font-weight: 700; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          🔗 ${escapeHtml(scrapedTitle || 'Source Thumbnail')}
+        </div>
+      </div>`;
+    }
+  }
+
+  const webTilesHtml = items.map((item) => {
+    const selIdx = state.selectedItems.findIndex(s => s.url === item.url);
+    const isSelected = selIdx >= 0;
+    const encUrl = encodeURIComponent(item.url);
+    const encThumb = encodeURIComponent(item.thumbUrl || item.url);
+    const encTitle = encodeURIComponent(item.title || 'Web Image');
+    const encSource = encodeURIComponent(item.source || 'Web');
+
+    return `<div onclick="toggleSelectCollageImage('${encUrl}', '${encThumb}', '${encTitle}', '${encSource}')" style="position: relative; border-radius: 9px; overflow: hidden; border: ${isSelected ? '2.5px solid #059669' : '1px solid rgba(148,163,184,0.35)'}; background: #0F172A; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; justify-content: flex-end; box-shadow: ${isSelected ? '0 0 0 2px rgba(16,185,129,0.28)' : 'none'}; transition: transform 0.15s ease;">
+      <img src="${escapeHtml(item.thumbUrl || item.url)}" alt="${escapeHtml(item.title || '')}" loading="lazy" style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;">
+      ${isSelected ? `<div style="position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%; background: #059669; color: #FFFFFF; font-size: 11px; font-weight: 900; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35);">✓${selIdx + 1}</div>` : ''}
+      <div style="position: relative; z-index: 1; background: linear-gradient(to top, rgba(15,23,42,0.88), rgba(15,23,42,0.0)); padding: 14px 5px 4px; color: #F8FAFC; font-size: 9.5px; font-weight: 700; line-height: 1.18; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        ${escapeHtml(item.title || '')}
+      </div>
+    </div>`;
+  }).join('');
+
+  const loadMoreTileHtml = q ? `<button type="button" onclick="loadMoreWebImagesForActiveTab()" style="position: relative; border-radius: 9px; border: 1.5px dashed rgba(79,70,229,0.45); background: rgba(79,70,229,0.06); color: #4F46E5; cursor: pointer; aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 6px; text-align: center; font-family: inherit;">
+    <span style="font-size: 16px; font-weight: 900; line-height: 1;">${state.isLoadingMore ? '⏳' : '＋'}</span>
+    <span style="font-size: 10px; font-weight: 800; line-height: 1.2;">${state.isLoadingMore ? 'Loading...' : 'More Photos'}</span>
+  </button>` : '';
+
+  gridEl.innerHTML = sourceTileHtml + webTilesHtml + loadMoreTileHtml;
+}
+
+async function toggleSelectCollageImage(encUrl, encThumb, encTitle, encSource) {
+  const url = decodeURIComponent(encUrl || '');
+  const thumbUrl = decodeURIComponent(encThumb || encUrl || '');
+  const title = decodeURIComponent(encTitle || '');
+  const source = decodeURIComponent(encSource || 'Web');
+  if (!url) return;
+
+  const state = window._webCollageState;
+  const existingIdx = state.selectedItems.findIndex(s => s.url === url);
+  if (existingIdx >= 0) {
+    state.selectedItems.splice(existingIdx, 1);
+  } else {
+    if (state.selectedItems.length >= 3) {
+      showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+      return;
+    }
+    const hasAnyStarred = state.selectedItems.some(s => Boolean(s.isStarred));
+    const isEqualMode = Boolean(state.noHeroEqual);
+    const newItem = {
+      url,
+      thumbUrl,
+      title,
+      source,
+      tabIndex: state.activeTabIndex,
+      isStarred: !isEqualMode && !hasAnyStarred && state.selectedItems.length === 0,
+      panX: 0.5,
+      panY: 0.35,
+      zoom: 1.0
+    };
+    state.selectedItems.push(newItem);
+  }
+  if (!state.noHeroEqual && state.selectedItems.length > 0 && !state.selectedItems.some(s => Boolean(s.isStarred))) {
+    state.selectedItems[0].isStarred = true;
+  }
+
+  renderWebCollageSubjectTabs();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.toggleSelectCollageImage = toggleSelectCollageImage;
+
+window._collageCustomSplits = {
+  main: null,
+  sub: null,
+  eq1: null,
+  eq2: null
+};
+
+function resetCollageCustomSplits() {
+  window._collageCustomSplits = {
+    main: null,
+    sub: null,
+    eq1: null,
+    eq2: null
+  };
+}
+window.resetCollageCustomSplits = resetCollageCustomSplits;
+
+function drawInteractiveCollageDividerHandles(ctx, dividers, activeId = null) {
+  if (!ctx || !Array.isArray(dividers) || dividers.length === 0) return;
+  ctx.save();
+  dividers.forEach((d) => {
+    if (!d) return;
+    const isActive = Boolean(activeId && d.id === activeId);
+    const mid = (d.start + d.end) / 2;
+    const cx = d.orientation === 'v' ? d.pos : mid;
+    const cy = d.orientation === 'h' ? d.pos : mid;
+    const pillW = d.orientation === 'h' ? 46 : 16;
+    const pillH = d.orientation === 'h' ? 16 : 46;
+    const rx = cx - pillW / 2;
+    const ry = cy - pillH / 2;
+    const rad = 8;
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(rx, ry, pillW, pillH, rad);
+    } else {
+      ctx.rect(rx, ry, pillW, pillH);
+    }
+    ctx.fillStyle = isActive ? '#253833' : 'rgba(255, 255, 255, 0.94)';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isActive ? '#F59E0B' : 'rgba(15, 23, 42, 0.35)';
+    ctx.stroke();
+
+    // Subtle double-line grip inside the pill
+    ctx.strokeStyle = isActive ? '#FFFFFF' : '#334155';
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = 'round';
+    if (d.orientation === 'h') {
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, cy - 2.5);
+      ctx.lineTo(cx + 10, cy - 2.5);
+      ctx.moveTo(cx - 10, cy + 2.5);
+      ctx.lineTo(cx + 10, cy + 2.5);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(cx - 2.5, cy - 10);
+      ctx.lineTo(cx - 2.5, cy + 10);
+      ctx.moveTo(cx + 2.5, cy - 10);
+      ctx.lineTo(cx + 2.5, cy + 10);
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+async function setStarredWebCollageSlot(slotIndex) {
+  const state = window._webCollageState;
+  if (!state.selectedItems || !state.selectedItems[slotIndex]) return;
+  const target = state.selectedItems[slotIndex];
+  if (target.isStarred && state.selectedItems.length > 1) {
+    // Tapping an already-starred ★ Hero removes the Hero mark -> Equal Prominence!
+    state.noHeroEqual = true;
+    window._attachedNoHeroEqual = true;
+    state.selectedItems.forEach((it) => {
+      it.isStarred = false;
+    });
+  } else {
+    state.noHeroEqual = false;
+    window._attachedNoHeroEqual = false;
+    if (slotIndex > 0) {
+      const [picked] = state.selectedItems.splice(slotIndex, 1);
+      state.selectedItems.unshift(picked);
+    }
+    state.selectedItems.forEach((it, idx) => {
+      it.isStarred = (idx === 0);
+    });
+    state.activeSlotIndex = 0;
+  }
+  resetCollageCustomSplits();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.setStarredWebCollageSlot = setStarredWebCollageSlot;
+
+async function moveWebCollageSlot(slotIndex, delta) {
+  const state = window._webCollageState;
+  if (!state.selectedItems) return;
+  const targetIdx = slotIndex + delta;
+  if (targetIdx < 0 || targetIdx >= state.selectedItems.length) return;
+  const hadStarred = !state.noHeroEqual && state.selectedItems.some(it => Boolean(it.isStarred));
+  const temp = state.selectedItems[slotIndex];
+  state.selectedItems[slotIndex] = state.selectedItems[targetIdx];
+  state.selectedItems[targetIdx] = temp;
+  state.selectedItems.forEach((it, idx) => {
+    it.isStarred = hadStarred ? (idx === 0) : false;
+  });
+  state.activeSlotIndex = targetIdx;
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  await renderWebCollageCanvas();
+}
+window.moveWebCollageSlot = moveWebCollageSlot;
+
+function removeWebCollageSelectedSlot(slotIndex) {
+  const state = window._webCollageState;
+  if (slotIndex >= 0 && slotIndex < state.selectedItems.length) {
+    const [removed] = state.selectedItems.splice(slotIndex, 1);
+    if (removed && removed.isUploadedPhoto && Array.isArray(window._attachedScenePhotos)) {
+      window._attachedScenePhotos = window._attachedScenePhotos.filter(p => p && p.id !== removed.uploadedId && p.base64 !== removed.url);
+      if (!state.selectedItems.some(it => it && it.isUploadedPhoto)) {
+        innerVoicePhotoBase64 = null;
+      }
+    }
+    state.selectedItems.forEach((s, idx) => {
+      s.isStarred = (idx === 0);
+    });
+    if (state.selectedItems.length === 0) {
+      state.compositedDataUrl = null;
+      innerVoicePhotoBase64 = null;
+      restoreOriginalScrapedSourcePhoto();
+      const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+      if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
+      const appliedStatus = document.getElementById('webCollageAppliedStatus');
+      if (appliedStatus) appliedStatus.style.display = 'none';
+    }
+    renderWebCollageSubjectTabs();
+    renderWebCollageTabGrid();
+    renderWebCollageSelectedSlotsUI();
+    renderWebCollageCanvas();
+    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+      try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+    }
+  }
+}
+window.removeWebCollageSelectedSlot = removeWebCollageSelectedSlot;
+
+function clearWebCollageSelection() {
+  const state = window._webCollageState;
+  const hadUploaded = state.selectedItems.some(it => it && it.isUploadedPhoto);
+  state.selectedItems = [];
+  state.compositedDataUrl = null;
+  state.heroCompositionManual = false;
+  if (hadUploaded) {
+    window._attachedScenePhotos = [];
+    innerVoicePhotoBase64 = null;
+  }
+  restoreOriginalScrapedSourcePhoto();
+  const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+  if (btnLabel) btnLabel.textContent = 'Web Source (0⚡)';
+  const appliedStatus = document.getElementById('webCollageAppliedStatus');
+  if (appliedStatus) appliedStatus.style.display = 'none';
+  renderWebCollageSubjectTabs();
+  renderWebCollageTabGrid();
+  renderWebCollageSelectedSlotsUI();
+  renderWebCollageCanvas();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+}
+window.clearWebCollageSelection = clearWebCollageSelection;
+
+function updateCollageCompositionToggleUI(mode = 'both') {
+  const styleBtn = (btn, isActive) => {
+    if (!btn) return;
+    btn.style.background = isActive ? '#253833' : 'transparent';
+    btn.style.color = isActive ? '#FFFFFF' : 'var(--text-secondary)';
+  };
+  if (mode === 'web' || mode === 'both') {
+    const state = window._webCollageState;
+    const count = state && Array.isArray(state.selectedItems) ? state.selectedItems.length : 0;
+    const rowEl = document.getElementById('webCollageCompositionToggleRow');
+    const wideBtn = document.getElementById('webCollageCompWideBtn');
+    const tallBtn = document.getElementById('webCollageCompTallBtn');
+    if (rowEl) {
+      rowEl.style.display = count >= 2 ? 'flex' : 'none';
+    }
+    const isTall = state && state.heroComposition === 'tall';
+    styleBtn(wideBtn, !isTall);
+    styleBtn(tallBtn, isTall);
+  }
+  if (mode === 'attached' || mode === 'both') {
+    const count = Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+    const rowEl = document.getElementById('attachedCollageCompositionToggleRow');
+    const wideBtn = document.getElementById('attachedCollageCompWideBtn');
+    const tallBtn = document.getElementById('attachedCollageCompTallBtn');
+    if (rowEl) {
+      rowEl.style.display = count >= 2 ? 'flex' : 'none';
+    }
+    const isTall = window._attachedCollageComposition === 'tall';
+    styleBtn(wideBtn, !isTall);
+    styleBtn(tallBtn, isTall);
+  }
+}
+window.updateCollageCompositionToggleUI = updateCollageCompositionToggleUI;
+
+async function setCollageHeroComposition(comp, mode = 'web') {
+  const normalized = comp === 'tall' ? 'tall' : 'wide';
+  const state = window._webCollageState;
+  if (state) {
+    state.heroComposition = normalized;
+    state.heroCompositionManual = true;
+  }
+  window._attachedCollageComposition = normalized;
+  window._attachedCollageCompositionManual = true;
+  resetCollageCustomSplits();
+  updateCollageCompositionToggleUI('both');
+  if (mode === 'attached') {
+    renderAttachedScenePhotosUI();
+    await syncAttachedScenePhotosCollage(true, true);
+  } else {
+    renderWebCollageSelectedSlotsUI();
+    await renderWebCollageCanvas(true);
+  }
+}
+window.setCollageHeroComposition = setCollageHeroComposition;
+
+function setWebCollageLayoutStyle(style) {
+  const state = window._webCollageState;
+  state.layoutStyle = style === 'bleed' ? 'bleed' : 'archival';
+  const archBtn = document.getElementById('webCollageStyleArchivalBtn');
+  const bleedBtn = document.getElementById('webCollageStyleBleedBtn');
+  if (archBtn && bleedBtn) {
+    if (state.layoutStyle === 'archival') {
+      archBtn.style.background = '#253833';
+      archBtn.style.color = '#FFFFFF';
+      archBtn.style.borderColor = '#253833';
+      bleedBtn.style.background = 'transparent';
+      bleedBtn.style.color = 'var(--text-secondary)';
+      bleedBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+    } else {
+      bleedBtn.style.background = '#253833';
+      bleedBtn.style.color = '#FFFFFF';
+      bleedBtn.style.borderColor = '#253833';
+      archBtn.style.background = 'transparent';
+      archBtn.style.color = 'var(--text-secondary)';
+      archBtn.style.borderColor = 'rgba(148,163,184,0.45)';
+    }
+  }
+  renderWebCollageCanvas();
+}
+window.setWebCollageLayoutStyle = setWebCollageLayoutStyle;
+
+function renderWebCollageSelectedSlotsUI() {
+  const countEl = document.getElementById('webCollageSelectedCount');
+  const slotsRow = document.getElementById('webCollageSelectedSlotsRow');
+  const previewWrap = document.getElementById('webCollageCanvasPreviewWrap');
+  const state = window._webCollageState;
+
+  if (countEl) countEl.textContent = String(state.selectedItems.length);
+  if (!slotsRow) return;
+
+  if (state.selectedItems.length === 0) {
+    slotsRow.innerHTML = `<div style="font-size: 10.5px; color: var(--text-secondary); padding: 4px 8px; border-radius: 7px; background: rgba(148,163,184,0.08);">
+      Tap 1–3 photos above (★ #1 gets 60% hero slot).
+    </div>`;
+    if (previewWrap) previewWrap.style.display = 'none';
+    return;
+  }
+
+  const isEqualMode = Boolean(state.noHeroEqual);
+  state.selectedItems.forEach((s, idx) => {
+    s.isStarred = !isEqualMode && (idx === 0);
+  });
+
+  if (previewWrap) previewWrap.style.display = 'flex';
+  const total = state.selectedItems.length;
+  slotsRow.innerHTML = state.selectedItems.map((it, idx) => {
+    const isStar = Boolean(it.isStarred);
+    const canLeft = idx > 0;
+    const canRight = idx < total - 1;
+    return `
+      <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
+        <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Tap to mark as #1 Hero'}">
+        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
+          ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
+        </button>
+        ${total > 1 ? `
+          <div style="display: inline-flex; align-items: center; gap: 2px;">
+            <button type="button" onclick="moveWebCollageSlot(${idx}, -1)" ${!canLeft ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot earlier">◀</button>
+            <button type="button" onclick="moveWebCollageSlot(${idx}, 1)" ${!canRight ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot later">▶</button>
+          </div>
+        ` : ''}
+        <span style="font-size: 10px; font-weight: 700; color: var(--text-primary); max-width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${it.isUploadedPhoto ? '📷 ' : ''}${escapeHtml(it.title || 'Photo')}</span>
+        <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
+      </div>
+    `;
+  }).join('');
+  updateCollageCompositionToggleUI('web');
+}
+
+async function loadCollageImageElementSafe(url, fallbackUrl = '') {
+  if (!url) return null;
+  if (window._webCollageImageElementCache.has(url)) {
+    return window._webCollageImageElementCache.get(url);
+  }
+
+  let dataUrl = window._webCollageBase64Cache.get(url);
+  if (!dataUrl) {
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      dataUrl = url;
+      window._webCollageBase64Cache.set(url, dataUrl);
+    } else {
+      try {
+        const resp = await fetch('/api/synthesize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'fetch_image_base64',
+            imageUrl: url,
+            fallbackUrl: fallbackUrl || ''
+          })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success && data.dataUrl) {
+            dataUrl = data.dataUrl;
+            window._webCollageBase64Cache.set(url, dataUrl);
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  const srcToLoad = dataUrl || fallbackUrl || url;
+  return new Promise((resolve) => {
+    const img = new Image();
+    if (!srcToLoad.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
+    img.onload = () => {
+      window._webCollageImageElementCache.set(url, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = srcToLoad;
+  });
+}
+
+function drawCoverImageOnCanvas(ctx, img, x, y, w, h, radius = 0, itemMeta = null) {
+  if (!ctx || !img) return null;
+  ctx.save();
+  if (radius > 0) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.clip();
+  } else {
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+  }
+
+  const imgW = Math.max(1, img.width);
+  const imgH = Math.max(1, img.height);
+  const imgRatio = imgW / imgH;
+  const boxRatio = w / Math.max(1, h);
+
+  const baseScale = Math.max(w / imgW, h / imgH);
+  const userZoom = itemMeta && typeof itemMeta.zoom === 'number' ? Math.max(1.0, Math.min(2.6, itemMeta.zoom)) : 1.0;
+  // Minimum 12% overscan when user pans or zooms so every image has room to move both horizontally and vertically
+  const effectiveScale = baseScale * Math.max(userZoom, 1.10);
+  const drawW = imgW * effectiveScale;
+  const drawH = imgH * effectiveScale;
+
+  const defaultPanY = imgRatio < boxRatio ? 0.32 : 0.5;
+  const panX = itemMeta && typeof itemMeta.panX === 'number' ? Math.max(0, Math.min(1, itemMeta.panX)) : 0.5;
+  const panY = itemMeta && typeof itemMeta.panY === 'number' ? Math.max(0, Math.min(1, itemMeta.panY)) : defaultPanY;
+
+  if (itemMeta) {
+    if (typeof itemMeta.panX !== 'number') itemMeta.panX = panX;
+    if (typeof itemMeta.panY !== 'number') itemMeta.panY = panY;
+    if (typeof itemMeta.zoom !== 'number') itemMeta.zoom = userZoom;
+  }
+
+  const slackX = Math.max(0, drawW - w);
+  const slackY = Math.max(0, drawH - h);
+  const offsetX = x - slackX * panX;
+  const offsetY = y - slackY * panY;
+
+  ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+  // Subtle warm editorial film grade overlay so multi-source web images harmonize together
+  ctx.fillStyle = 'rgba(245, 232, 208, 0.08)';
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+
+  return { x, y, w, h, drawW, drawH, slackX, slackY, item: itemMeta };
+}
+
+function ensureInteractiveCollageCanvasBound(canvas, mode) {
+  if (!canvas || canvas._interactivePanBound) return;
+  canvas._interactivePanBound = true;
+
+  const getCanvasPoint = (clientX, clientY) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = (canvas.width || 800) / Math.max(1, rect.width);
+    const scaleY = (canvas.height || 1000) / Math.max(1, rect.height);
+    return {
+      cx: (clientX - rect.left) * scaleX,
+      cy: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const findDividerAt = (cx, cy) => {
+    const dividers = Array.isArray(canvas._collageDividers) ? canvas._collageDividers : [];
+    const hitTol = 32; // Generous 32px canvas radius (~9px CSS on preview) for touch & mouse
+    for (let i = 0; i < dividers.length; i++) {
+      const d = dividers[i];
+      if (!d) continue;
+      if (d.orientation === 'h') {
+        if (Math.abs(cy - d.pos) <= hitTol && cx >= d.start - 10 && cx <= d.end + 10) {
+          return d;
+        }
+      } else if (d.orientation === 'v') {
+        if (Math.abs(cx - d.pos) <= hitTol && cy >= d.start - 10 && cy <= d.end + 10) {
+          return d;
+        }
+      }
+    }
+    return null;
+  };
+
+  const findCellAt = (cx, cy) => {
+    const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (b && cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h) {
+        return { index: i, box: b };
+      }
+    }
+    return boxes.length > 0 ? { index: 0, box: boxes[0] } : null;
+  };
+
+  let dragState = null;
+  let rafPending = false;
+
+  const triggerRedraw = (commitExport = false) => {
+    if (rafPending && !commitExport) return;
+    rafPending = true;
+    requestAnimationFrame(async () => {
+      rafPending = false;
+      if (mode === 'web') {
+        await renderWebCollageCanvas(commitExport);
+      } else if (mode === 'attached') {
+        await syncAttachedScenePhotosCollage(true, commitExport);
+      }
+    });
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    const pt = getCanvasPoint(e.clientX, e.clientY);
+    const divHit = findDividerAt(pt.cx, pt.cy);
+    if (divHit) {
+      e.preventDefault();
+      try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+      canvas._activeDividerId = divHit.id;
+      canvas.style.cursor = divHit.orientation === 'h' ? 'ns-resize' : 'ew-resize';
+      dragState = {
+        type: 'divider',
+        pointerId: e.pointerId,
+        dividerId: divHit.id,
+        orientation: divHit.orientation
+      };
+      triggerRedraw(false);
+      return;
+    }
+
+    const hit = findCellAt(pt.cx, pt.cy);
+    if (!hit || !hit.box || !hit.box.item) return;
+    e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    canvas.style.cursor = 'grabbing';
+    canvas._activeCellIndex = hit.index;
+    if (mode === 'web' && window._webCollageState) {
+      window._webCollageState.activeSlotIndex = hit.index;
+    } else if (mode === 'attached') {
+      window._attachedActiveSlotIndex = hit.index;
+    }
+    dragState = {
+      type: 'cell',
+      pointerId: e.pointerId,
+      cellIndex: hit.index,
+      lastCx: pt.cx,
+      lastCy: pt.cy
+    };
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    const pt = getCanvasPoint(e.clientX, e.clientY);
+    if (!dragState) {
+      const hoverDiv = findDividerAt(pt.cx, pt.cy);
+      if (hoverDiv) {
+        canvas.style.cursor = hoverDiv.orientation === 'h' ? 'ns-resize' : 'ew-resize';
+      } else {
+        canvas.style.cursor = 'grab';
+      }
+      return;
+    }
+    if (e.pointerId !== dragState.pointerId) return;
+    e.preventDefault();
+
+    if (dragState.type === 'divider') {
+      const W = canvas.width || 800;
+      const H = canvas.height || 1000;
+      if (!window._collageCustomSplits) resetCollageCustomSplits();
+      const splits = window._collageCustomSplits;
+      const rawRatio = dragState.orientation === 'h' ? (pt.cy / H) : (pt.cx / W);
+
+      if (dragState.dividerId === 'main') {
+        splits.main = Math.max(0.22, Math.min(0.78, rawRatio));
+      } else if (dragState.dividerId === 'sub') {
+        splits.sub = Math.max(0.22, Math.min(0.78, rawRatio));
+      } else if (dragState.dividerId === 'eq1') {
+        const curEq2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
+        splits.eq1 = Math.max(0.18, Math.min(curEq2 - 0.18, rawRatio));
+      } else if (dragState.dividerId === 'eq2') {
+        const curEq1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+        splits.eq2 = Math.max(curEq1 + 0.18, Math.min(0.82, rawRatio));
+      }
+      triggerRedraw(false);
+      return;
+    }
+
+    const boxes = Array.isArray(canvas._collageCellBoxes) ? canvas._collageCellBoxes : [];
+    const cell = boxes[dragState.cellIndex];
+    if (!cell || !cell.item) return;
+
+    const dx = pt.cx - dragState.lastCx;
+    const dy = pt.cy - dragState.lastCy;
+    dragState.lastCx = pt.cx;
+    dragState.lastCy = pt.cy;
+
+    // If the user drags along an axis that has minimal slack, automatically add a slight zoom (1.18x) so they can freely reposition the subject
+    if (cell.slackX < cell.w * 0.12 && Math.abs(dx) > 1.5) {
+      cell.item.zoom = Math.max(cell.item.zoom || 1.0, 1.18);
+    }
+    if (cell.slackY < cell.h * 0.12 && Math.abs(dy) > 1.5) {
+      cell.item.zoom = Math.max(cell.item.zoom || 1.0, 1.18);
+    }
+
+    const effSlackX = Math.max(90, cell.slackX);
+    const effSlackY = Math.max(90, cell.slackY);
+    const curPanX = typeof cell.item.panX === 'number' ? cell.item.panX : 0.5;
+    const curPanY = typeof cell.item.panY === 'number' ? cell.item.panY : 0.35;
+
+    cell.item.panX = Math.max(0, Math.min(1, curPanX - dx / effSlackX));
+    cell.item.panY = Math.max(0, Math.min(1, curPanY - dy / effSlackY));
+
+    triggerRedraw(false);
+  });
+
+  const finishDrag = (e) => {
+    if (!dragState) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== dragState.pointerId) return;
+    try { canvas.releasePointerCapture(dragState.pointerId); } catch (_) {}
+    dragState = null;
+    canvas._activeDividerId = null;
+    canvas.style.cursor = 'grab';
+    triggerRedraw(true);
+  };
+
+  canvas.addEventListener('pointerup', finishDrag);
+  canvas.addEventListener('pointercancel', finishDrag);
+}
+
+async function adjustCollageFrameZoom(mode, deltaZoom) {
+  if (mode === 'web') {
+    const state = window._webCollageState;
+    if (!state || !Array.isArray(state.selectedItems) || state.selectedItems.length === 0) return;
+    const idx = Math.min(state.selectedItems.length - 1, Math.max(0, Number(state.activeSlotIndex) || 0));
+    const item = state.selectedItems[idx];
+    if (!item) return;
+    item.zoom = Math.max(1.0, Math.min(2.5, (Number(item.zoom) || 1.0) + deltaZoom));
+    await renderWebCollageCanvas(true);
+  } else {
+    const photos = window._attachedScenePhotos;
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    const idx = Math.min(photos.length - 1, Math.max(0, Number(window._attachedActiveSlotIndex) || 0));
+    const item = photos[idx];
+    if (!item) return;
+    item.zoom = Math.max(1.0, Math.min(2.5, (Number(item.zoom) || 1.0) + deltaZoom));
+    await syncAttachedScenePhotosCollage(true, true);
+  }
+}
+window.adjustCollageFrameZoom = adjustCollageFrameZoom;
+
+async function resetCollageFramePan(mode) {
+  resetCollageCustomSplits();
+  if (mode === 'web') {
+    const state = window._webCollageState;
+    if (!state || !Array.isArray(state.selectedItems) || state.selectedItems.length === 0) return;
+    state.selectedItems.forEach((it) => {
+      it.panX = 0.5;
+      it.panY = 0.35;
+      it.zoom = 1.0;
+    });
+    await renderWebCollageCanvas(true);
+  } else {
+    const photos = window._attachedScenePhotos;
+    if (!Array.isArray(photos) || photos.length === 0) return;
+    photos.forEach((it) => {
+      it.panX = 0.5;
+      it.panY = 0.35;
+      it.zoom = 1.0;
+    });
+    await syncAttachedScenePhotosCollage(true, true);
+  }
+}
+window.resetCollageFramePan = resetCollageFramePan;
+
+async function renderWebCollageCanvas(commitExport = true) {
+  const canvas = document.getElementById('webCollagePreviewCanvas');
+  if (!canvas) return null;
+  ensureInteractiveCollageCanvasBound(canvas, 'web');
+
+  const state = window._webCollageState;
+  if (!state.selectedItems || state.selectedItems.length === 0) {
+    canvas._collageCellBoxes = [];
+    canvas._collageDividers = [];
+    return null;
+  }
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width || 800;
+  const H = canvas.height || 1000;
+
+  const isEqualHero = Boolean(state.noHeroEqual);
+  state.selectedItems.forEach((s, idx) => {
+    s.isStarred = !isEqualHero && (idx === 0);
+  });
+  const orderedItems = state.selectedItems.slice(0, 3);
+
+  const loadedPairs = (await Promise.all(
+    orderedItems.map(async (it) => {
+      const img = await loadCollageImageElementSafe(it.url, it.thumbUrl || '');
+      return img ? { img, item: it } : null;
+    })
+  )).filter(Boolean);
+
+  if (loadedPairs.length === 0) return null;
+
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  if (loadedPairs.length >= 2 && !state.heroCompositionManual && loadedPairs[0].img) {
+    const heroImg = loadedPairs[0].img;
+    state.heroComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
+  }
+  updateCollageCompositionToggleUI('web');
+  const isTallHero = state.heroComposition === 'tall';
+  const isEqualSplit = Boolean(state.noHeroEqual);
+  const splits = window._collageCustomSplits || {};
+
+  ctx.clearRect(0, 0, W, H);
+  const cellBoxes = [];
+  const dividers = [];
+
+  const uniqueSources = [...new Set(
+    orderedItems
+      .map(it => String(it.source || 'Web').trim())
+      .filter(Boolean)
+  )];
+  const creditText = `IMAGE SOURCE: ${uniqueSources.join(' • ').toUpperCase()}  |  EDITORIAL COMMENTARY (FAIR DEALING)`;
+
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, Equal Prominence & Slidable Borders)
+  ctx.fillStyle = '#18181B';
+  ctx.fillRect(0, 0, W, H);
+  const div = 6;
+
+  if (loadedPairs.length === 1) {
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, H, 0, loadedPairs[0].item));
+  } else if (loadedPairs.length === 2) {
+    const defaultMain = isEqualSplit ? 0.50 : (isTallHero ? 0.58 : 0.60);
+    const mainRatio = typeof splits.main === 'number' ? splits.main : defaultMain;
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * mainRatio);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, H, 0, loadedPairs[1].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+    } else {
+      const topH = Math.round((H - div) * mainRatio);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, W, botH, 0, loadedPairs[1].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+    }
+  } else {
+    if (isEqualSplit) {
+      const r1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+      const r2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
+      if (isTallHero) {
+        const availW = W - div * 2;
+        const col1W = Math.round(availW * r1);
+        const col2W = Math.round(availW * (r2 - r1));
+        const col3W = availW - col1W - col2W;
+        const div1X = col1W;
+        const div2X = col1W + div + col2W;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, col1W, H, 0, loadedPairs[0].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, div1X + div, 0, col2W, H, 0, loadedPairs[1].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, div2X + div, 0, col3W, H, 0, loadedPairs[2].item));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(div1X, 0, div, H);
+        ctx.fillRect(div2X, 0, div, H);
+        dividers.push({ id: 'eq1', orientation: 'v', pos: div1X + div / 2, start: 0, end: H });
+        dividers.push({ id: 'eq2', orientation: 'v', pos: div2X + div / 2, start: 0, end: H });
+      } else {
+        const availH = H - div * 2;
+        const band1H = Math.round(availH * r1);
+        const band2H = Math.round(availH * (r2 - r1));
+        const band3H = availH - band1H - band2H;
+        const div1Y = band1H;
+        const div2Y = band1H + div + band2H;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, band1H, 0, loadedPairs[0].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, div1Y + div, W, band2H, 0, loadedPairs[1].item));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, 0, div2Y + div, W, band3H, 0, loadedPairs[2].item));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, div1Y, W, div);
+        ctx.fillRect(0, div2Y, W, div);
+        dividers.push({ id: 'eq1', orientation: 'h', pos: div1Y + div / 2, start: 0, end: W });
+        dividers.push({ id: 'eq2', orientation: 'h', pos: div2Y + div / 2, start: 0, end: W });
+      }
+    } else if (isTallHero) {
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const leftW = Math.round((W - div) * mainRatio);
+      const rightW = W - div - leftW;
+      const topRightH = Math.round((H - div) * subRatio);
+      const botRightH = H - div - topRightH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, leftW, H, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, leftW + div, 0, rightW, topRightH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topRightH + div, rightW, botRightH, 0, loadedPairs[2].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      ctx.fillRect(leftW + div, topRightH, rightW, div);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+      dividers.push({ id: 'sub', orientation: 'h', pos: topRightH + div / 2, start: leftW + div, end: W });
+    } else {
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const topH = Math.round((H - div) * mainRatio);
+      const botH = H - div - topH;
+      const leftW = Math.round((W - div) * subRatio);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[0].img, 0, 0, W, topH, 0, loadedPairs[0].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[1].img, 0, topH + div, leftW, botH, 0, loadedPairs[1].item));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, loadedPairs[2].img, leftW + div, topH + div, rightW, botH, 0, loadedPairs[2].item));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      ctx.fillRect(leftW, topH + div, div, botH);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+      dividers.push({ id: 'sub', orientation: 'v', pos: leftW + div / 2, start: topH + div, end: H });
+    }
+  }
+
+  // Stamp translucent credit pill in bottom-right corner
+  ctx.save();
+  ctx.font = '700 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+  const labelStr = creditText.slice(0, 84);
+  const textW = ctx.measureText(labelStr).width;
+  const pillW = textW + 18;
+  const pillH = 22;
+  const pillX = W - pillW - 14;
+  const pillY = H - pillH - 12;
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+  ctx.fillRect(pillX, pillY, pillW, pillH);
+  ctx.fillStyle = 'rgba(245, 239, 226, 0.92)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelStr, W - 23, pillY + pillH / 2);
+  ctx.restore();
+
+  canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+  canvas._collageDividers = dividers;
+
+  if (!commitExport) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
+    return state.compositedDataUrl || null;
+  }
+
+  try {
+    // Capture clean exported JPEG BEFORE painting interactive slider pills onto the live preview canvas
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
+    state.compositedDataUrl = dataUrl;
+    applyWebCollageToPost(true);
+    return dataUrl;
+  } catch (err) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
+    console.warn('Collage canvas export warning:', err);
+    return null;
+  }
+}
+window.renderWebCollageCanvas = renderWebCollageCanvas;
+
+function applyWebCollageToPost(silentAutoApply = false) {
+  const state = window._webCollageState;
+  const dataUrl = state.compositedDataUrl;
+  if (!dataUrl) {
+    if (!silentAutoApply) {
+      showTemporaryToast('Select 1, 2, or 3 images first.');
+    }
+    return;
+  }
+
+  const labelNames = state.selectedItems.map(it => it.title).filter(Boolean).slice(0, 3).join(' + ');
+  const hasUploadedInCollage = state.selectedItems.some(it => Boolean(it && it.isUploadedPhoto));
+  creatorReferenceImageBase64 = dataUrl;
+  creatorReferenceImageMimeType = 'image/jpeg';
+  creatorReferenceImageSourceLabel = `Web Source (${state.selectedItems.length} image${state.selectedItems.length > 1 ? 's' : ''}: ${labelNames.slice(0, 45)})`;
+  window._isWebCollageAttached = !hasUploadedInCollage;
+  window._selectedPosterVisualMode = 'web_collage';
+  if (hasUploadedInCollage) {
+    innerVoicePhotoBase64 = dataUrl;
+    innerVoicePhotoMimeType = 'image/jpeg';
+  } else {
+    innerVoicePhotoBase64 = null;
+  }
+
+  if (typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.length > 0) {
+    const starredIdx = dailyChronicleMoments.findIndex(m => Boolean(m && m.isStarred));
+    const targetIdx = starredIdx >= 0 ? starredIdx : 0;
+    if (dailyChronicleMoments[targetIdx]) {
+      dailyChronicleMoments[targetIdx].imageBase64 = dataUrl;
+      dailyChronicleMoments[targetIdx].imageMimeType = 'image/jpeg';
+    }
+  }
+
+  creatorCharacterRepresentation = 'exact';
+  if (typeof updateReferencePhotoUI === 'function') {
+    try { updateReferencePhotoUI(); } catch (_) {}
+  }
+  if (typeof updateEqualizerSummary === 'function') {
+    try { updateEqualizerSummary(); } catch (_) {}
+  }
+
+  const btnLabel = document.getElementById('slantWebCollageBtnLabel');
+  if (btnLabel) {
+    btnLabel.textContent = `✓ Web Source (${state.selectedItems.length}) • 0⚡`;
+  }
+  const appliedStatus = document.getElementById('webCollageAppliedStatus');
+  if (appliedStatus) {
+    appliedStatus.style.display = 'block';
+  }
+
+  if (!silentAutoApply) {
+    showTemporaryToast(`✓ ${state.selectedItems.length}-image Web Source attached for Poster 1 (0 credits)!`);
+  }
+}
+window.applyWebCollageToPost = applyWebCollageToPost;
 
 // ============================================================
 // AUTHENTICATION & USER PROFILE CONTROLLER (OPEN ACCESS)
@@ -810,7 +3052,10 @@ async function initAuth() {
             applyDeletedPostsTombstone(cloudDeleted);
           }
           const cloudSaved = currentUser.user_metadata.saved_posts;
-          if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+          const cloudBuckets = currentUser.user_metadata.save_buckets;
+          if (typeof mergeCloudSaveBuckets === 'function') {
+            mergeCloudSaveBuckets(cloudBuckets, cloudSaved);
+          } else if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
             cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
             localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
           }
@@ -818,6 +3063,10 @@ async function initAuth() {
           if (Array.isArray(cloudMy) && cloudMy.length > 0) {
             cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
             localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+          }
+          const cloudSeries = currentUser.user_metadata.creator_series;
+          if (typeof mergeCloudCreatorSeries === 'function' && Array.isArray(cloudSeries)) {
+            mergeCloudCreatorSeries(cloudSeries);
           }
         }
         sanitizeUserOwnershipAndCache();
@@ -837,6 +3086,9 @@ async function initAuth() {
       sanitizeUserOwnershipAndCache();
     }
     updateAuthUI();
+    if (typeof syncAllRenderedPostEngagementDOM === 'function') {
+      syncAllRenderedPostEngagementDOM();
+    }
     if (isCurrentUserAdmin) {
       loadAdminBetaPendingCount();
     }
@@ -889,7 +3141,10 @@ async function initAuth() {
               applyDeletedPostsTombstone(cloudDeleted);
             }
             const cloudSaved = currentUser.user_metadata.saved_posts;
-            if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
+            const cloudBuckets = currentUser.user_metadata.save_buckets;
+            if (typeof mergeCloudSaveBuckets === 'function') {
+              mergeCloudSaveBuckets(cloudBuckets, cloudSaved);
+            } else if (Array.isArray(cloudSaved) && cloudSaved.length > 0) {
               cloudSaved.forEach(id => { if (!deletedPostIds.has(id)) savedPostIds.add(id); });
               localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
             }
@@ -897,6 +3152,10 @@ async function initAuth() {
             if (Array.isArray(cloudMy) && cloudMy.length > 0) {
               cloudMy.forEach(id => { if (!deletedPostIds.has(id)) myCreatedPostIds.add(id); });
               localStorage.setItem('slant_my_posts', JSON.stringify(Array.from(myCreatedPostIds)));
+            }
+            const cloudSeries = currentUser.user_metadata.creator_series;
+            if (typeof mergeCloudCreatorSeries === 'function' && Array.isArray(cloudSeries)) {
+              mergeCloudCreatorSeries(cloudSeries);
             }
           }
 
@@ -994,9 +3253,21 @@ async function initAuth() {
 function syncUserMetadataToCloud() {
   if (currentUser && supabaseClient && typeof supabaseClient.auth?.updateUser === 'function') {
     try {
+      const compactSeriesForJwt = Array.isArray(creatorSeriesList)
+        ? creatorSeriesList.map(s => ({
+            id: s.id,
+            title: s.title,
+            description: String(s.description || '').slice(0, 240),
+            customCoverImage: (s.customCoverImage && s.customCoverImage.length < 1800) ? s.customCoverImage : '',
+            icon: s.icon || '📚',
+            createdAt: s.createdAt
+          }))
+        : [];
       supabaseClient.auth.updateUser({
         data: {
           saved_posts: Array.from(savedPostIds),
+          save_buckets: Array.isArray(saveBuckets) ? saveBuckets : [],
+          creator_series: compactSeriesForJwt,
           my_posts: Array.from(myCreatedPostIds),
           deleted_posts: Array.from(deletedPostIds)
         }
@@ -1022,6 +3293,52 @@ function getResolvedCreatorEmail() {
   return '';
 }
 
+function normalizeClientCuratorKey(rawHandle) {
+  return String(rawHandle || '').replace(/^@+/, '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function resolveUniqueClientCuratorHandle(requestedHandle, userEmail) {
+  const cleanEmail = String(userEmail || '').trim().toLowerCase();
+  let raw = String(requestedHandle || '').trim();
+  if (!raw || raw.toLowerCase() === '@curator' || raw.toLowerCase() === 'curator') {
+    const fallback = cleanEmail.includes('@')
+      ? cleanEmail.split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim()
+      : 'Curator';
+    raw = '@' + fallback;
+  }
+  if (!raw.startsWith('@')) raw = '@' + raw;
+  if (!cleanEmail || typeof allPosts === 'undefined' || !Array.isArray(allPosts)) return raw;
+
+  const takenByOther = new Set();
+  for (const p of allPosts) {
+    if (!p || p.deleted || p.isDeleted || !p.creatorHandle) continue;
+    const postEmail = String(p.userEmail || '').trim().toLowerCase();
+    // If the post belongs to another email (or is a known Shridhar post when current user is not Shridhar)
+    const isOtherOwner = postEmail
+      ? (postEmail !== cleanEmail)
+      : (normalizeClientCuratorKey(p.creatorHandle) === 'shridhar reddy' && cleanEmail !== 'shridharoct16@gmail.com');
+    if (isOtherOwner) {
+      takenByOther.add(normalizeClientCuratorKey(p.creatorHandle));
+    }
+  }
+
+  if (!takenByOther.has(normalizeClientCuratorKey(raw))) {
+    return raw;
+  }
+
+  const baseClean = raw.replace(/^@+/, '').trim();
+  const emailPrefix = cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+  const withPrefix = `@${baseClean} (${emailPrefix})`;
+  if (emailPrefix && !takenByOther.has(normalizeClientCuratorKey(withPrefix))) {
+    return withPrefix;
+  }
+  let counter = 2;
+  while (takenByOther.has(normalizeClientCuratorKey(`@${baseClean} ${counter}`))) {
+    counter++;
+  }
+  return `@${baseClean} ${counter}`;
+}
+
 function isPostChronicleDiary(post) {
   if (!post) return false;
   return Boolean(
@@ -1036,6 +3353,28 @@ function isPostChronicleDiary(post) {
     || /(?:\b01\s*[·•.-]\s*[^:]{1,38}:|\bMoment\s+0?1\s*:)/i.test(String(post.summary || post.broadsheetObservation || ''))
   );
 }
+
+function isChronicleWithoutWatercolorPoster(post) {
+  if (!post) return false;
+  const isChronicle = isPostChronicleDiary(post) || (typeof isChronicleModePost === 'function' && isChronicleModePost(post));
+  if (!isChronicle) return false;
+  const hasArt = Boolean(
+    (post.illustrationBase64 && String(post.illustrationBase64).trim().length > 20)
+    || (post.posterBase64 && String(post.posterBase64).trim().length > 20)
+    || (post.illustrationUrl && String(post.illustrationUrl).trim().length > 4)
+    || (post.aiIllustrationUrl && String(post.aiIllustrationUrl).trim().length > 4)
+    || post.artworkPending
+  );
+  if (hasArt) return false;
+  if (Boolean(post.noWatercolorPoster || post.generationInputs?.noWatercolorPoster || post.usedFreeChronicleCardsOnly)) {
+    return true;
+  }
+  if (post.isEncryptedDiary && !post._decryptedInSession) {
+    return false;
+  }
+  return Boolean(!post.illustrationPrompt && !post.generationInputs?.illustrationPrompt);
+}
+window.isChronicleWithoutWatercolorPoster = isChronicleWithoutWatercolorPoster;
 
 function isPostPrivateOrDraft(post) {
   if (!post) return false;
@@ -1219,10 +3558,18 @@ function updateAuthUI() {
   const badgeMyCount = document.getElementById('badgeMyCount');
   const badgeDraftsCount = document.getElementById('badgeDraftsCount');
   const badgeChroniclesCount = document.getElementById('badgeChroniclesCount');
+  const badgeSeriesCount = document.getElementById('badgeSeriesCount');
   const pillSaved = document.getElementById('pillSaved');
   const pillMyStories = document.getElementById('pillMyStories');
+  const pillSeries = document.getElementById('pillSeries');
   const pillDrafts = document.getElementById('pillDrafts');
   const pillDailyChronicles = document.getElementById('pillDailyChronicles');
+
+  if (typeof syncSeriesFromLoadedPosts === 'function') {
+    syncSeriesFromLoadedPosts();
+  }
+  const seriesCount = Array.isArray(creatorSeriesList) ? creatorSeriesList.length : 0;
+  if (badgeSeriesCount) badgeSeriesCount.textContent = seriesCount;
 
   const savedCount = savedPostIds.size;
   if (userMenuSavedCount) userMenuSavedCount.textContent = savedCount;
@@ -1274,8 +3621,9 @@ function updateAuthUI() {
 
     if (pillSaved) pillSaved.style.display = '';
     if (pillMyStories) pillMyStories.style.display = '';
+    if (pillSeries) pillSeries.style.display = '';
     if (pillDrafts) pillDrafts.style.display = '';
-    if (pillDailyChronicles) pillDailyChronicles.style.display = '';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = 'none';
 
     // Update Drawer Account UI
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -1307,7 +3655,7 @@ function updateAuthUI() {
 
     const headerDiaryBtn = document.getElementById('headerDiaryBtn');
     if (headerDiaryBtn) {
-      headerDiaryBtn.style.display = 'inline-flex';
+      headerDiaryBtn.style.display = 'none';
     }
     if (typeof decryptAllOwnedChroniclePosts === 'function') {
       decryptAllOwnedChroniclePosts();
@@ -1316,7 +3664,8 @@ function updateAuthUI() {
       maybeShowFirstLoginSlantDictionaryModal();
     }
   } else {
-    if (deepPostId) {
+    const hasPublicDeepLink = typeof hasPublicDeepLinkInUrl === 'function' ? hasPublicDeepLinkInUrl() : Boolean(deepPostId);
+    if (hasPublicDeepLink) {
       if (signedInView) signedInView.style.display = 'flex';
       if (signedOutView) signedOutView.style.display = 'none';
       document.body.classList.remove('signed-out-active');
@@ -1339,8 +3688,9 @@ function updateAuthUI() {
     // Show saved pill if reader saved cards locally
     if (pillSaved) pillSaved.style.display = savedCount > 0 ? '' : 'none';
     if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
+    if (pillSeries) pillSeries.style.display = 'none';
     if (pillDrafts) pillDrafts.style.display = totalDraftsCount > 0 ? '' : 'none';
-    if (pillDailyChronicles) pillDailyChronicles.style.display = myChroniclesCount > 0 ? '' : 'none';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = 'none';
 
     // Update Drawer Account UI for guest
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -1352,7 +3702,7 @@ function updateAuthUI() {
     if (drawerAdminBetaRow) drawerAdminBetaRow.style.display = 'none';
 
     const headerDiaryBtn = document.getElementById('headerDiaryBtn');
-    if (headerDiaryBtn) headerDiaryBtn.style.display = 'inline-flex';
+    if (headerDiaryBtn) headerDiaryBtn.style.display = 'none';
   }
 }
 
@@ -1727,14 +4077,7 @@ function setupLoginPillarsCarousel() {
       clearInterval(loginPillarAutoPlayTimer);
       return;
     }
-    if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'web') {
-      setLoginPerspectiveSpark('voice');
-    } else if (currentLoginPillarIndex === 0 && currentLoginPerspectiveSpark === 'voice') {
-      goToLoginPillarSlide(1);
-    } else {
-      setLoginPerspectiveSpark('web');
-      goToLoginPillarSlide(0);
-    }
+    stepLoginPillarSlide(1);
   }, 4500);
 }
 
@@ -2083,6 +4426,15 @@ function startLoginShowcaseSetsAutoSwap() {
 }
 
 function renderLoginSamplesGrid() {
+  stopAllLoginMinutesAutoScrolls();
+  const lowerSec = document.getElementById("loginLowerSamplesSection");
+  if (lowerSec) lowerSec.style.display = "none";
+  const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
+  if (samplesGrid) samplesGrid.innerHTML = "";
+  return;
+}
+
+function _legacyRenderLoginSamplesGridUnused() {
   const samplesGrid = document.getElementById("loginSampleCarouselsGrid");
   if (!samplesGrid) return;
 
@@ -2385,7 +4737,7 @@ function openAuthModal(customDesc) {
   if (descEl && customDesc) {
     descEl.textContent = customDesc;
   } else if (descEl) {
-    descEl.textContent = 'Sign in to synthesize what you read, frame what you observe, and build your private chronicle.';
+    descEl.textContent = 'Sign in to turn your perspective into illustrated posters and keep related reflections in one series.';
   }
 
   const signedInView = document.getElementById('signedInAppView');
@@ -2986,7 +5338,32 @@ async function loadAdminBetaPendingCount() {
     if (resp.ok) {
       const data = await resp.json();
       const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
-      const pendingCount = pending.length;
+      const feedbackList = Array.isArray(data.userFeedback) ? data.userFeedback : [];
+      const unreadFeedback = feedbackList.filter(f => f && f.status !== 'resolved');
+      const health = data.systemHealthSummary || {};
+      const criticalHealthCount = (Number(health.quota429Count24h) || 0) + (Number(health.timeout504Count24h) || 0) + (Number(health.supabaseErrorCount24h) || 0);
+      const pendingCount = pending.length + unreadFeedback.length + (health.status === 'critical' ? 1 : 0);
+
+      // Update Tab Badges inside Admin Modal
+      const fbTabBadge = document.getElementById('adminTabFeedbackBadge');
+      if (fbTabBadge) {
+        if (unreadFeedback.length > 0) {
+          fbTabBadge.textContent = unreadFeedback.length;
+          fbTabBadge.style.display = 'inline-block';
+        } else {
+          fbTabBadge.style.display = 'none';
+        }
+      }
+      const healthTabBadge = document.getElementById('adminTabHealthBadge');
+      if (healthTabBadge) {
+        if (health.status === 'critical' || criticalHealthCount > 0) {
+          healthTabBadge.textContent = criticalHealthCount > 0 ? criticalHealthCount : '!';
+          healthTabBadge.style.display = 'inline-block';
+          healthTabBadge.style.background = health.status === 'critical' ? '#EF4444' : '#F59E0B';
+        } else {
+          healthTabBadge.style.display = 'none';
+        }
+      }
 
       // 1. Update Drawer badge
       const drawerBadge = document.getElementById('drawerPendingBadge');
@@ -3012,18 +5389,45 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. If pending access or credit requests exist, alert the admin with an interactive banner toast
-      if (pendingCount > 0 && !sessionStorage.getItem('admin_notified_' + pendingCount)) {
-        sessionStorage.setItem('admin_notified_' + pendingCount, 'true');
+      // 3. Alert admin on new pending access/credit requests
+      if (pending.length > 0 && !sessionStorage.getItem('admin_notified_req_' + pending.length)) {
+        sessionStorage.setItem('admin_notified_req_' + pending.length, 'true');
         const latestRequester = pending[0]?.email || 'A user';
         const isAccessReq = pending[0]?.type === 'access_request';
         const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
-        const alertMsg = pendingCount === 1
+        const alertMsg = pending.length === 1
           ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pendingCount} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          : `🔔 <strong>${pending.length} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
         showTemporaryToast(alertMsg, 8000, true, () => {
           openAdminBetaModal();
+          switchAdminCommandTab('roster');
         });
+      }
+
+      // 4. Alert admin on new unread user feedback
+      if (unreadFeedback.length > 0) {
+        const latestFb = unreadFeedback[0];
+        const fbKey = 'admin_notified_fb_' + (latestFb?.id || unreadFeedback.length);
+        if (!sessionStorage.getItem(fbKey)) {
+          sessionStorage.setItem(fbKey, 'true');
+          const sender = latestFb?.handle || latestFb?.email || 'a user';
+          showTemporaryToast(`💬 <strong>New User Feedback</strong> from <span style="color:#FBBF24;">${escapeHtml(sender)}</span>. Tap to read.`, 8000, true, () => {
+            openAdminBetaModal();
+            switchAdminCommandTab('feedback');
+          });
+        }
+      }
+
+      // 5. Alert admin on critical Vercel / Supabase / Gemini quota issues
+      if (health.status === 'critical') {
+        const healthKey = 'admin_notified_health_' + criticalHealthCount;
+        if (!sessionStorage.getItem(healthKey)) {
+          sessionStorage.setItem(healthKey, 'true');
+          showTemporaryToast(`🚨 <strong>System Quota/Timeout Alert:</strong> ${criticalHealthCount} error(s) in 24h (429/504/DB). Tap to inspect.`, 9500, true, () => {
+            openAdminBetaModal();
+            switchAdminCommandTab('health');
+          });
+        }
       }
     }
   } catch (_) {}
@@ -3121,15 +5525,15 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         const cInfo = userCreditsMap[cleanEmail] || {
           isUnlimited: isMaster,
-          starterRemaining: 5,
-          starterTotal: 5,
+          starterRemaining: 3,
+          starterTotal: 3,
           dailyLimit: defaultDailyLimit,
           usedToday: 0,
           dailyRemaining: defaultDailyLimit,
           bonusCredits: 0,
-          perspectiveRemainingToday: isMaster ? 9999 : 5,
+          perspectiveRemainingToday: isMaster ? 9999 : 3,
           chronicleFreeRemainingToday: 1,
-          remainingToday: isMaster ? 9999 : 5,
+          remainingToday: isMaster ? 9999 : 3,
           totalUsed: 0
         };
 
@@ -3144,17 +5548,17 @@ async function loadAdminBetaData(forceRefresh = false) {
 
         // Credit status badge
         let creditBadgeHtml = '';
-        const perspLeft = cInfo.perspectiveRemainingToday ?? cInfo.remainingToday ?? 5;
-        const starterRem = cInfo.starterRemaining ?? 5;
-        const chronLeft = cInfo.chronicleFreeRemainingToday ?? 1;
+        const perspLeft = cInfo.perspectiveRemainingToday ?? cInfo.remainingToday ?? 3;
+        const starterRem = cInfo.starterRemaining ?? 3;
+        const starterTot = cInfo.starterTotal ?? 3;
         if (isMaster) {
           creditBadgeHtml = `<span style="font-size:10.5px; font-weight:700; color:#818CF8; background:rgba(99,102,241,0.14); border:1px solid rgba(99,102,241,0.3); padding:2px 7px; border-radius:6px;">⚡ ∞ Unlimited · ${cInfo.usedToday || 0} used today</span>`;
         } else if (perspLeft <= 0) {
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 Perspective Left Today · 📔 ${chronLeft}/1 Chronicle</span>`;
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#F87171; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.4); padding:2px 7px; border-radius:6px;">🚨 0 AI Concept Credits Left Today</span>`;
         } else {
-          const starterOrDailyTag = starterRem > 0 ? `${starterRem}/5 Starter` : `${cInfo.dailyRemaining ?? 1}/${cInfo.dailyLimit || 1} Daily`;
+          const starterOrDailyTag = starterRem > 0 ? `${starterRem}/${starterTot} Starter` : `${cInfo.dailyRemaining ?? 1}/${cInfo.dailyLimit || 1} Daily`;
           const bonusTag = cInfo.bonusCredits > 0 ? ` +${cInfo.bonusCredits} Bonus` : '';
-          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">🎨 ${perspLeft} Left (${starterOrDailyTag}${bonusTag}) · 📔 ${chronLeft}/1</span>`;
+          creditBadgeHtml = `<span style="font-size:10.5px; font-weight:800; color:#34D399; background:rgba(16,185,129,0.14); border:1px solid rgba(16,185,129,0.35); padding:2px 7px; border-radius:6px;">🎨 ${perspLeft} AI Left (${starterOrDailyTag}${bonusTag})</span>`;
         }
 
         const row = document.createElement('div');
@@ -3225,12 +5629,457 @@ async function loadAdminBetaData(forceRefresh = false) {
       }
     }
 
+    renderAdminFeedbackInbox(Array.isArray(data.userFeedback) ? data.userFeedback : []);
+    renderAdminHealthDashboard(
+      data.systemHealthSummary || {},
+      Array.isArray(data.systemTelemetry) ? data.systemTelemetry : [],
+      data.alertWebhookUrl || ''
+    );
+
     loadAdminBetaPendingCount();
   } catch (err) {
     console.error('Error loading admin beta data:', err);
     if (allowedList) allowedList.innerHTML = '<div style="font-size:12px; color:#EF4444; padding:8px;">Error loading roster. Tap refresh.</div>';
   }
 }
+
+function switchAdminCommandTab(tabName = 'roster') {
+  const panes = {
+    roster: document.getElementById('adminPaneRoster'),
+    feedback: document.getElementById('adminPaneFeedback'),
+    health: document.getElementById('adminPaneHealth')
+  };
+  const btns = {
+    roster: document.getElementById('adminTabBtnRoster'),
+    feedback: document.getElementById('adminTabBtnFeedback'),
+    health: document.getElementById('adminTabBtnHealth')
+  };
+  Object.keys(panes).forEach(key => {
+    const isSel = key === tabName;
+    if (panes[key]) panes[key].style.display = isSel ? 'flex' : 'none';
+    if (btns[key]) {
+      btns[key].style.background = isSel ? 'rgba(99,102,241,0.18)' : 'transparent';
+      btns[key].style.borderColor = isSel ? 'rgba(99,102,241,0.4)' : 'transparent';
+      btns[key].style.color = isSel ? '#818CF8' : 'var(--text-secondary)';
+      btns[key].style.fontWeight = isSel ? '800' : '700';
+    }
+  });
+}
+window.switchAdminCommandTab = switchAdminCommandTab;
+
+function renderAdminFeedbackInbox(feedbackList = []) {
+  const container = document.getElementById('adminFeedbackList');
+  if (!container) return;
+  if (!Array.isArray(feedbackList) || feedbackList.length === 0) {
+    container.innerHTML = '<div style="font-size:12px; color:var(--text-secondary); padding:16px; text-align:center;">No user feedback or post-publish pulses submitted yet.</div>';
+    return;
+  }
+
+  const CAT_LABELS = {
+    voice_quality: { label: '🎯 Voice & AI Quality', color: '#FBBF24', bg: 'rgba(245,158,11,0.16)' },
+    feature_idea: { label: '💡 Feature Idea', color: '#38BDF8', bg: 'rgba(56,189,248,0.16)' },
+    bug_report: { label: '🐛 Bug / Slowness', color: '#F87171', bg: 'rgba(239,68,68,0.16)' },
+    post_pulse: { label: '✨ Post-Publish Pulse', color: '#34D399', bg: 'rgba(16,185,129,0.16)' }
+  };
+  const RATE_LABELS = {
+    nailed_it: '😍 Nailed it',
+    needed_tweaks: '✍️ Needed tweaks',
+    missed_point: '⚠️ Had a hiccup'
+  };
+
+  container.innerHTML = feedbackList.map(item => {
+    const catMeta = CAT_LABELS[item.category] || { label: '💬 Feedback', color: '#818CF8', bg: 'rgba(99,102,241,0.16)' };
+    const rateLabel = RATE_LABELS[item.rating] || '';
+    const isResolved = item.status === 'resolved';
+    const timeStr = item.createdAt ? new Date(item.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const ctx = item.context || {};
+
+    return `
+      <div style="padding:11px 13px; border-radius:12px; background:var(--bg-card, rgba(255,255,255,0.04)); border:1px solid ${isResolved ? 'rgba(148,163,184,0.18)' : 'rgba(245,158,11,0.35)'}; opacity:${isResolved ? '0.68' : '1'}; display:flex; flex-direction:column; gap:6px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-size:10px; font-weight:800; padding:2px 7px; border-radius:6px; background:${catMeta.bg}; color:${catMeta.color};">${catMeta.label}</span>
+            ${rateLabel ? `<span style="font-size:10.5px; font-weight:700; color:var(--text-primary);">${rateLabel}</span>` : ''}
+            <strong style="font-size:12px; color:var(--text-primary);">${escapeHtml(item.handle || item.email)}</strong>
+            <span style="font-size:10.5px; color:var(--text-secondary);">(${escapeHtml(item.email || '')})</span>
+          </div>
+          <span style="font-size:10px; color:var(--text-secondary);">${escapeHtml(timeStr)}</span>
+        </div>
+        ${item.message ? `<div style="font-size:12.5px; color:var(--text-primary); line-height:1.45; padding:4px 0;">&ldquo;${escapeHtml(item.message)}&rdquo;</div>` : ''}
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding-top:4px; border-top:1px dashed rgba(148,163,184,0.16); font-size:10.5px; color:var(--text-secondary);">
+          <span>
+            ${ctx.postTitle ? `Post: <em>${escapeHtml(ctx.postTitle)}</em> · ` : ''}
+            ${ctx.viewport ? `Screen: ${escapeHtml(ctx.viewport)}` : ''}
+            ${ctx.lastError ? ` · <span style="color:#F87171;">Last Err: ${escapeHtml(ctx.lastError)}</span>` : ''}
+          </span>
+          <div style="display:flex; gap:6px;">
+            ${!isResolved ? `<button type="button" onclick="handleAdminFeedbackAction('${escapeHtml(item.id)}', 'resolve_feedback')" style="background:rgba(16,185,129,0.16); color:#34D399; border:1px solid rgba(16,185,129,0.4); border-radius:6px; padding:3px 8px; font-size:10.5px; font-weight:800; cursor:pointer;">✓ Mark Resolved</button>` : '<span style="color:#34D399; font-weight:700;">✓ Resolved</span>'}
+            <button type="button" onclick="handleAdminFeedbackAction('${escapeHtml(item.id)}', 'delete_feedback')" style="background:rgba(239,68,68,0.12); color:#F87171; border:none; border-radius:6px; padding:3px 7px; font-size:10.5px; font-weight:700; cursor:pointer;">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderAdminHealthDashboard(health = {}, telemetryList = [], alertWebhookUrl = '') {
+  const card = document.getElementById('adminHealthStatusCard');
+  const titleEl = document.getElementById('adminHealthStatusTitle');
+  const recEl = document.getElementById('adminHealthRecommendations');
+  const pingEl = document.getElementById('adminMetricSupabasePing');
+  const q429El = document.getElementById('adminMetric429Count');
+  const t504El = document.getElementById('adminMetric504Count');
+  const dbRowsEl = document.getElementById('adminMetricDbRows');
+  const webhookInput = document.getElementById('adminAlertWebhookInput');
+  const telContainer = document.getElementById('adminTelemetryList');
+
+  if (pingEl) pingEl.textContent = `${health.supabaseLatencyMs || 0} ms`;
+  if (q429El) q429El.textContent = String(health.quota429Count24h || 0);
+  if (t504El) t504El.textContent = String(health.timeout504Count24h || 0);
+  if (dbRowsEl) dbRowsEl.textContent = String(health.totalDbPostsCount || 0);
+  if (webhookInput && document.activeElement !== webhookInput) {
+    webhookInput.value = alertWebhookUrl || '';
+  }
+
+  if (card && titleEl && recEl) {
+    const isCrit = health.status === 'critical';
+    const isWarn = health.status === 'warning';
+    card.style.background = isCrit ? 'rgba(239,68,68,0.1)' : (isWarn ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.08)');
+    card.style.borderColor = isCrit ? 'rgba(239,68,68,0.4)' : (isWarn ? 'rgba(245,158,11,0.38)' : 'rgba(16,185,129,0.28)');
+    titleEl.style.color = isCrit ? '#F87171' : (isWarn ? '#FBBF24' : '#34D399');
+    titleEl.textContent = health.statusLabel || '🟢 All Systems Nominal';
+    const recs = Array.isArray(health.recommendations) ? health.recommendations : [];
+    recEl.innerHTML = recs.map(r => `<div style="margin-top:3px;">• ${escapeHtml(r)}</div>`).join('');
+  }
+
+  if (telContainer) {
+    if (!Array.isArray(telemetryList) || telemetryList.length === 0) {
+      telContainer.innerHTML = '<div style="font-size:12px; color:var(--text-secondary); padding:12px; text-align:center;">No API errors, 429 rate limits, or 504 timeouts recorded.</div>';
+    } else {
+      telContainer.innerHTML = telemetryList.slice(0, 40).map(ev => {
+        const isCrit = ev.severity === 'critical';
+        const timeStr = ev.createdAt ? new Date(ev.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+        return `
+          <div style="padding:8px 11px; border-radius:9px; background:var(--bg-card, rgba(255,255,255,0.04)); border:1px solid ${isCrit ? 'rgba(239,68,68,0.35)' : 'rgba(245,158,11,0.28)'}; font-size:11.5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+              <strong style="color:${isCrit ? '#F87171' : '#FBBF24'};">${escapeHtml((ev.type || 'api_error').toUpperCase())} ${ev.statusCode ? `(HTTP ${ev.statusCode})` : ''}</strong>
+              <span style="font-size:10px; color:var(--text-secondary);">${escapeHtml(ev.endpoint || '')} · ${ev.durationMs || 0}ms · ${escapeHtml(timeStr)}</span>
+            </div>
+            <div style="color:var(--text-secondary); font-size:11px; margin-top:3px;">
+              User: <strong>${escapeHtml(ev.userEmail || 'anonymous')}</strong> — ${escapeHtml(ev.message || '')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+async function handleAdminFeedbackAction(feedbackId, actionName) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: actionName, adminEmail, feedbackId })
+    });
+    if (resp.ok) {
+      loadAdminBetaData(false);
+    }
+  } catch (_) {}
+}
+window.handleAdminFeedbackAction = handleAdminFeedbackAction;
+
+async function handleAdminClearTelemetry() {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'clear_telemetry', adminEmail })
+    });
+    if (resp.ok) {
+      showTemporaryToast('🧹 System telemetry log cleared.');
+      loadAdminBetaData(false);
+    }
+  } catch (_) {}
+}
+window.handleAdminClearTelemetry = handleAdminClearTelemetry;
+
+async function handleSaveAdminAlertWebhook(testPing = false) {
+  const adminEmail = currentUser?.email || 'shridharoct16@gmail.com';
+  const input = document.getElementById('adminAlertWebhookInput');
+  const webhookUrl = (input?.value || '').trim();
+  try {
+    const resp = await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save_alert_webhook', adminEmail, webhookUrl, testPing })
+    });
+    if (resp.ok) {
+      const d = await resp.json();
+      if (testPing) {
+        showTemporaryToast(d.pingOk ? '🔔 Test alert sent to your webhook!' : '⚠️ Saved URL, but test ping did not get 200 OK — check URL.');
+      } else {
+        showTemporaryToast('✓ Alert webhook URL saved.');
+      }
+    }
+  } catch (_) {}
+}
+window.handleSaveAdminAlertWebhook = handleSaveAdminAlertWebhook;
+
+// ==========================================
+// USER FEEDBACK & POST-PUBLISH MICRO-PULSE
+// ==========================================
+let _activeFeedbackCategory = 'voice_quality';
+let _activeFeedbackRating = 'needed_tweaks';
+let _lastPublishedPostForPulse = null;
+
+function openUserFeedbackModal(initialCat = 'voice_quality', initialRating = 'needed_tweaks', prefillNote = '') {
+  const modal = document.getElementById('userFeedbackModal');
+  if (!modal) return;
+  selectUserFeedbackCategory(initialCat);
+  selectUserFeedbackRating(initialRating);
+  const ta = document.getElementById('userFeedbackTextarea');
+  if (ta) ta.value = prefillNote || '';
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  modal.classList.add('active');
+}
+window.openUserFeedbackModal = openUserFeedbackModal;
+
+function closeUserFeedbackModal() {
+  const modal = document.getElementById('userFeedbackModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.classList.remove('active');
+  modal.style.display = 'none';
+}
+window.closeUserFeedbackModal = closeUserFeedbackModal;
+
+function selectUserFeedbackCategory(cat) {
+  _activeFeedbackCategory = cat || 'voice_quality';
+  const row = document.getElementById('userFeedbackCategoryRow');
+  if (!row) return;
+  row.querySelectorAll('.fb-cat-chip').forEach(btn => {
+    const isSel = btn.getAttribute('data-cat') === _activeFeedbackCategory;
+    btn.classList.toggle('active', isSel);
+    btn.style.borderColor = isSel ? '#F59E0B' : 'rgba(148,163,184,0.28)';
+    btn.style.background = isSel ? 'rgba(245,158,11,0.14)' : 'transparent';
+    btn.style.color = isSel ? '#FBBF24' : 'var(--text-primary)';
+    btn.style.fontWeight = isSel ? '800' : '700';
+  });
+}
+window.selectUserFeedbackCategory = selectUserFeedbackCategory;
+
+function selectUserFeedbackRating(rate) {
+  _activeFeedbackRating = rate || 'needed_tweaks';
+  const row = document.getElementById('userFeedbackRatingRow');
+  if (!row) return;
+  row.querySelectorAll('.fb-rate-chip').forEach(btn => {
+    const isSel = btn.getAttribute('data-rate') === _activeFeedbackRating;
+    btn.classList.toggle('active', isSel);
+    btn.style.borderColor = isSel ? '#818CF8' : 'rgba(148,163,184,0.26)';
+    btn.style.background = isSel ? 'rgba(99,102,241,0.14)' : 'transparent';
+    btn.style.color = isSel ? '#818CF8' : 'var(--text-primary)';
+    btn.style.fontWeight = isSel ? '800' : '700';
+  });
+}
+window.selectUserFeedbackRating = selectUserFeedbackRating;
+
+async function submitUserFeedbackForm() {
+  const ta = document.getElementById('userFeedbackTextarea');
+  const btn = document.getElementById('userFeedbackSubmitBtn');
+  const message = (ta?.value || '').trim();
+  if (!message && !_activeFeedbackRating) {
+    showTemporaryToast('Write a quick note so Shridhar knows what to look at.');
+    return;
+  }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+  }
+  try {
+    const handle = typeof getUserDisplayName === 'function' ? ('@' + getUserDisplayName().replace(/^@/, '')) : '@reader';
+    const email = currentUser?.email || 'guest@slant.today';
+    await fetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'submit_feedback',
+        email,
+        handle,
+        category: _activeFeedbackCategory,
+        rating: _activeFeedbackRating,
+        message,
+        context: {
+          screen: typeof currentCategory !== 'undefined' ? currentCategory : 'feed',
+          postTitle: _lastPublishedPostForPulse?.adaptedHeadline || currentSynthesizedPost?.adaptedHeadline || '',
+          sparkType: typeof activeSlantSparkType !== 'undefined' ? activeSlantSparkType : '',
+          viewport: `${window.innerWidth}x${window.innerHeight}`,
+          userAgent: navigator.userAgent || '',
+          lastError: window._lastSlantApiError || ''
+        }
+      })
+    });
+    closeUserFeedbackModal();
+    showTemporaryToast('🙏 Thank you! Your feedback was sent directly to Shridhar.');
+  } catch (_) {
+    showTemporaryToast('Could not send feedback right now — please try again.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Send to Founder ➔';
+    }
+  }
+}
+window.submitUserFeedbackForm = submitUserFeedbackForm;
+
+function maybeShowPostPublishMicroPulse(publishedPost = null) {
+  _lastPublishedPostForPulse = publishedPost;
+  const bar = document.getElementById('postPublishMicroPulseBar');
+  if (!bar) return;
+  bar.style.display = 'block';
+  if (window._microPulseHideTimer) clearTimeout(window._microPulseHideTimer);
+  window._microPulseHideTimer = setTimeout(() => {
+    dismissPostPublishMicroPulse();
+  }, 14000);
+}
+window.maybeShowPostPublishMicroPulse = maybeShowPostPublishMicroPulse;
+
+function dismissPostPublishMicroPulse() {
+  const bar = document.getElementById('postPublishMicroPulseBar');
+  if (bar) bar.style.display = 'none';
+}
+window.dismissPostPublishMicroPulse = dismissPostPublishMicroPulse;
+
+async function handlePostPublishMicroPulseTap(rating) {
+  dismissPostPublishMicroPulse();
+  const handle = typeof getUserDisplayName === 'function' ? ('@' + getUserDisplayName().replace(/^@/, '')) : '@curator';
+  const email = currentUser?.email || 'guest@slant.today';
+  if (rating === 'nailed_it') {
+    showTemporaryToast('🎯 Awesome! Glad Slant nailed your voice today.');
+    try {
+      await fetch('/api/whitelist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_feedback',
+          email,
+          handle,
+          category: 'post_pulse',
+          rating: 'nailed_it',
+          message: 'Post-publish pulse: Nailed my voice!',
+          context: {
+            postTitle: _lastPublishedPostForPulse?.adaptedHeadline || '',
+            viewport: `${window.innerWidth}x${window.innerHeight}`
+          }
+        })
+      });
+    } catch (_) {}
+  } else {
+    // Open the feedback modal pre-selected so the user can tell us what felt off in 1 sentence
+    const cat = rating === 'missed_point' ? 'bug_report' : 'voice_quality';
+    openUserFeedbackModal(cat, rating, '');
+  }
+}
+window.handlePostPublishMicroPulseTap = handlePostPublishMicroPulseTap;
+
+// ==========================================
+// AUTOMATIC VERCEL / SUPABASE / GEMINI QUOTA & TIMEOUT MONITOR
+// ==========================================
+window._lastSlantApiError = '';
+function reportSlantSystemTelemetry(type, endpoint, statusCode, durationMs, message) {
+  window._lastSlantApiError = `${type} (${statusCode || 'ERR'}) on ${endpoint}: ${message || ''}`.slice(0, 200);
+  try {
+    const email = (typeof currentUser !== 'undefined' && currentUser?.email) ? currentUser.email : 'anonymous';
+    const origFetch = window._originalSlantFetch || window.fetch;
+    origFetch('/api/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'log_telemetry',
+        email,
+        type,
+        endpoint,
+        statusCode,
+        durationMs,
+        message
+      })
+    }).catch(() => {});
+  } catch (_) {}
+}
+
+(function installSlantTelemetryFetchMonitor() {
+  if (window._originalSlantFetch || typeof window.fetch !== 'function') return;
+  const origFetch = window.fetch.bind(window);
+  window._originalSlantFetch = origFetch;
+  window._isSlantPageUnloading = false;
+  window._lastSlantHiddenAt = 0;
+
+  window.addEventListener('beforeunload', () => { window._isSlantPageUnloading = true; });
+  window.addEventListener('pagehide', () => { window._isSlantPageUnloading = true; });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      window._lastSlantHiddenAt = Date.now();
+    }
+  });
+
+  window.fetch = async function monitoredSlantFetch(input, init) {
+    const urlStr = typeof input === 'string' ? input : (input?.url || '');
+    const isMonitoredApi = (
+      urlStr.includes('/api/synthesize') ||
+      urlStr.includes('/api/posts') ||
+      urlStr.includes('/api/cues') ||
+      urlStr.includes('/api/scrape') ||
+      urlStr.includes('/api/ledger') ||
+      urlStr.includes('supabase.co/rest/v1/')
+    ) && !urlStr.includes('/api/whitelist');
+
+    if (!isMonitoredApi) {
+      return origFetch(input, init);
+    }
+
+    const t0 = Date.now();
+    const wasHiddenAtStart = document.visibilityState === 'hidden';
+    const shortEndpoint = urlStr.includes('supabase.co')
+      ? 'supabase/rest/v1/posts'
+      : (urlStr.split('?')[0] || '/api');
+
+    try {
+      const resp = await origFetch(input, init);
+      const durationMs = Date.now() - t0;
+      const sleptDuringRequest = wasHiddenAtStart || document.visibilityState === 'hidden' || (window._lastSlantHiddenAt >= t0);
+
+      if (!resp.ok) {
+        const status = resp.status;
+        let eventType = 'api_500';
+        if (status === 429) eventType = 'gemini_quota_429';
+        else if (status === 504 || status === 502) eventType = 'vercel_timeout';
+        else if (urlStr.includes('supabase.co') && status >= 500) eventType = 'supabase_error';
+
+        if (status === 429 || status >= 500) {
+          reportSlantSystemTelemetry(eventType, shortEndpoint, status, durationMs, `HTTP ${status} returned from ${shortEndpoint}`);
+        }
+      } else if (durationMs > 25000 && durationMs < 65000 && !sleptDuringRequest && !urlStr.includes('supabase.co')) {
+        reportSlantSystemTelemetry('slow_response', shortEndpoint, resp.status, durationMs, `Slow execution (${Math.round(durationMs / 1000)}s) approaching Vercel timeout`);
+      }
+      return resp;
+    } catch (err) {
+      const durationMs = Date.now() - t0;
+      const sleptDuringRequest = wasHiddenAtStart || document.visibilityState === 'hidden' || (window._lastSlantHiddenAt >= t0);
+      const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+      const errMsg = String(err?.message || '');
+      const isClientCancelOrFetchDrop = window._isSlantPageUnloading || sleptDuringRequest || !isOnline || err?.name === 'AbortError' || /failed to fetch|networkerror|load failed/i.test(errMsg);
+
+      // Only log genuine function timeouts when active & online; ignore client navigation/sleep/abort drops
+      if (!isClientCancelOrFetchDrop && durationMs >= 28000 && durationMs <= 65000 && !urlStr.includes('supabase.co')) {
+        reportSlantSystemTelemetry('vercel_timeout', shortEndpoint, 504, durationMs, errMsg || 'Function timeout');
+      }
+      throw err;
+    }
+  };
+})();
 
 async function handleAdminAddEmail() {
   const input = document.getElementById('adminNewInviteEmail');
@@ -3398,6 +6247,203 @@ function selectCategory(categoryKey) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+function syncBookmarkButtonsForPost(postId) {
+  const sId = String(postId || '');
+  if (!sId) return;
+  const isNowSaved = savedPostIds.has(sId);
+  document.querySelectorAll(`#bookmark-btn-${CSS.escape(sId)}, .bookmark-btn[data-bookmark-post="${CSS.escape(sId)}"]`).forEach(btn => {
+    btn.classList.toggle('is-saved', isNowSaved);
+    btn.setAttribute('title', isNowSaved ? 'Saved — Manage Buckets' : 'Save to Bucket');
+    const svg = btn.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('fill', isNowSaved ? '#F59E0B' : 'none');
+      svg.setAttribute('stroke', isNowSaved ? '#F59E0B' : 'currentColor');
+    }
+  });
+}
+
+function closeAllSaveBucketPopovers() {
+  document.querySelectorAll('.save-bucket-popover.show').forEach(pop => {
+    pop.classList.remove('show');
+  });
+}
+window.closeAllSaveBucketPopovers = closeAllSaveBucketPopovers;
+
+function buildSaveBucketPopoverInnerHtml(postId) {
+  const sId = String(postId || '');
+  if (!Array.isArray(saveBuckets) || saveBuckets.length === 0) {
+    saveBuckets = loadSaveBucketsFromStorage();
+  }
+  const isSavedAnywhere = savedPostIds.has(sId);
+
+  const itemsHtml = saveBuckets.map(bucket => {
+    const bIds = Array.isArray(bucket.postIds) ? bucket.postIds : [];
+    const isChecked = bIds.includes(sId);
+    const count = bIds.length;
+    return `
+      <button type="button"
+              class="save-bucket-item ${isChecked ? 'is-checked' : ''}"
+              onclick="togglePostInSaveBucket(event, '${escapeHtml(sId)}', '${escapeHtml(bucket.id)}')">
+        <span class="save-bucket-check" aria-hidden="true">${isChecked ? '✓' : ''}</span>
+        <span class="save-bucket-icon">${escapeHtml(bucket.icon || '📁')}</span>
+        <span class="save-bucket-name">${escapeHtml(bucket.name)}</span>
+        <span class="save-bucket-count">${count}</span>
+      </button>
+    `;
+  }).join('');
+
+  return `
+    <div class="save-bucket-popover-header" onclick="event.stopPropagation()">
+      <span class="save-bucket-popover-title">🔖 Save to Bucket</span>
+      <div class="save-bucket-popover-actions">
+        ${isSavedAnywhere ? `
+          <button type="button" class="save-bucket-unsave-all-btn" onclick="removePostFromAllSaveBuckets(event, '${escapeHtml(sId)}')" title="Remove from all buckets">Remove</button>
+        ` : ''}
+        <button type="button" class="save-bucket-close-btn" onclick="event.stopPropagation(); closeAllSaveBucketPopovers()" title="Close">✕</button>
+      </div>
+    </div>
+    <div class="save-bucket-list" onclick="event.stopPropagation()">
+      ${itemsHtml}
+    </div>
+    <form class="save-bucket-create-form" onsubmit="createSaveBucketAndAddPost(event, '${escapeHtml(sId)}')" onclick="event.stopPropagation()">
+      <input type="text"
+             class="save-bucket-create-input"
+             id="save-bucket-input-${escapeHtml(sId)}"
+             placeholder="+ Create bucket & save..."
+             maxlength="34"
+             autocomplete="off"
+             onclick="event.stopPropagation()">
+      <button type="submit" class="save-bucket-create-btn">Save</button>
+    </form>
+  `;
+}
+
+function refreshOpenSaveBucketPopover(postId) {
+  const sId = String(postId || '');
+  const pop = document.getElementById(`save-bucket-popover-${sId}`);
+  if (pop && pop.classList.contains('show')) {
+    pop.innerHTML = buildSaveBucketPopoverInnerHtml(sId);
+  }
+}
+
+function togglePostInSaveBucket(event, postId, bucketId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  const bId = String(bucketId || '');
+  const bucket = Array.isArray(saveBuckets) ? saveBuckets.find(b => String(b.id) === bId) : null;
+  if (!bucket || !sId) return;
+
+  if (!Array.isArray(bucket.postIds)) bucket.postIds = [];
+  const idx = bucket.postIds.indexOf(sId);
+  let added = false;
+  if (idx !== -1) {
+    bucket.postIds.splice(idx, 1);
+  } else {
+    bucket.postIds.push(sId);
+    added = true;
+  }
+
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  refreshOpenSaveBucketPopover(sId);
+  updateAuthUI();
+
+  if (added) {
+    showTemporaryToast(`${bucket.icon || '🔖'} Saved to "${bucket.name}"`);
+  } else {
+    showTemporaryToast(`Removed from "${bucket.name}"`);
+  }
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.togglePostInSaveBucket = togglePostInSaveBucket;
+
+function createSaveBucketAndAddPost(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  const inp = document.getElementById(`save-bucket-input-${sId}`);
+  const rawName = inp ? inp.value.trim() : '';
+
+  if (!rawName) {
+    // If input is empty, save directly to default Reading List bucket
+    const defaultBucket = saveBuckets[0];
+    if (defaultBucket) {
+      if (!defaultBucket.postIds.includes(sId)) {
+        defaultBucket.postIds.push(sId);
+        persistSaveBuckets(true);
+        syncBookmarkButtonsForPost(sId);
+        refreshOpenSaveBucketPopover(sId);
+        updateAuthUI();
+      }
+      showTemporaryToast(`${defaultBucket.icon || '🔖'} Saved to "${defaultBucket.name}"`);
+      closeAllSaveBucketPopovers();
+    }
+    return;
+  }
+
+  let bucket = saveBuckets.find(b => b && b.name.toLowerCase() === rawName.toLowerCase());
+  const isNewBucket = !bucket;
+  if (!bucket) {
+    const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('b_' + Date.now());
+    bucket = {
+      id: `bucket_${slug}_${Date.now().toString(36).slice(-3)}`,
+      name: rawName,
+      icon: '📁',
+      postIds: []
+    };
+    saveBuckets.push(bucket);
+  }
+
+  if (!bucket.postIds.includes(sId)) {
+    bucket.postIds.push(sId);
+  }
+
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  refreshOpenSaveBucketPopover(sId);
+  updateAuthUI();
+
+  showTemporaryToast(isNewBucket ? `✨ Created "${bucket.name}" & saved story!` : `📁 Saved to "${bucket.name}"`);
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.createSaveBucketAndAddPost = createSaveBucketAndAddPost;
+
+function removePostFromAllSaveBuckets(event, postId) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sId = String(postId || '');
+  if (Array.isArray(saveBuckets)) {
+    saveBuckets.forEach(b => {
+      if (b && Array.isArray(b.postIds)) {
+        b.postIds = b.postIds.filter(id => id !== sId);
+      }
+    });
+  }
+  persistSaveBuckets(true);
+  syncBookmarkButtonsForPost(sId);
+  closeAllSaveBucketPopovers();
+  updateAuthUI();
+  showTemporaryToast('Removed from Saved Stories');
+
+  if (currentFilter === 'saved') {
+    renderFeed();
+  }
+}
+window.removePostFromAllSaveBuckets = removePostFromAllSaveBuckets;
+
 function toggleBookmark(event, postId) {
   if (event) {
     event.stopPropagation();
@@ -3405,45 +6451,42 @@ function toggleBookmark(event, postId) {
   }
 
   if (!currentUser) {
-    openAuthModal('Sign in to save and bookmark stories on Slant.');
+    openAuthModal('Sign in to save stories to your bucket lists on Slant.');
     return;
   }
 
-  const isCurrentlySaved = savedPostIds.has(postId);
-  if (isCurrentlySaved) {
-    savedPostIds.delete(postId);
-    showTemporaryToast('Removed from Saved Stories');
-  } else {
-    savedPostIds.add(postId);
-    if (!currentUser) {
-      showTemporaryToast('Saved! Sign in to sync your bookmarks across devices 🔖');
-    } else {
-      showTemporaryToast('Saved to your reading library 🔖');
-    }
+  const sId = String(postId || '');
+  if (!sId) return;
+
+  const btn = (event && event.currentTarget) ? event.currentTarget : document.getElementById(`bookmark-btn-${sId}`);
+  if (!btn) return;
+
+  let wrap = btn.closest('.bookmark-action-wrap');
+  if (!wrap) {
+    wrap = btn.parentElement;
+  }
+  if (!wrap) return;
+
+  let pop = document.getElementById(`save-bucket-popover-${sId}`);
+  if (!pop) {
+    pop = document.createElement('div');
+    pop.className = 'save-bucket-popover';
+    pop.id = `save-bucket-popover-${sId}`;
+    wrap.appendChild(pop);
   }
 
-  localStorage.setItem('slant_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-  localStorage.setItem('editour_saved_posts', JSON.stringify(Array.from(savedPostIds)));
-  syncUserMetadataToCloud();
+  const isAlreadyShowing = pop.classList.contains('show');
+  if (typeof closeAllPostMenus === 'function') closeAllPostMenus();
+  closeAllSaveBucketPopovers();
 
-  // Update button in place
-  const btn = document.getElementById(`bookmark-btn-${postId}`);
-  if (btn) {
-    btn.classList.toggle('is-saved', !isCurrentlySaved);
-    btn.setAttribute('title', !isCurrentlySaved ? 'Remove from Saved' : 'Save Story');
-    const svg = btn.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('fill', !isCurrentlySaved ? '#F59E0B' : 'none');
-      svg.setAttribute('stroke', !isCurrentlySaved ? '#F59E0B' : 'currentColor');
-    }
+  if (isAlreadyShowing) {
+    return;
   }
 
-  updateAuthUI();
-
-  // If in saved filter, re-render feed immediately
-  if (currentFilter === 'saved') {
-    renderFeed();
-  }
+  // If this post has never been saved to any bucket yet, pre-save it into "Reading List" OR let user pick/create?
+  // Wait: user asked "When save option is clicked on posts lower right corner, pop up a list of existing save bucket lists.. with small prompt right in that to create one and save to it..."
+  pop.innerHTML = buildSaveBucketPopoverInnerHtml(sId);
+  pop.classList.add('show');
 }
 
 function showTemporaryToast(message, duration = 2800, isHtml = false, onClickHandler = null) {
@@ -3605,6 +6648,7 @@ async function encryptChroniclePostForCloud(postObj) {
       aiIllustrationUrl: copy.aiIllustrationUrl || '',
       contextBullets: Array.isArray(copy.contextBullets) ? copy.contextBullets : [],
       keyTakeaways: Array.isArray(copy.keyTakeaways) ? copy.keyTakeaways : [],
+      articleExcerpts: Array.isArray(copy.articleExcerpts) ? copy.articleExcerpts : [],
       resolvedArticleExcerpts: Array.isArray(copy.resolvedArticleExcerpts) ? copy.resolvedArticleExcerpts : [],
       chronicleMoments: Array.isArray(copy.chronicleMoments) ? copy.chronicleMoments : (copy.generationInputs?.chronicleMoments || []),
       chronicleReflections: Array.isArray(copy.chronicleReflections) ? copy.chronicleReflections : (copy.generationInputs?.chronicleReflections || []),
@@ -3648,6 +6692,7 @@ async function encryptChroniclePostForCloud(postObj) {
     copy.whyItMatters = '';
     copy.contextBullets = [];
     copy.keyTakeaways = [];
+    copy.articleExcerpts = [];
     copy.resolvedArticleExcerpts = [];
     copy.chronicleMoments = [];
     copy.chronicleReflections = [];
@@ -3821,6 +6866,9 @@ function mergeAndSortPosts(newPosts) {
     }
 
     if (!existingMap.has(postId)) {
+      if (typeof applyLocalPostEngagementSnapshot === 'function') {
+        applyLocalPostEngagementSnapshot(p);
+      }
       existingMap.set(postId, p);
       addedCount++;
     } else {
@@ -3831,9 +6879,30 @@ function mergeAndSortPosts(newPosts) {
         const merged = { ...p, ...existing };
         merged.illustrationUrl = existing.illustrationUrl || p.illustrationUrl || '';
         merged.aiIllustrationUrl = existing.aiIllustrationUrl || p.aiIllustrationUrl || '';
+        if (typeof applyLocalPostEngagementSnapshot === 'function') {
+          applyLocalPostEngagementSnapshot(merged);
+        }
         existingMap.set(postId, merged);
       } else {
         const merged = { ...existing, ...p };
+        // Never let a stale local cache copy wipe out existing in-memory comments or reactions
+        if (Array.isArray(existing.comments) && existing.comments.length > 0 && (!Array.isArray(p.comments) || p.comments.length < existing.comments.length)) {
+          const byId = new Map();
+          existing.comments.forEach(c => { if (c && c.id) byId.set(c.id, c); });
+          if (Array.isArray(p.comments)) {
+            p.comments.forEach(c => { if (c && c.id) byId.set(c.id, c); });
+          }
+          merged.comments = Array.from(byId.values());
+          merged.commentCount = merged.comments.length;
+        }
+        if (Array.isArray(existing.heartedBy) && existing.heartedBy.length > 0 && (!Array.isArray(p.heartedBy) || p.heartedBy.length === 0)) {
+          merged.heartedBy = existing.heartedBy;
+          merged.heartCount = existing.heartedBy.length;
+        }
+        if (Array.isArray(existing.likedBy) && existing.likedBy.length > 0 && (!Array.isArray(p.likedBy) || p.likedBy.length === 0)) {
+          merged.likedBy = existing.likedBy;
+          merged.likeCount = existing.likedBy.length;
+        }
         if (p.encryptedDiaryPayload && !p._diaryDecrypted && existing.encryptedDiaryPayload !== p.encryptedDiaryPayload) {
           delete merged._diaryDecrypted;
           delete merged.illustrationBase64;
@@ -3846,6 +6915,9 @@ function mergeAndSortPosts(newPosts) {
           if (!merged.illustrationBase64 && existing.illustrationBase64) {
             merged.illustrationBase64 = existing.illustrationBase64;
           }
+        }
+        if (typeof applyLocalPostEngagementSnapshot === 'function') {
+          applyLocalPostEngagementSnapshot(merged);
         }
         existingMap.set(postId, merged);
       }
@@ -3962,6 +7034,42 @@ function getDeepLinkedPostId() {
 function getPostShareUrl(post) {
   if (!post || !post.id) return window.location.origin;
   return `${window.location.origin}/?p=${encodeURIComponent(post.id)}`;
+}
+
+function getDeepLinkedSeriesInfo() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const seriesId = (params.get('series') || params.get('seriesId') || '').trim();
+    const curator = (params.get('curator') || params.get('author') || params.get('creator') || '').trim().replace(/^@/, '');
+    if (seriesId) {
+      return {
+        seriesId: decodeURIComponent(seriesId),
+        curator: curator ? decodeURIComponent(curator) : ''
+      };
+    }
+  } catch (_) {}
+  return null;
+}
+
+function hasPublicDeepLinkInUrl() {
+  try {
+    if (getDeepLinkedPostId() || getDeepLinkedSeriesInfo()) return true;
+    const params = new URLSearchParams(window.location.search);
+    const c = params.get('curator') || params.get('author') || params.get('creator');
+    return Boolean(c && c.trim());
+  } catch (_) {
+    return false;
+  }
+}
+
+function getSeriesShareUrl(seriesId, authorHandle = '') {
+  const cleanSeriesId = String(seriesId || '').trim();
+  const cleanHandle = String(authorHandle || (typeof getUserDisplayName === 'function' ? getUserDisplayName() : '') || '').replace(/^@/, '').trim();
+  if (!cleanSeriesId) return window.location.origin;
+  if (cleanHandle) {
+    return `${window.location.origin}/?curator=${encodeURIComponent(cleanHandle)}&series=${encodeURIComponent(cleanSeriesId)}`;
+  }
+  return `${window.location.origin}/?series=${encodeURIComponent(cleanSeriesId)}`;
 }
 
 function getSourceHeadline(post) {
@@ -4401,6 +7509,9 @@ async function syncLiveCloudPosts(forceRender = false) {
       currentBatchFilteredPosts = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
       updateBadge(true, `Live Feed (${allPosts.length} posts)`);
       updateAuthUI();
+      if (typeof syncAllRenderedPostEngagementDOM === 'function') {
+        syncAllRenderedPostEngagementDOM();
+      }
     }
   }
 
@@ -4720,19 +7831,34 @@ async function checkDeepLink() {
     (window.location.pathname && window.location.pathname.endsWith('/login'));
 
   const curatorParam = params.get('curator') || params.get('author') || params.get('creator');
-  if (curatorParam && curatorParam.trim()) {
-    const cleanCurator = decodeURIComponent(curatorParam.trim()).replace(/^@/, '');
-    if (!currentUser) {
-      sessionStorage.setItem('slant_redirect_curator', cleanCurator);
+  const seriesParam = params.get('series') || params.get('seriesId');
+  if ((curatorParam && curatorParam.trim()) || (seriesParam && seriesParam.trim())) {
+    let cleanCurator = curatorParam ? decodeURIComponent(curatorParam.trim()).replace(/^@/, '') : '';
+    const cleanSeriesId = seriesParam ? decodeURIComponent(seriesParam.trim()) : 'all';
+
+    // If only ?series= was provided without ?curator=, infer curator from the matching post in allPosts
+    if (!cleanCurator && cleanSeriesId && cleanSeriesId !== 'all' && Array.isArray(allPosts)) {
+      const matchedSeriesPost = allPosts.find(p => {
+        if (!p || p.deleted || p.isDeleted) return false;
+        const sInfo = typeof getPostSeriesInfo === 'function' ? getPostSeriesInfo(p) : null;
+        return sInfo && sInfo.id === cleanSeriesId;
+      });
+      if (matchedSeriesPost) {
+        cleanCurator = String(matchedSeriesPost.creatorHandle || matchedSeriesPost.userEmail || '').replace(/^@/, '').trim();
+      }
+    }
+
+    if (cleanCurator) {
+      dismissInitialFeedLoader(true);
+      updateAuthUI();
       setTimeout(() => {
-        if (!currentUser) {
-          openAuthModal(`Sign in to explore all opinions and slants by @${cleanCurator}.`);
+        filterByCurator(cleanCurator, cleanSeriesId || 'all');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (cleanSeriesId && cleanSeriesId !== 'all') {
+          showTemporaryToast('📚 Viewing shared Series');
         }
-      }, 250);
-    } else {
-      setTimeout(() => {
-        filterByCurator(cleanCurator);
-      }, 350);
+      }, 260);
+      return;
     }
   }
 
@@ -4893,6 +8019,9 @@ function renderBatchCards(posts, offset = 0) {
     container.appendChild(card);
     setupCarouselGestures(cardIndex);
   });
+  if (offset === 0 && typeof scheduleFirstTimeCleanPeekDemo === 'function') {
+    scheduleFirstTimeCleanPeekDemo();
+  }
 }
 
 let isNextBatchReady = false;
@@ -5225,11 +8354,33 @@ function getFilteredPostsForFilter(posts, filter, query) {
     }
 
     if (filter === 'saved') {
-      return savedPostIds.has(post.id) && matchesQuery(post);
+      if (!savedPostIds.has(post.id)) return false;
+      if (activeSavedBucketFilter && activeSavedBucketFilter !== 'all' && Array.isArray(saveBuckets)) {
+        const targetBucket = saveBuckets.find(b => b && b.id === activeSavedBucketFilter);
+        if (targetBucket && Array.isArray(targetBucket.postIds) && !targetBucket.postIds.includes(post.id)) {
+          return false;
+        }
+      }
+      return matchesQuery(post);
+    }
+
+    if (filter === 'series') {
+      if (activeFeedSeriesFilter === '__new__') return false;
+      const sInfo = getPostSeriesInfo(post);
+      if (!sInfo) return false;
+      // Only owner can see private series posts; other users only see public posts in a series
+      if (isPrivateDraft && !isOwnedByMe) return false;
+      if (activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all') {
+        return sInfo.id === activeFeedSeriesFilter && matchesQuery(post);
+      }
+      return isOwnedByMe && matchesQuery(post);
     }
 
     if (filter === 'my_stories') {
-      return isOwnedByMe && !isPrivateDraft && matchesQuery(post);
+      if (!isOwnedByMe) return false;
+      const sInfo = getPostSeriesInfo(post);
+      // Show all published stories plus any private posts that belong to a Series
+      return (!isPrivateDraft || Boolean(sInfo)) && matchesQuery(post);
     }
 
     // Hide unpublished drafts from regular feed and topic categories (unless directly deep-linked by the owner)
@@ -5287,7 +8438,10 @@ function renderDailyChroniclesPrivateBanner(container, count = 0) {
         <span style="font-size:15px;">🔒</span>
         <span style="font-size:12px; font-weight:800; color:var(--text-primary); letter-spacing:0.2px;">Only Visible to You &bull; Encrypted Private Diary</span>
       </div>
-      <span style="font-size:10.5px; font-weight:700; color:#059669; background:rgba(16,185,129,0.14); padding:2px 8px; border-radius:99px;">Latest &rarr; Oldest (${count})</span>
+      <div style="display:inline-flex; align-items:center; gap:6px;">
+        <span style="font-size:10.5px; font-weight:700; color:#059669; background:rgba(16,185,129,0.14); padding:2px 8px; border-radius:99px;">Latest &rarr; Oldest (${count})</span>
+        <button type="button" onclick="selectCategory('all')" style="padding:3px 9px; border-radius:99px; border:1px solid rgba(15,23,42,0.18); background:var(--bg-surface, #FFFFFF); color:var(--text-primary); font-size:11px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Close Diary View and return to All Stories">✕ Close</button>
+      </div>
     </div>
     <div style="font-size:12px; line-height:1.45; color:var(--text-secondary);">
       Your Daily Chronicles are end-to-end encrypted and strictly private to you &mdash; they never appear in the public feed.
@@ -5306,6 +8460,902 @@ function renderDailyChroniclesPrivateBanner(container, count = 0) {
   container.appendChild(banner);
 }
 
+function selectSavedBucketFilter(bucketId) {
+  activeSavedBucketFilter = String(bucketId || 'all');
+  renderFeed();
+}
+window.selectSavedBucketFilter = selectSavedBucketFilter;
+
+function renderSavedBucketsFilterBar(container) {
+  if (!container || !Array.isArray(saveBuckets) || saveBuckets.length === 0) return;
+  const bar = document.createElement('div');
+  bar.className = 'saved-buckets-filter-bar';
+  const totalSaved = savedPostIds.size;
+
+  const pillsHtml = [
+    `<button type="button" class="saved-bucket-filter-pill ${activeSavedBucketFilter === 'all' ? 'active' : ''}" onclick="selectSavedBucketFilter('all')">
+      <span>🔖 All Saved</span>
+      <span class="saved-bucket-pill-count">${totalSaved}</span>
+    </button>`,
+    ...saveBuckets.map(b => {
+      const cnt = Array.isArray(b.postIds) ? b.postIds.length : 0;
+      const isAct = activeSavedBucketFilter === b.id;
+      return `
+        <button type="button" class="saved-bucket-filter-pill ${isAct ? 'active' : ''}" onclick="selectSavedBucketFilter('${escapeHtml(b.id)}')">
+          <span>${escapeHtml(b.icon || '📁')} ${escapeHtml(b.name)}</span>
+          <span class="saved-bucket-pill-count">${cnt}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  bar.innerHTML = pillsHtml;
+  container.appendChild(bar);
+}
+
+let pendingNewSeriesCoverDataUrl = '';
+let editingSeriesNotebookId = null;
+let pendingDeleteSeriesConfirmId = null;
+let pendingEditSeriesCoverDataUrl = '';
+let newlyCreatedSeriesHighlightId = null;
+
+function ensureValidActiveSeriesFilter() {
+  syncSeriesFromLoadedPosts();
+  if (activeFeedSeriesFilter === '__new__') return;
+  const matched = activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all'
+    ? creatorSeriesList.find(s => s && s.id === activeFeedSeriesFilter)
+    : null;
+  if (matched) return;
+  if (creatorSeriesList.length > 0) {
+    activeFeedSeriesFilter = creatorSeriesList[0].id;
+  } else {
+    activeFeedSeriesFilter = '__new__';
+  }
+}
+
+function selectFeedSeriesFilter(seriesId) {
+  editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
+  activeFeedSeriesFilter = String(seriesId || '__new__');
+  renderFeed();
+}
+window.selectFeedSeriesFilter = selectFeedSeriesFilter;
+
+function openSeriesInFeed(seriesId, authorHandle = '') {
+  if (!seriesId) return;
+  syncSeriesFromLoadedPosts();
+  const isOwnedSeries = creatorSeriesList.some(s => s && s.id === seriesId);
+  if (!isOwnedSeries && authorHandle) {
+    filterByCurator(authorHandle, seriesId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
+  activeFeedSeriesFilter = String(seriesId);
+  currentFilter = 'series';
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.classList.toggle('active', pill.getAttribute('data-cat') === 'series');
+  });
+  renderFeed();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+window.openSeriesInFeed = openSeriesInFeed;
+
+function openCreatorForSeries(seriesId) {
+  if (seriesId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(seriesId);
+  }
+  openCreatorModal(null, { preserveSeries: true, targetSeriesId: seriesId });
+  if (seriesId && typeof setCreatorSeries === 'function') {
+    setTimeout(() => setCreatorSeries(seriesId), 60);
+  }
+}
+window.openCreatorForSeries = openCreatorForSeries;
+
+function promptDeleteSeriesNotebook(seriesId, showConfirm = true, event = null) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  pendingDeleteSeriesConfirmId = showConfirm ? seriesId : null;
+  renderFeed();
+}
+window.promptDeleteSeriesNotebook = promptDeleteSeriesNotebook;
+
+async function confirmDeleteSeriesNotebook(seriesId, event = null) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (!target) return;
+
+  const targetId = target.id;
+  const targetTitleLower = String(target.title || '').trim().toLowerCase();
+
+  // Record tombstone so syncSeriesFromLoadedPosts never recreates this deleted series
+  deletedSeriesTombstones.add(String(targetId));
+  if (targetTitleLower) {
+    deletedSeriesTombstones.add('title:' + targetTitleLower);
+  }
+  persistDeletedSeriesTombstones();
+
+  // Remove series from creatorSeriesList
+  creatorSeriesList = creatorSeriesList.filter(s => s && s.id !== targetId);
+  editingSeriesNotebookId = null;
+  pendingDeleteSeriesConfirmId = null;
+
+  // Unlink posts from this series WITHOUT deleting any post or changing its draft/published state
+  const affectedPosts = [];
+  if (Array.isArray(allPosts)) {
+    allPosts.forEach(p => {
+      if (!p) return;
+      const pSeriesId = String(p.seriesId || p.generationInputs?.seriesId || '').trim();
+      const pSeriesTitle = String(p.seriesTitle || p.generationInputs?.seriesTitle || '').trim().toLowerCase();
+      if (pSeriesId === targetId || (targetTitleLower && pSeriesTitle === targetTitleLower)) {
+        delete p.seriesId;
+        delete p.seriesTitle;
+        delete p.seriesDescription;
+        delete p.seriesCoverImage;
+        if (p.generationInputs) {
+          delete p.generationInputs.seriesId;
+          delete p.generationInputs.seriesTitle;
+          delete p.generationInputs.seriesDescription;
+          delete p.generationInputs.seriesCoverImage;
+        }
+        affectedPosts.push(p);
+      }
+    });
+  }
+
+  // Also unlink in localStorage user posts cache
+  try {
+    const cached = JSON.parse(localStorage.getItem('slant_user_posts_cache') || '[]');
+    if (Array.isArray(cached) && cached.length > 0) {
+      let cacheChanged = false;
+      cached.forEach(p => {
+        if (!p) return;
+        const pSeriesId = String(p.seriesId || p.generationInputs?.seriesId || '').trim();
+        const pSeriesTitle = String(p.seriesTitle || p.generationInputs?.seriesTitle || '').trim().toLowerCase();
+        if (pSeriesId === targetId || (targetTitleLower && pSeriesTitle === targetTitleLower)) {
+          delete p.seriesId;
+          delete p.seriesTitle;
+          delete p.seriesDescription;
+          delete p.seriesCoverImage;
+          if (p.generationInputs) {
+            delete p.generationInputs.seriesId;
+            delete p.generationInputs.seriesTitle;
+            delete p.generationInputs.seriesDescription;
+            delete p.generationInputs.seriesCoverImage;
+          }
+          cacheChanged = true;
+        }
+      });
+      if (cacheChanged) {
+        localStorage.setItem('slant_user_posts_cache', JSON.stringify(cached));
+      }
+    }
+  } catch (_) {}
+
+  if (activeCreatorSeriesId === targetId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(null);
+  } else if (typeof syncCreatorSeriesDropdowns === 'function') {
+    syncCreatorSeriesDropdowns();
+  }
+
+  persistCreatorSeries(true);
+  activeFeedSeriesFilter = creatorSeriesList.length > 0 ? creatorSeriesList[0].id : '__new__';
+  updateAuthUI();
+  renderFeed();
+  showTemporaryToast(`🗑️ Series "${target.title}" deleted. Your ${affectedPosts.length} ${affectedPosts.length === 1 ? 'post remains' : 'posts remain'} safe in Drafts/Feed.`);
+
+  // Persist unlinked posts in the background so the removed series tag stays removed across reloads
+  for (const post of affectedPosts) {
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post)
+      });
+    } catch (_) {}
+  }
+}
+window.confirmDeleteSeriesNotebook = confirmDeleteSeriesNotebook;
+
+function compressSeriesCoverFileToDataUrl(file) {
+  return new Promise((resolve) => {
+    if (!file) return resolve('');
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawUrl = ev.target?.result;
+      if (!rawUrl) return resolve('');
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const targetW = 360;
+          const targetH = 450;
+          const canvas = document.createElement('canvas');
+          canvas.width = targetW;
+          canvas.height = targetH;
+          const ctx = canvas.getContext('2d');
+          const imgRatio = img.width / img.height;
+          const targetRatio = targetW / targetH;
+          let sx = 0, sy = 0, sw = img.width, sh = img.height;
+          if (imgRatio > targetRatio) {
+            sw = img.height * targetRatio;
+            sx = (img.width - sw) / 2;
+          } else {
+            sh = img.width / targetRatio;
+            sy = (img.height - sh) / 2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+          const out = canvas.toDataURL('image/jpeg', 0.82);
+          resolve(out);
+        } catch (_) {
+          resolve(String(rawUrl));
+        }
+      };
+      img.onerror = () => resolve(String(rawUrl));
+      img.src = rawUrl;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleNewSeriesCoverUpload(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+  const compressed = await compressSeriesCoverFileToDataUrl(file);
+  if (!compressed) return;
+  pendingNewSeriesCoverDataUrl = compressed;
+  const previewBox = document.getElementById('newSeriesCoverPreviewBox');
+  if (previewBox) {
+    previewBox.innerHTML = `
+      <img src="${escapeHtml(compressed)}" class="series-cover-upload-img" alt="Cover preview">
+      <button type="button" class="series-cover-clear-btn" onclick="clearNewSeriesCoverPreview(event)" title="Remove cover">✕</button>
+    `;
+  }
+}
+window.handleNewSeriesCoverUpload = handleNewSeriesCoverUpload;
+
+function clearNewSeriesCoverPreview(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  pendingNewSeriesCoverDataUrl = '';
+  const fileInp = document.getElementById('newSeriesCoverFileInput');
+  if (fileInp) fileInp.value = '';
+  const previewBox = document.getElementById('newSeriesCoverPreviewBox');
+  if (previewBox) {
+    previewBox.innerHTML = `
+      <span class="series-cover-upload-icon">📷</span>
+      <span class="series-cover-upload-label">Add Cover</span>
+    `;
+  }
+}
+window.clearNewSeriesCoverPreview = clearNewSeriesCoverPreview;
+
+function triggerEditSeriesCoverUpload(seriesId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const inp = document.getElementById(`editSeriesCoverFileInput_${seriesId}`);
+  if (inp) inp.click();
+}
+window.triggerEditSeriesCoverUpload = triggerEditSeriesCoverUpload;
+
+async function handleEditSeriesCoverUpload(seriesId, event) {
+  const file = event?.target?.files?.[0];
+  if (!file || !seriesId) return;
+  const compressed = await compressSeriesCoverFileToDataUrl(file);
+  if (!compressed) return;
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (target) {
+    target.customCoverImage = compressed;
+    persistCreatorSeries(true);
+    if (typeof uploadArtworkToSupabaseStorage === 'function') {
+      uploadArtworkToSupabaseStorage(`series_cover_${seriesId}`, compressed).then(publicUrl => {
+        if (publicUrl && target) {
+          target.customCoverImage = publicUrl;
+          persistCreatorSeries(true);
+        }
+      }).catch(() => {});
+    }
+    showTemporaryToast('🖼️ Series cover thumbnail updated!');
+    renderFeed();
+  }
+}
+window.handleEditSeriesCoverUpload = handleEditSeriesCoverUpload;
+
+function toggleEditSeriesNotebook(seriesId, open = true) {
+  editingSeriesNotebookId = open ? seriesId : null;
+  renderFeed();
+  if (open) {
+    setTimeout(() => {
+      const descInp = document.getElementById('editSeriesNotebookDescInput');
+      if (descInp) descInp.focus();
+    }, 50);
+  }
+}
+window.toggleEditSeriesNotebook = toggleEditSeriesNotebook;
+
+function saveEditedSeriesNotebook(seriesId, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const target = creatorSeriesList.find(s => s && s.id === seriesId);
+  if (!target) return;
+  const titleInp = document.getElementById('editSeriesNotebookTitleInput');
+  const descInp = document.getElementById('editSeriesNotebookDescInput');
+  const nextTitle = titleInp ? titleInp.value.trim() : '';
+  const nextDesc = descInp ? descInp.value.trim() : '';
+  if (nextTitle) {
+    target.title = nextTitle;
+  }
+  target.description = nextDesc;
+  editingSeriesNotebookId = null;
+  persistCreatorSeries(true);
+  updateAuthUI();
+  showTemporaryToast(`📚 Series "${target.title}" updated!`);
+  renderFeed();
+}
+window.saveEditedSeriesNotebook = saveEditedSeriesNotebook;
+
+function createNewSeriesFromFeedBar(event, startSlantingImmediately = false) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const inp = document.getElementById('feedNewSeriesInput');
+  const descInp = document.getElementById('feedNewSeriesDescInput');
+  const rawTitle = inp ? inp.value.trim() : '';
+  const rawDesc = descInp ? descInp.value.trim() : '';
+  if (!rawTitle) {
+    if (inp) inp.focus();
+    showTemporaryToast('⚠️ Please enter a title for your Series.');
+    return;
+  }
+
+  clearSeriesTombstone(null, rawTitle);
+  let existing = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  const coverToSave = pendingNewSeriesCoverDataUrl || '';
+  if (!existing) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    existing = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      description: rawDesc,
+      customCoverImage: coverToSave,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    clearSeriesTombstone(existing.id, existing.title);
+    creatorSeriesList.unshift(existing);
+  } else {
+    if (rawDesc) existing.description = rawDesc;
+    if (coverToSave) existing.customCoverImage = coverToSave;
+  }
+
+  if (coverToSave && typeof uploadArtworkToSupabaseStorage === 'function') {
+    const targetRef = existing;
+    uploadArtworkToSupabaseStorage(`series_cover_${existing.id}`, coverToSave).then(publicUrl => {
+      if (publicUrl && targetRef) {
+        targetRef.customCoverImage = publicUrl;
+        persistCreatorSeries(true);
+      }
+    }).catch(() => {});
+  }
+
+  pendingNewSeriesCoverDataUrl = '';
+  newlyCreatedSeriesHighlightId = existing.id;
+  persistCreatorSeries(true);
+  updateAuthUI();
+  activeFeedSeriesFilter = existing.id;
+  showTemporaryToast(`📚 Series "${existing.title}" created!`);
+  renderFeed();
+
+  if (startSlantingImmediately) {
+    openCreatorForSeries(existing.id);
+  }
+}
+window.createNewSeriesFromFeedBar = createNewSeriesFromFeedBar;
+
+function renderSeriesFilterBar(container) {
+  if (!container) return;
+  ensureValidActiveSeriesFilter();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'series-feed-header-wrap';
+
+  const isCreatingNew = activeFeedSeriesFilter === '__new__';
+
+  const thumbsHtml = [
+    `<button type="button" class="series-poster-thumb-card is-new-series-card ${isCreatingNew ? 'active' : ''}" onclick="selectFeedSeriesFilter('__new__')" title="Create a new Series with a dedicated cover thumbnail & description">
+      <div class="series-poster-thumb-fallback is-new-fallback"></div>
+      <div class="series-poster-thumb-scrim-top">
+        <span class="series-poster-thumb-icon">➕</span>
+        <span class="series-poster-thumb-count">NEW</span>
+      </div>
+      <div class="series-poster-thumb-scrim-bottom">
+        <div class="series-poster-thumb-kicker">CREATE</div>
+        <div class="series-poster-thumb-title">+ New Series</div>
+        <div class="series-poster-thumb-sub">Cover &amp; Premise</div>
+      </div>
+    </button>`,
+    ...creatorSeriesList.map((s, idx) => {
+      const stats = getSeriesStats(s.id);
+      const isAct = activeFeedSeriesFilter === s.id;
+      const resolvedCover = s.customCoverImage || stats.coverImage || '';
+      const subText = s.description
+        ? s.description
+        : (stats.total === 0
+            ? 'Empty • Tap to pen'
+            : (stats.privCount > 0 ? `🌐 ${stats.pubCount} • 🔒 ${stats.privCount}` : `${stats.total} ${stats.total === 1 ? 'story' : 'stories'}`));
+      return `
+        <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectFeedSeriesFilter('${escapeHtml(s.id)}')" title="Series: ${escapeHtml(s.title)}${s.description ? ' — ' + escapeHtml(s.description) : ''} (${stats.total} posts)">
+          ${resolvedCover
+            ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+            : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
+          <div class="series-poster-thumb-scrim-top">
+            <span class="series-poster-thumb-icon">${escapeHtml(s.icon || '📚')}</span>
+            <span class="series-poster-thumb-count">${stats.total}</span>
+          </div>
+          <div class="series-poster-thumb-scrim-bottom">
+            <div class="series-poster-thumb-kicker">SERIES</div>
+            <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
+            <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
+          </div>
+        </button>
+      `;
+    })
+  ].join('');
+
+  const activeSeriesObj = (!isCreatingNew && activeFeedSeriesFilter)
+    ? creatorSeriesList.find(s => s.id === activeFeedSeriesFilter)
+    : null;
+  const activeStats = activeSeriesObj ? getSeriesStats(activeSeriesObj.id) : null;
+  const activeCoverUrl = activeSeriesObj ? (activeSeriesObj.customCoverImage || activeStats?.coverImage || '') : '';
+  const isEditingNotebook = Boolean(activeSeriesObj && editingSeriesNotebookId === activeSeriesObj.id);
+  const isPendingDeleteConfirm = Boolean(activeSeriesObj && pendingDeleteSeriesConfirmId === activeSeriesObj.id);
+  const isNewlyCreated = Boolean(activeSeriesObj && newlyCreatedSeriesHighlightId === activeSeriesObj.id);
+
+  wrap.innerHTML = `
+    <div class="series-poster-thumbnails-strip" role="region" aria-label="Series Poster Thumbnails">
+      ${thumbsHtml}
+    </div>
+    ${isCreatingNew ? `
+      <form class="series-create-studio-card" onsubmit="createNewSeriesFromFeedBar(event, false)">
+        <div class="series-studio-top-row">
+          <div class="series-cover-upload-slot" id="newSeriesCoverPreviewBox" onclick="document.getElementById('newSeriesCoverFileInput').click()" title="Tap to upload a dedicated Series cover image (4:5 poster ratio)">
+            ${pendingNewSeriesCoverDataUrl
+              ? `<img src="${escapeHtml(pendingNewSeriesCoverDataUrl)}" class="series-cover-upload-img" alt="Cover preview">
+                 <button type="button" class="series-cover-clear-btn" onclick="clearNewSeriesCoverPreview(event)" title="Remove cover">✕</button>`
+              : `<span class="series-cover-upload-icon">📷</span>
+                 <span class="series-cover-upload-label">Add Cover</span>`}
+          </div>
+          <input type="file" id="newSeriesCoverFileInput" accept="image/*" style="display:none;" onchange="handleNewSeriesCoverUpload(event)">
+          <div class="series-studio-header-and-title-col">
+            <div class="series-create-studio-header">
+              <span class="series-notebook-kicker">✨ NEW SERIES NOTEBOOK</span>
+              <span class="series-create-studio-sub">Tap cover on left to add artwork</span>
+            </div>
+            <input type="text" id="feedNewSeriesInput" class="series-inline-input is-title-input" placeholder="Series Title (e.g. Slant steps, Rethinking AI)..." maxlength="52" autocomplete="off" required>
+          </div>
+        </div>
+        <textarea id="feedNewSeriesDescInput" class="series-inline-desc-input is-full-width-desc" rows="3" maxlength="240" placeholder="Brief description — what premise, question, or journey does this series explore?"></textarea>
+        <div class="series-create-studio-footer">
+          <button type="submit" class="series-create-secondary-btn">Save Series</button>
+          <button type="button" class="series-start-slanting-cta-btn" onclick="createNewSeriesFromFeedBar(event, true)">
+            <span>✨ Create &amp; Start Slanting &rarr;</span>
+          </button>
+        </div>
+      </form>
+    ` : (activeSeriesObj ? `
+      <div class="series-active-notebook-banner ${isNewlyCreated ? 'is-newly-created' : ''}">
+        <div class="series-studio-top-row">
+          <div class="series-notebook-cover-box" onclick="triggerEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)" title="Tap to set or change dedicated Series cover image">
+            ${activeCoverUrl
+              ? `<img src="${escapeHtml(activeCoverUrl)}" class="series-notebook-cover-img" alt="">`
+              : `<div class="series-notebook-cover-fallback"><span>📚</span></div>`}
+            <span class="series-notebook-cover-cam-badge" title="Change Series Cover">📷</span>
+          </div>
+          <input type="file" id="editSeriesCoverFileInput_${escapeHtml(activeSeriesObj.id)}" accept="image/*" style="display:none;" onchange="handleEditSeriesCoverUpload('${escapeHtml(activeSeriesObj.id)}', event)">
+          <div class="series-studio-header-and-title-col">
+            <div class="series-notebook-top">
+              <span class="series-notebook-kicker">📚 SERIES NOTEBOOK</span>
+              <div class="series-notebook-stats">
+                <span class="series-stat-pill is-public" title="Published to Public Feed">🌐 ${activeStats.pubCount}</span>
+                <span class="series-stat-pill is-private" title="Private in Series (Visible Only to You)">🔒 ${activeStats.privCount}</span>
+                ${!isEditingNotebook ? `
+                  <button type="button" class="series-edit-meta-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Edit Series title, description, or cover">✏️ Edit</button>
+                  <button type="button" class="series-delete-icon-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true, event)" title="Delete Series (posts remain safe in Drafts/Feed)">🗑️</button>
+                ` : ''}
+              </div>
+            </div>
+            ${isEditingNotebook ? `
+              <input type="text" id="editSeriesNotebookTitleInput" class="series-inline-input is-title-input" value="${escapeHtml(activeSeriesObj.title)}" placeholder="Series Title..." maxlength="52">
+            ` : `
+              <h4 class="series-notebook-title">${escapeHtml(activeSeriesObj.title)}</h4>
+            `}
+          </div>
+        </div>
+
+        ${isPendingDeleteConfirm ? `
+          <div class="series-delete-confirm-box">
+            <div class="series-delete-confirm-text">
+              <strong>Delete Series "${escapeHtml(activeSeriesObj.title)}"?</strong>
+              <span>Your ${activeStats.total} ${activeStats.total === 1 ? 'post' : 'posts'} will <u>not</u> be deleted — they will stay in Drafts or Feed as they were.</span>
+            </div>
+            <div class="series-delete-confirm-actions">
+              <button type="button" class="series-editor-cancel-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false, event)">Keep Series</button>
+              <button type="button" class="series-delete-confirm-btn" onclick="confirmDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">🗑️ Delete Series Only</button>
+            </div>
+          </div>
+        ` : ''}
+
+        ${isEditingNotebook ? `
+          <div class="series-notebook-inline-editor">
+            <textarea id="editSeriesNotebookDescInput" class="series-inline-desc-input is-full-width-desc" rows="3" maxlength="240" placeholder="Add a brief description for this series...">${escapeHtml(activeSeriesObj.description || '')}</textarea>
+            <div class="series-notebook-editor-actions">
+              <button type="button" class="series-editor-delete-btn" onclick="promptDeleteSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true, event)" title="Delete this Series without deleting its posts">🗑️ Delete Series</button>
+              <div class="series-editor-right-btns">
+                <button type="button" class="series-editor-cancel-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', false)">Cancel</button>
+                <button type="button" class="series-editor-save-btn" onclick="saveEditedSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', event)">Save Changes</button>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="series-notebook-desc-wrap">
+            ${activeSeriesObj.description
+              ? `<p class="series-notebook-desc-text" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)" title="Tap to edit description">${escapeHtml(activeSeriesObj.description)}</p>`
+              : `<button type="button" class="series-add-desc-prompt-btn" onclick="toggleEditSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', true)">+ Add a brief description for this series...</button>`}
+          </div>
+        `}
+
+        <div class="series-notebook-actions">
+          <span class="series-notebook-hint" style="flex:1 1 180px;">${isNewlyCreated ? '🎉 Series ready! Start slanting your first perspective in this series:' : 'Explore thoughts in this series privately, and publish only the ones you choose.'}</span>
+          <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; margin-left:auto; flex-shrink:0;">
+            <button type="button" class="series-add-post-btn" onclick="openCreatorForSeries('${escapeHtml(activeSeriesObj.id)}')">
+              <span>✨ Start Slanting &rarr;</span>
+            </button>
+            <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '', event)" title="Share Series" aria-label="Share Series" style="width:30px; height:30px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.55); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; flex-shrink:0;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    ` : '')}
+  `;
+
+  container.appendChild(wrap);
+}
+
+function resolveSeriesMetadataForShare(seriesId, authorHandle = '') {
+  const sId = String(seriesId || '').trim();
+  if (!sId) return null;
+
+  const ownedSeries = Array.isArray(creatorSeriesList) ? creatorSeriesList.find(s => s && s.id === sId) : null;
+  const stats = typeof getSeriesStats === 'function' ? getSeriesStats(sId) : { total: 0, pubCount: 0, coverImage: '' };
+
+  let title = ownedSeries?.title || '';
+  let description = ownedSeries?.description || '';
+  let icon = ownedSeries?.icon || '📚';
+  let coverImage = ownedSeries?.customCoverImage || stats.coverImage || '';
+  let handle = String(authorHandle || '').replace(/^@/, '').trim();
+  let pubCount = stats.pubCount || 0;
+
+  if (Array.isArray(allPosts)) {
+    const matchingPosts = allPosts.filter(p => {
+      if (!p || p.deleted || p.isDeleted || isPostPrivateOrDraft(p)) return false;
+      const sInfo = typeof getPostSeriesInfo === 'function' ? getPostSeriesInfo(p) : null;
+      return sInfo && sInfo.id === sId;
+    });
+    if (matchingPosts.length > 0) {
+      pubCount = Math.max(pubCount, matchingPosts.length);
+      const first = matchingPosts[0];
+      const sInfo = getPostSeriesInfo(first);
+      if (!title && sInfo?.title) title = sInfo.title;
+      if (!description) {
+        description = sInfo?.description || String(first.seriesDescription || first.generationInputs?.seriesDescription || '').trim();
+      }
+      if (!coverImage) {
+        coverImage = sInfo?.customCoverImage
+          || String(first.seriesCoverImage || first.generationInputs?.seriesCoverImage || '').trim()
+          || first.illustrationBase64
+          || first.illustrationUrl
+          || first.aiIllustrationUrl
+          || '';
+      }
+      if (!handle) {
+        handle = String(first.creatorHandle || first.userEmail || '').replace(/^@/, '').trim();
+      }
+    }
+  }
+
+  if (!handle && typeof getUserDisplayName === 'function') {
+    handle = String(getUserDisplayName() || 'curator').replace(/^@/, '').trim();
+  }
+
+  return {
+    id: sId,
+    title: title || 'Editorial Series',
+    description: description || 'A curated collection of perspectives on Slant.',
+    icon,
+    coverImage,
+    handle: handle || 'curator',
+    pubCount: Math.max(1, pubCount || stats.total || 1)
+  };
+}
+
+function wrapCanvasTextLines(ctx, text, maxWidth, maxLines = 3) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const testLine = currentLine + ' ' + words[i];
+    if (ctx.measureText(testLine).width <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = words[i];
+      if (lines.length === maxLines - 1) {
+        for (let j = i + 1; j < words.length; j++) {
+          const nextTry = currentLine + ' ' + words[j];
+          if (ctx.measureText(nextTry + '…').width <= maxWidth) {
+            currentLine = nextTry;
+          } else {
+            currentLine += '…';
+            break;
+          }
+        }
+        break;
+      }
+    }
+  }
+  if (lines.length < maxLines && currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+async function generateSeriesThumbnailShareFile(seriesMeta) {
+  const W = 1080;
+  const H = 1350;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // 1. Base Obsidian & Gold Editorial Gradient
+  const baseGrad = ctx.createLinearGradient(0, 0, W, H);
+  baseGrad.addColorStop(0, '#090D16');
+  baseGrad.addColorStop(0.55, '#131C31');
+  baseGrad.addColorStop(1, '#1A130B');
+  ctx.fillStyle = baseGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Draw Series Cover Image (Full-bleed Cover Fit) if available
+  if (seriesMeta.coverImage) {
+    try {
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = seriesMeta.coverImage;
+      });
+      const rImg = img.naturalWidth / img.naturalHeight;
+      const rCan = W / H;
+      let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+      if (rImg > rCan) {
+        sw = img.naturalHeight * rCan;
+        sx = (img.naturalWidth - sw) / 2;
+      } else if (rImg < rCan) {
+        sh = img.naturalWidth / rCan;
+        sy = (img.naturalHeight - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, H);
+    } catch (_) {}
+  }
+
+  // 3. Top & Bottom Editorial Scrims for Contrast
+  const topScrim = ctx.createLinearGradient(0, 0, 0, 280);
+  topScrim.addColorStop(0, 'rgba(6, 10, 18, 0.85)');
+  topScrim.addColorStop(1, 'rgba(6, 10, 18, 0)');
+  ctx.fillStyle = topScrim;
+  ctx.fillRect(0, 0, W, 280);
+
+  const botScrim = ctx.createLinearGradient(0, H * 0.42, 0, H);
+  botScrim.addColorStop(0, 'rgba(6, 10, 18, 0)');
+  botScrim.addColorStop(0.35, 'rgba(8, 12, 22, 0.84)');
+  botScrim.addColorStop(1, 'rgba(6, 9, 16, 0.97)');
+  ctx.fillStyle = botScrim;
+  ctx.fillRect(0, H * 0.42, W, H * 0.58);
+
+  // 4. Outer Subtle Gold Editorial Border
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(36, 36, W - 72, H - 72);
+
+  // 5. Top-Left Brand Pill ("SLANT • EDITORIAL SERIES")
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
+  ctx.beginPath();
+  ctx.roundRect(68, 68, 360, 56, 28);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#F8FAFC';
+  ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('📚 SLANT • SERIES', 96, 104);
+
+  // 6. Top-Right Glowing Gold @Curator Badge
+  const handleText = `✦ @${seriesMeta.handle}`;
+  ctx.font = '800 23px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const handleW = Math.min(440, ctx.measureText(handleText).width + 54);
+  const pillX = W - 68 - handleW;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(245, 158, 11, 0.55)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = 'rgba(20, 15, 8, 0.88)';
+  ctx.beginPath();
+  ctx.roundRect(pillX, 68, handleW, 56, 28);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = '#FDE68A';
+  ctx.fillText(handleText, pillX + 26, 104);
+
+  // 7. Bottom Series Title, Description & Callout Plaque
+  const padX = 76;
+  const maxTextW = W - padX * 2;
+
+  ctx.font = '700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const descLines = wrapCanvasTextLines(ctx, seriesMeta.description, maxTextW, 3);
+
+  ctx.font = 'italic 800 62px Georgia, "Playfair Display", serif';
+  const titleLines = wrapCanvasTextLines(ctx, `“${seriesMeta.title}”`, maxTextW, 3);
+
+  const footerY = H - 84;
+  const descLineH = 38;
+  const titleLineH = 74;
+  const descBlockH = descLines.length * descLineH;
+  const titleBlockH = titleLines.length * titleLineH;
+
+  let curY = footerY - 68 - descBlockH - 26 - titleBlockH;
+
+  // Kicker Pill above Title
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = '800 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const countLabel = `${seriesMeta.pubCount} ${seriesMeta.pubCount === 1 ? 'PUBLISHED SLANT' : 'PUBLISHED SLANTS'} • CURATED BY @${seriesMeta.handle.toUpperCase()}`;
+  ctx.fillText(`✦ ${countLabel}`, padX, curY - 26);
+
+  // Series Title
+  ctx.fillStyle = '#FEF3C7';
+  ctx.font = 'italic 800 62px Georgia, "Playfair Display", serif';
+  titleLines.forEach(line => {
+    ctx.fillText(line, padX, curY + 42);
+    curY += titleLineH;
+  });
+
+  // Series Description
+  curY += 16;
+  ctx.fillStyle = '#E2E8F0';
+  ctx.font = '500 27px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  descLines.forEach(line => {
+    ctx.fillText(line, padX, curY + 28);
+    curY += descLineH;
+  });
+
+  // Divider & Footer
+  ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(padX, footerY - 38);
+  ctx.lineTo(W - padX, footerY - 38);
+  ctx.stroke();
+
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = '800 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.fillText('🌐 slant.today', padX, footerY);
+
+  const ctaRight = 'Tap link to read all posts in this series →';
+  ctx.fillStyle = '#CBD5E1';
+  ctx.font = '600 21px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  const ctaW = ctx.measureText(ctaRight).width;
+  ctx.fillText(ctaRight, W - padX - ctaW, footerY);
+
+  return new Promise(resolve => {
+    canvas.toBlob(blob => {
+      if (!blob) return resolve(null);
+      const safeSlug = seriesMeta.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'series';
+      resolve(new File([blob], `slant-series-${safeSlug}.png`, { type: 'image/png' }));
+    }, 'image/png', 0.94);
+  });
+}
+
+async function shareSeriesNotebook(seriesId, authorHandle = '', event = null) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const seriesMeta = resolveSeriesMetadataForShare(seriesId, authorHandle);
+  if (!seriesMeta) {
+    showTemporaryToast('Could not locate Series details to share.');
+    return;
+  }
+
+  showTemporaryToast(`🎨 Preparing Series cover & link for "${seriesMeta.title}"...`, 2800);
+
+  const seriesUrl = getSeriesShareUrl(seriesMeta.id, seriesMeta.handle);
+  const descSnippet = seriesMeta.description && seriesMeta.description !== 'A curated collection of perspectives on Slant.'
+    ? ` — "${seriesMeta.description}"`
+    : '';
+  const shareMessage = `📚 Explore the Series "${seriesMeta.title}"${descSnippet} (${seriesMeta.pubCount} ${seriesMeta.pubCount === 1 ? 'Slant' : 'Slants'} by @${seriesMeta.handle}) on Slant:\n${seriesUrl}`;
+
+  // Always copy the share message & link to clipboard so it's ready to paste anywhere
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
+    } catch (_) {}
+  }
+
+  const thumbFile = await generateSeriesThumbnailShareFile(seriesMeta);
+
+  if (navigator.share) {
+    try {
+      if (thumbFile && navigator.canShare && navigator.canShare({ files: [thumbFile], title: seriesMeta.title, text: shareMessage })) {
+        await navigator.share({
+          files: [thumbFile],
+          title: `${seriesMeta.title} • Slant Series`,
+          text: shareMessage
+        });
+        showTemporaryToast('✨ Series thumbnail, message & link shared!');
+        return;
+      }
+      if (thumbFile && navigator.canShare && navigator.canShare({ files: [thumbFile] })) {
+        showTemporaryToast('📋 Series message & link copied! Paste into caption bar.', 4500);
+        await navigator.share({ files: [thumbFile] });
+        return;
+      }
+      await navigator.share({
+        title: `${seriesMeta.title} • Slant Series`,
+        text: shareMessage,
+        url: seriesUrl
+      });
+      showTemporaryToast('✨ Series link shared!');
+      return;
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      console.warn('Series native share fallback:', err);
+    }
+  }
+
+  if (thumbFile && typeof downloadSingleFile === 'function') {
+    downloadSingleFile(thumbFile);
+  }
+  showTemporaryToast('📥 Series cover downloaded & share link copied to clipboard!', 4500);
+}
+window.shareSeriesNotebook = shareSeriesNotebook;
+
 async function renderFeed(isInitial = false) {
   const container = document.getElementById('feedContainer');
   if (!container) return;
@@ -5314,11 +9364,23 @@ async function renderFeed(isInitial = false) {
   feedNextCardIndexSeq = 0;
   nextBatchPreloadPromise = null;
 
+  if (currentFilter === 'series') {
+    ensureValidActiveSeriesFilter();
+  }
+
   const filtered = getFilteredPostsForFilter(allPosts, currentFilter, searchQuery);
   currentBatchFilteredPosts = filtered;
 
   if (currentFilter === 'daily_chronicles' || currentFilter === 'diary') {
     renderDailyChroniclesPrivateBanner(container, filtered.length);
+  }
+
+  if (currentFilter === 'saved') {
+    renderSavedBucketsFilterBar(container);
+  }
+
+  if (currentFilter === 'series') {
+    renderSeriesFilterBar(container);
   }
 
   if (currentFilter === 'drafts' && typeof renderFeedFormDraftsSection === 'function') {
@@ -5361,30 +9423,56 @@ async function renderFeed(isInitial = false) {
     }
 
     if (currentFilter === 'saved') {
-      container.innerHTML = `
-        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
-          <div style="font-size:42px; margin-bottom:12px;">🔖</div>
-          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No saved stories yet</div>
-          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
-            Tap the bookmark icon on any visual editorial postcard to save it here for later reading.
-          </div>
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 56px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">🔖</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">${activeSavedBucketFilter !== 'all' ? 'No stories in this bucket yet' : 'No saved stories yet'}</div>
+        <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Tap the bookmark icon on any visual editorial postcard to save it into a bucket list.
         </div>
       `;
+      container.appendChild(emptyEl);
+      initialFeedBatchReady = true;
+      dismissInitialFeedLoader(true);
+      return;
+    }
+
+    if (currentFilter === 'series') {
+      if (activeFeedSeriesFilter === '__new__') {
+        initialFeedBatchReady = true;
+        dismissInitialFeedLoader(true);
+        return;
+      }
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 36px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:38px; margin-bottom:10px;">📚</div>
+        <div style="font-weight:700; font-size:16.5px; color:var(--text-primary); letter-spacing:-0.3px;">No posts in this Series yet</div>
+        <div style="font-size:13px; margin-top:6px; max-width:350px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Pen your first perspective in this Series. Keep posts private inside your Series notebook or publish selected ones to the public feed.
+        </div>
+        <button type="button" onclick="openCreatorForSeries('${escapeHtml(activeFeedSeriesFilter)}')" style="margin-top:14px; padding:10px 18px; border-radius:999px; border:none; background:linear-gradient(135deg, #253833 0%, #10B981 100%); color:#FFFFFF; font-size:12.5px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px rgba(16,185,129,0.28);">
+          ✨ Start Slanting in This Series &rarr;
+        </button>
+      `;
+      container.appendChild(emptyEl);
       initialFeedBatchReady = true;
       dismissInitialFeedLoader(true);
       return;
     }
 
     if (currentFilter === 'my_stories') {
-      container.innerHTML = `
-        <div style="text-align:center; padding: 56px 16px; color: var(--text-muted);">
-          <div style="font-size:42px; margin-bottom:12px;">✍️</div>
-          <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No published stories yet</div>
-          <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
-            Visual postcards you publish from the PostCard app or creator tools under this account will appear here.
-          </div>
+      const emptyEl = document.createElement('div');
+      emptyEl.style.cssText = 'text-align:center; padding: 56px 16px; color: var(--text-muted);';
+      emptyEl.innerHTML = `
+        <div style="font-size:42px; margin-bottom:12px;">✍️</div>
+        <div style="font-weight:700; font-size:17px; color:var(--text-primary); letter-spacing:-0.3px;">No stories in this view yet</div>
+        <div style="font-size:13px; margin-top:6px; max-width:320px; margin-left:auto; margin-right:auto; line-height:1.5;">
+          Visual postcards and Series notebooks you create under this account will appear here.
         </div>
       `;
+      container.appendChild(emptyEl);
       initialFeedBatchReady = true;
       dismissInitialFeedLoader(true);
       return;
@@ -5660,33 +9748,260 @@ function escapeHtml(str) {
    ============================================================ */
 
 const cleanViewState = {};
+const activeCleanViewScrollMap = new Map(); // index -> scrollY when opened
+const activeExpandedCaptionScrollMap = new Map(); // index -> scrollY when opened
+let _feedAutoRestoreObserver = null;
+let _feedScrollIdleTimer = null;
+let _feedPassiveScrollListenerBound = false;
 
-function toggleCleanView(event, index) {
-  if (event) {
-    event.stopPropagation();
-    event.preventDefault();
+function ensureFeedAutoRestoreControllers() {
+  if (typeof window === 'undefined') return;
+
+  if (!_feedAutoRestoreObserver && typeof IntersectionObserver !== 'undefined') {
+    _feedAutoRestoreObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.25) continue;
+        const cardEl = entry.target;
+        const idx = cardEl ? cardEl.getAttribute('data-feed-card-index') : null;
+        if (idx === null || idx === undefined) continue;
+        if (activeCleanViewScrollMap.has(String(idx))) {
+          setCleanView(idx, false);
+        }
+        if (activeExpandedCaptionScrollMap.has(String(idx))) {
+          toggleCaptionExpand(idx, false);
+        }
+        if (!activeCleanViewScrollMap.has(String(idx)) && !activeExpandedCaptionScrollMap.has(String(idx))) {
+          _feedAutoRestoreObserver.unobserve(cardEl);
+        }
+      }
+    }, { threshold: [0, 0.25] });
   }
-  cleanViewState[index] = !cleanViewState[index];
-  const isClean = cleanViewState[index];
+
+  if (!_feedPassiveScrollListenerBound) {
+    _feedPassiveScrollListenerBound = true;
+    window.addEventListener('scroll', () => {
+      if (activeCleanViewScrollMap.size === 0 && activeExpandedCaptionScrollMap.size === 0) return;
+      if (_feedScrollIdleTimer) clearTimeout(_feedScrollIdleTimer);
+      _feedScrollIdleTimer = setTimeout(() => {
+        const curY = window.scrollY || window.pageYOffset || 0;
+        for (const [idx, startY] of Array.from(activeCleanViewScrollMap.entries())) {
+          if (Math.abs(curY - startY) > 130) {
+            setCleanView(idx, false);
+          }
+        }
+        for (const [idx, startY] of Array.from(activeExpandedCaptionScrollMap.entries())) {
+          if (Math.abs(curY - startY) > 150) {
+            toggleCaptionExpand(idx, false);
+          }
+        }
+      }, 150);
+    }, { passive: true });
+  }
+}
+
+function observeFeedCardForAutoRestore(index) {
+  const key = String(index);
+  if (key === 'preview' || key === 'whole' || key === 'diary_preview') return;
+  ensureFeedAutoRestoreControllers();
+  const carousel = document.getElementById(`carousel-${index}`);
+  const snippet = document.getElementById(`caption-snippet-${index}`);
+  const cardEl = (carousel && carousel.closest('.post-card')) || (snippet && snippet.closest('.post-card'));
+  if (cardEl && _feedAutoRestoreObserver) {
+    cardEl.setAttribute('data-feed-card-index', key);
+    _feedAutoRestoreObserver.observe(cardEl);
+  }
+}
+
+function setCleanView(index, shouldClean) {
+  const key = String(index);
+  const isClean = Boolean(shouldClean);
+  cleanViewState[key] = isClean;
 
   const carousel = document.getElementById(`carousel-${index}`);
   if (carousel) {
     carousel.classList.toggle('clean-view', isClean);
   }
 
-  const btn = document.getElementById(`clean-btn-${index}`);
-  if (btn) {
-    btn.classList.toggle('active', isClean);
-    btn.setAttribute('title', isClean ? 'Show text overlays' : 'Clean artwork (hide text)');
-    btn.innerHTML = isClean
-      ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-           <line x1="1" y1="1" x2="23" y2="23"></line>
-         </svg>`
-      : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-           <circle cx="12" cy="12" r="3"></circle>
-         </svg>`;
+  if (key === 'preview') {
+    const posterEyeBtn = document.querySelector('#carousel-preview .preview-poster-eye-btn');
+    if (posterEyeBtn) {
+      posterEyeBtn.classList.toggle('active', isClean);
+      const span = posterEyeBtn.querySelector('span');
+      if (span) span.textContent = isClean ? 'Show Text' : 'Clear Text';
+    }
+    return;
+  }
+
+  if (isClean) {
+    activeCleanViewScrollMap.set(key, window.scrollY || window.pageYOffset || 0);
+    observeFeedCardForAutoRestore(key);
+  } else {
+    activeCleanViewScrollMap.delete(key);
+  }
+}
+
+function toggleCleanView(event, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const key = String(index);
+  setCleanView(key, !cleanViewState[key]);
+}
+
+const CLEAN_PEEK_DISMISSED_KEY = 'slant_clean_peek_dismissed_v1';
+const CLEAN_PEEK_COUNT_KEY = 'slant_clean_peek_count_v1';
+const MAX_CLEAN_PEEK_DEMOS = 3;
+let _cleanPeekRanThisSession = false;
+let _activeCleanPeekTimers = [];
+let _activeCleanPeekIndex = null;
+
+function cancelActiveCleanPeekDemo(restoreCleanView = true) {
+  while (_activeCleanPeekTimers.length > 0) {
+    clearTimeout(_activeCleanPeekTimers.pop());
+  }
+  document.querySelectorAll('.clean-peek-demo-pill').forEach(el => el.remove());
+  if (restoreCleanView && _activeCleanPeekIndex !== null) {
+    const idx = _activeCleanPeekIndex;
+    _activeCleanPeekIndex = null;
+    if (cleanViewState[String(idx)]) {
+      setCleanView(idx, false);
+    }
+  } else {
+    _activeCleanPeekIndex = null;
+  }
+}
+
+function dismissCleanPeekDemoForever(event, showConfirmToast = false) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  try {
+    localStorage.setItem(CLEAN_PEEK_DISMISSED_KEY, '1');
+  } catch (_) {}
+  cancelActiveCleanPeekDemo(true);
+  if (showConfirmToast && typeof showTemporaryToast === 'function') {
+    showTemporaryToast('✓ Got it — hint won\'t show again');
+  }
+}
+window.dismissCleanPeekDemoForever = dismissCleanPeekDemoForever;
+
+function scheduleFirstTimeCleanPeekDemo() {
+  if (_cleanPeekRanThisSession) return;
+  try {
+    if (localStorage.getItem(CLEAN_PEEK_DISMISSED_KEY) === '1') return;
+    const prevCount = parseInt(localStorage.getItem(CLEAN_PEEK_COUNT_KEY) || '0', 10) || 0;
+    if (prevCount >= MAX_CLEAN_PEEK_DEMOS) return;
+  } catch (_) {
+    return;
+  }
+
+  const startTimer = setTimeout(() => {
+    if (_cleanPeekRanThisSession) return;
+    try {
+      if (localStorage.getItem(CLEAN_PEEK_DISMISSED_KEY) === '1') return;
+    } catch (_) {}
+
+    const container = document.getElementById('feedContainer');
+    if (!container) return;
+    const firstCarousel = container.querySelector('.post-card .carousel-view');
+    if (!firstCarousel) return;
+
+    const index = firstCarousel.getAttribute('data-post-index');
+    const curSlide = firstCarousel.getAttribute('data-current-slide') || '0';
+    if (index === null || curSlide !== '0') return;
+
+    const rect = firstCarousel.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+    if (rect.top < 20 || rect.bottom > vh + 80 || rect.height < 180) return;
+
+    const slideHook = firstCarousel.querySelector('.slide-hook');
+    if (!slideHook) return;
+
+    _cleanPeekRanThisSession = true;
+    _activeCleanPeekIndex = String(index);
+    try {
+      const prevCount = parseInt(localStorage.getItem(CLEAN_PEEK_COUNT_KEY) || '0', 10) || 0;
+      localStorage.setItem(CLEAN_PEEK_COUNT_KEY, String(prevCount + 1));
+    } catch (_) {}
+
+    // Inject subtle floating hint pill with "Got it ✕" opt-out
+    const pill = document.createElement('div');
+    pill.className = 'clean-peek-demo-pill';
+    pill.innerHTML = `
+      <span class="clean-peek-demo-label">👁️ Tap text anytime to view full art</span>
+      <span class="clean-peek-demo-sep">·</span>
+      <button type="button" class="clean-peek-dismiss-btn" onclick="dismissCleanPeekDemoForever(event, true)" title="Don't show this demo again">Got it ✕</button>
+    `;
+    slideHook.appendChild(pill);
+    requestAnimationFrame(() => pill.classList.add('is-visible'));
+
+    // Fade out lower text for ~1.7s to reveal full artwork
+    setCleanView(index, true);
+
+    const restoreTextTimer = setTimeout(() => {
+      if (_activeCleanPeekIndex === String(index) && cleanViewState[String(index)]) {
+        setCleanView(index, false);
+      }
+    }, 1750);
+    _activeCleanPeekTimers.push(restoreTextTimer);
+
+    // Keep subtle "Got it ✕" pill lingering briefly after text returns so user can easily tap it
+    const hidePillTimer = setTimeout(() => {
+      pill.classList.remove('is-visible');
+      const removeTimer = setTimeout(() => {
+        if (pill.parentNode) pill.remove();
+        if (_activeCleanPeekIndex === String(index)) {
+          _activeCleanPeekIndex = null;
+        }
+      }, 320);
+      _activeCleanPeekTimers.push(removeTimer);
+    }, 3600);
+    _activeCleanPeekTimers.push(hidePillTimer);
+  }, 1350);
+
+  _activeCleanPeekTimers.push(startTimer);
+}
+
+function handleSlide1LowerTextTap(event, index) {
+  if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
+    return;
+  }
+  if (event) {
+    event.stopPropagation();
+  }
+  // User manually tapped the lower text: mark demo as learned so it doesn't need to show again
+  try {
+    localStorage.setItem(CLEAN_PEEK_DISMISSED_KEY, '1');
+  } catch (_) {}
+  cancelActiveCleanPeekDemo(false);
+
+  const key = String(index);
+  if (key === 'whole') {
+    toggleWholePosterCleanView();
+    return;
+  }
+  setCleanView(key, !cleanViewState[key]);
+}
+
+function handleSlide1PosterTap(event, index) {
+  if (window._justSwipedCarousel && (Date.now() - window._justSwipedCarousel < 350)) {
+    return;
+  }
+  cancelActiveCleanPeekDemo(false);
+  const key = String(index);
+  if (key === 'whole') {
+    if (typeof isWholePosterClean !== 'undefined' && isWholePosterClean) {
+      if (event) event.stopPropagation();
+      toggleWholePosterCleanView();
+    }
+    return;
+  }
+  // When poster text is cleared (.clean-view), tapping anywhere on Poster 1 restores the text overlay
+  if (cleanViewState[key]) {
+    if (event) event.stopPropagation();
+    setCleanView(key, false);
   }
 }
 
@@ -5710,7 +10025,33 @@ function getStartingLines(fullText) {
   return fullText.substring(0, 120);
 }
 
+function splitEditorialParagraphsOrMoments(input) {
+  const rawList = Array.isArray(input) ? input : [input];
+  const out = [];
+  for (const item of rawList) {
+    if (!item || typeof item !== 'string') continue;
+    const chunks = item
+      .trim()
+      .split(/\n\s*\n|(?=(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:\s*)/i)
+      .map(p => p.trim())
+      .filter(Boolean);
+    for (const c of chunks) {
+      out.push(c);
+    }
+  }
+  return out;
+}
+
 function formatCuratorTakeApt(text) {
+  if (!text || typeof text !== 'string') return '';
+  const rawBlocks = splitEditorialParagraphsOrMoments(text);
+  if (rawBlocks.length > 1) {
+    return rawBlocks.map(b => formatCuratorTakeAptSingleBlock(b)).filter(Boolean).join('\n\n');
+  }
+  return formatCuratorTakeAptSingleBlock(text);
+}
+
+function formatCuratorTakeAptSingleBlock(text) {
   if (!text || typeof text !== 'string') return '';
   let s = text.trim();
 
@@ -5859,10 +10200,18 @@ function getCaptionSnippet(text, maxLen = 140) {
 window.expandedCaptionsState = window.expandedCaptionsState || {};
 
 function toggleCaptionExpand(index, shouldExpand) {
+  const key = String(index);
   if (typeof shouldExpand !== 'boolean') {
-    shouldExpand = !window.expandedCaptionsState[index];
+    shouldExpand = !window.expandedCaptionsState[key];
   }
-  window.expandedCaptionsState[index] = shouldExpand;
+  window.expandedCaptionsState[key] = shouldExpand;
+
+  if (shouldExpand) {
+    activeExpandedCaptionScrollMap.set(key, window.scrollY || window.pageYOffset || 0);
+    observeFeedCardForAutoRestore(key);
+  } else {
+    activeExpandedCaptionScrollMap.delete(key);
+  }
 
   const snippetEl = document.getElementById(`caption-snippet-${index}`);
   if (!snippetEl) return;
@@ -5892,7 +10241,6 @@ function toggleCaptionExpand(index, shouldExpand) {
     snippetEl.innerHTML = `
       <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(fullText)}</span>
-      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
     `;
   } else {
     snippetEl.classList.remove('is-expanded');
@@ -5953,6 +10301,24 @@ function getVimeoEmbedUrl(url) {
   const str = String(url).trim();
   const m = str.match(/vimeo\.com\/(?:video\/)?(\d+)/i);
   return (m && m[1]) ? `https://player.vimeo.com/video/${m[1]}` : null;
+}
+
+function getTwitterXEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  const m = str.match(/(?:twitter\.com|x\.com)\/(?:[A-Za-z0-9_]+\/status(?:es)?|i\/web\/status|i\/status)\/(\d{5,25})/i);
+  if (!m || !m[1]) return null;
+  const isDark = typeof document !== 'undefined' && document.documentElement && document.documentElement.getAttribute('data-theme') === 'obsidian';
+  return `https://platform.twitter.com/embed/Tweet.html?id=${encodeURIComponent(m[1])}&theme=${isDark ? 'dark' : 'light'}&dnt=true&chrome=nofooter`;
+}
+
+function getInstagramEmbedUrl(url) {
+  if (!url) return null;
+  const str = String(url).trim();
+  const m = str.match(/(?:www\.)?instagram\.com\/(?:[A-Za-z0-9_.]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i);
+  if (!m || !m[1] || !m[2]) return null;
+  const kind = m[1].toLowerCase() === 'reels' ? 'reel' : m[1].toLowerCase();
+  return `https://www.instagram.com/${kind}/${encodeURIComponent(m[2])}/embed/`;
 }
 
 function isInnerVoicePost(post) {
@@ -6090,7 +10456,15 @@ function buildSlide1Html(post, index, totalSlides = 2) {
     sourceLabel = 'Chronicles';
     catBadge = diaryPenBadgeHtml;
   } else if (tier === 'tier2_web') {
-    sourceLabel = cleanHost || 'Web Commentary';
+    const rawLinkForOwner = String(post.digitalLink || post.generationInputs?.sourceUrl || '').trim();
+    const xHandleMatch = rawLinkForOwner.match(/(?:twitter\.com|x\.com)\/(?!i\/|intent\/|share|search|hashtag|home|explore)([A-Za-z0-9_]{1,25})\/status/i);
+    if (xHandleMatch && xHandleMatch[1]) {
+      sourceLabel = escapeHtml(`@${xHandleMatch[1]} • X.com`);
+    } else if (post.publicationName && post.publicationName.includes('@')) {
+      sourceLabel = pubName;
+    } else {
+      sourceLabel = cleanHost || 'Web Commentary';
+    }
   } else if (tier === 'tier3_opinion') {
     sourceLabel = 'Inner Voice';
     catBadge = `${slantIcon} OPINION`;
@@ -6252,6 +10626,7 @@ function buildSlide1Html(post, index, totalSlides = 2) {
   const isInnerVoice = isInnerVoicePost(post);
   const rawHandle = (post.creatorHandle || '@curator').trim();
   const initial = escapeHtml((rawHandle.replace('@', '').trim().charAt(0) || 'C').toUpperCase());
+  const posterAura = buildPosterCreatorAuraParts(rawHandle, initial);
   const curatorKickerHtml = (!isInnerVoice && !isChronicle) ? `
         <div class="slide-hook-curator-kicker">
           <span class="slide-hook-curator-kicker-avatar">${initial}</span>
@@ -6271,11 +10646,11 @@ function buildSlide1Html(post, index, totalSlides = 2) {
         </div>
         <!-- Top-Right (The Creator): @<curatorname> -->
         <div class="poster-brand-corner top-right">
-          <span class="poster-corner-creator">${handle}</span>
+          ${posterAura.posterCornerCreatorHtml}
           <span class="poster-corner-slide-num">${totalSlides === 3 ? '01 / 03' : '01 / 02'}</span>
         </div>
       </div>
-      <div class="slide-hook-bottom">
+      <div class="slide-hook-bottom" onclick="handleSlide1LowerTextTap(event, '${index}')" title="Tap lower text section to clear poster view">
         ${newsFragmentHtml}${curatorKickerHtml}
         <h3 class="slide-hook-headline">${headline}</h3>
         <!-- Bottom-Left: 🌐 slant.today | Bottom-Right: Every thought deserves a frame -->
@@ -6370,6 +10745,7 @@ function handleReceiptPhotoLoad(img) {
         postObj._isVideoOrWide = isNowLandscape;
         postObj._isPortraitPhoto = !isNowLandscape;
         delete postObj._cachedBifurcation;
+        delete postObj._calibratedBifurcation;
         if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
           posterFilesCache.delete(postObj.id);
         }
@@ -6377,9 +10753,8 @@ function handleReceiptPhotoLoad(img) {
         if (slideReceipt) {
           slideReceipt.innerHTML = buildUnifiedEssayPosterHtml(postObj, postIdx, 0);
           const vp = slideReceipt.querySelector('.slant-minute-scroll-viewport');
-          const parentCarousel = slideReceipt.closest('.carousel-view');
-          const isSlideActive = !parentCarousel || parentCarousel.getAttribute('data-current-slide') !== '0';
-          if (vp && isSlideActive) {
+          if (vp) {
+            delete vp._lastCalibratedSize;
             requestAnimationFrame(() => calibrateEssayViewportPagination(vp, true));
           }
           return;
@@ -6390,10 +10765,9 @@ function handleReceiptPhotoLoad(img) {
 
   if (!img.closest('.poster-export-sandbox')) {
     const vp = img.closest('.slant-minute-scroll-viewport');
-    const parentCarousel = img.closest('.carousel-view');
-    const isSlideActive = !parentCarousel || parentCarousel.getAttribute('data-current-slide') !== '0';
-    if (vp && isSlideActive) {
-      requestAnimationFrame(() => calibrateEssayViewportPagination(vp));
+    if (vp) {
+      delete vp._lastCalibratedSize;
+      requestAnimationFrame(() => calibrateEssayViewportPagination(vp, true));
     }
   }
 }
@@ -6711,56 +11085,64 @@ function calibrateEssayViewportPagination(viewportEl, forceRecalibrate = false) 
       if (testH <= maxAllowedContentHeight) {
         acceptedUnits.push(s);
       } else {
-        // Sentence s overflowed. Check how much vertical space was left before adding s:
-        let prevH = 0;
-        if (acceptedUnits.length > 0) {
-          const revertEl = createBroadsheetParaElement(acceptedUnits.join(' '), isLead, false);
-          activeP1El.replaceWith(revertEl);
-          activeP1El = revertEl;
-          prevH = getP1ContentHeight();
-        } else {
-          activeP1El.remove();
-          activeP1El = null;
-          prevH = getP1ContentHeight();
-        }
+        // Sentence s overflowed maxAllowedContentHeight.
+        // Pack words of sentence s right up to the exact word that wraps onto a new overflowing line
+        // so the last fitting visual line on Page 1 is always completed all the way to the right margin.
+        const sWordsArr = s.trim().split(/\s+/).filter(Boolean);
+        let fitCount = 0;
 
-        const gapBeforeS = availableP1Height - prevH;
-        const sWords = s.split(/\s+/).filter(Boolean).length;
-
-        // If there are still ~1.75+ empty lines at the bottom of Page 1 and sentence s has clauses, pack fitting clauses!
-        if (gapBeforeS >= baseLineHeight * 1.75 && sWords >= 16) {
-          const clauses = splitSentenceIntoClauses(s);
-          if (clauses.length > 1) {
-            const fittedClauses = [];
-            const leftoverClauses = [];
-            for (let k = 0; k < clauses.length; k++) {
-              if (leftoverClauses.length > 0) {
-                leftoverClauses.push(clauses[k]);
-                continue;
-              }
-              const candidateClauseText = [...acceptedUnits, ...fittedClauses, clauses[k]].join(' ');
-              const clauseEl = createBroadsheetParaElement(candidateClauseText, isLead, false);
-              if (activeP1El && activeP1El.parentNode === p1Container) {
-                activeP1El.replaceWith(clauseEl);
-              } else {
-                p1Container.appendChild(clauseEl);
-              }
-              activeP1El = clauseEl;
-              if (getP1ContentHeight() <= maxAllowedContentHeight) {
-                fittedClauses.push(clauses[k]);
-              } else {
-                leftoverClauses.push(clauses[k]);
-              }
+        if (sWordsArr.length > 1) {
+          const measureWordSlice = (count) => {
+            const candidateWordText = [...acceptedUnits, sWordsArr.slice(0, count).join(' ')].join(' ');
+            const wordEl = createBroadsheetParaElement(candidateWordText, isLead, false);
+            if (activeP1El && activeP1El.parentNode === p1Container) {
+              activeP1El.replaceWith(wordEl);
+            } else {
+              p1Container.appendChild(wordEl);
             }
-            if (fittedClauses.length > 0) {
-              acceptedUnits.push(fittedClauses.join(' '));
-              if (leftoverClauses.length > 0) {
-                remainingUnits.push(leftoverClauses.join(' '));
-              }
-              continue;
+            activeP1El = wordEl;
+            return getP1ContentHeight();
+          };
+
+          let low = 1;
+          let high = sWordsArr.length - 1;
+          while (low <= high) {
+            const mid = (low + high) >> 1;
+            if (measureWordSlice(mid) <= maxAllowedContentHeight) {
+              fitCount = mid;
+              low = mid + 1;
+            } else {
+              high = mid - 1;
             }
           }
+
+          // Fine-tune in case soft-hyphenation caused a boundary shift
+          while (fitCount + 1 < sWordsArr.length && measureWordSlice(fitCount + 1) <= maxAllowedContentHeight) {
+            fitCount++;
+          }
+          while (fitCount > 0 && measureWordSlice(fitCount) > maxAllowedContentHeight) {
+            fitCount--;
+          }
         }
+
+        const leftoverWordCount = sWordsArr.length - fitCount;
+        // Avoid pushing just 1–2 trailing words of a sentence alone if the full sentence fits within the viewport
+        if (fitCount > 0 && leftoverWordCount <= 2 && testH <= availableP1Height - 4) {
+          acceptedUnits.push(s);
+          continue;
+        }
+
+        // Accept the word prefix if it either continues an already-started paragraph on Page 1 (completing its last line)
+        // or starts a new paragraph with at least one full line (>= 5 words) on Page 1
+        if (fitCount > 0 && (acceptedUnits.length > 0 || fitCount >= 5)) {
+          acceptedUnits.push(sWordsArr.slice(0, fitCount).join(' '));
+          const restWords = sWordsArr.slice(fitCount).join(' ').trim();
+          if (restWords) {
+            remainingUnits.push(restWords);
+          }
+          continue;
+        }
+
         remainingUnits.push(s);
       }
     }
@@ -6903,10 +11285,10 @@ function evaluateEssayBifurcation(post, index) {
 
   let summaryParas = [];
   if (post.summary && typeof post.summary === "string") {
-    summaryParas = post.summary.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+    summaryParas = splitEditorialParagraphsOrMoments(post.summary).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.broadsheetObservation && typeof post.broadsheetObservation === "string") {
-    summaryParas = post.broadsheetObservation.split(/\n\s*\n/).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
+    summaryParas = splitEditorialParagraphsOrMoments(post.broadsheetObservation).map(p => cleanExcerpt(p)).filter(p => p.length > 5);
   }
   if (summaryParas.length === 0 && post.summary) {
     summaryParas = [cleanExcerpt(post.summary)];
@@ -6917,16 +11299,20 @@ function evaluateEssayBifurcation(post, index) {
     summaryParas = summaryParas.filter(p => !isDuplicateOfUserTake(p, post));
   }
 
-  let excerpts = post.resolvedArticleExcerpts || post.articleExcerpts || [];
+  let excerpts = (Array.isArray(post.resolvedArticleExcerpts) && post.resolvedArticleExcerpts.length > 0)
+    ? post.resolvedArticleExcerpts
+    : (post.articleExcerpts || []);
   if (Array.isArray(excerpts)) {
-    excerpts = excerpts.map(e => cleanExcerpt(e)).filter(Boolean);
+    excerpts = splitEditorialParagraphsOrMoments(excerpts).map(e => cleanExcerpt(e)).filter(Boolean);
     excerpts = excerpts.filter(e => !isDuplicateOfUserTake(e, post));
   } else {
     excerpts = [];
   }
 
   let essayParas = [];
-  if (summaryParas.length > 0) {
+  if (excerpts.length > summaryParas.length) {
+    essayParas = [...excerpts];
+  } else if (summaryParas.length > 0) {
     essayParas = [...summaryParas];
   } else if (excerpts.length > 0) {
     essayParas = [...excerpts];
@@ -6942,7 +11328,7 @@ function evaluateEssayBifurcation(post, index) {
     });
   }
 
-  if (essayParas.length === 1 && essayParas[0].length > 220) {
+  if (!isPostChronicleDiary(post) && essayParas.length === 1 && essayParas[0].length > 220) {
     const sentences = essayParas[0].match(/[^.!?]+[.!?]+["']?|\s*[^.!?]+$/g) || [];
     if (sentences.length >= 3) {
       const mid = Math.ceil(sentences.length / 2);
@@ -7085,24 +11471,17 @@ function evaluateEssayBifurcation(post, index) {
         if (u2.length === 0 && canFitOnP1) {
           u1.push(u);
           curWords += uw;
-        } else if (u2.length === 0 && uw >= 18 && (targetPage1Words - curWords) >= 10) {
-          // Long sentence that would leave >1 line of empty space if pushed whole to Page 2: split at clause boundaries
-          const clauses = splitSentenceIntoClauses(u);
-          const c1 = [];
-          const c2 = [];
-          for (let k = 0; k < clauses.length; k++) {
-            const c = clauses[k].trim();
-            if (!c) continue;
-            const cw = c.split(/\s+/).filter(Boolean).length;
-            if (c2.length === 0 && (curWords + cw <= maxPage1Ceiling)) {
-              c1.push(c);
-              curWords += cw;
-            } else {
-              c2.push(c);
-            }
+        } else if (u2.length === 0 && (targetPage1Words - curWords) >= 3) {
+          // Pack words of sentence u right up to targetPage1Words so the last line of Page 1 is completed
+          const uWords = u.split(/\s+/).filter(Boolean);
+          const takeCount = Math.min(uWords.length - 3, Math.max(3, targetPage1Words - curWords));
+          if (takeCount >= 3 && (uWords.length - takeCount) >= 3) {
+            u1.push(uWords.slice(0, takeCount).join(" "));
+            u2.push(uWords.slice(takeCount).join(" "));
+            curWords += takeCount;
+          } else {
+            u2.push(u);
           }
-          if (c1.length > 0) u1.push(c1.join(" "));
-          if (c2.length > 0) u2.push(c2.join(" "));
         } else {
           u2.push(u);
         }
@@ -7134,11 +11513,7 @@ function evaluateEssayBifurcation(post, index) {
   const remainingText = page2Paras.join(" ").trim();
   const remainingWords = remainingText.split(/\s+/).filter(Boolean).length;
 
-  const THRESHOLD_WORDS = 20;
-  const THRESHOLD_CHARS = 85;
-  const isOverflowSubstantial = (remainingWords >= THRESHOLD_WORDS || remainingText.length >= THRESHOLD_CHARS);
-
-  if (!isOverflowSubstantial) {
+  if (remainingWords === 0) {
     return {
       isBifurcated: false,
       hasPhoto,
@@ -7514,19 +11889,30 @@ async function rethinkChronicleReflection(event, postId) {
   }
 }
 
-function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
+function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0, isForShareExport = false) {
   const bifurcation = evaluateEssayBifurcation(post, index);
   const tier = getSourceTier(post);
   const cleanHost = getCleanDomain(post.digitalLink);
   const handle = escapeHtml(post.creatorHandle || "@curator");
   const slantIcon = (post.slantIcon && post.slantIcon !== "💭") ? post.slantIcon : (post.slantTone === "heart" ? "❤️" : "🧠");
 
+  const rawLinkForCredit = String(post.digitalLink || post.generationInputs?.sourceUrl || "").trim();
+  const xStatusHandleMatch = rawLinkForCredit.match(/(?:twitter\.com|x\.com)\/(?!i\/|intent\/|share|search|hashtag|home|explore)([A-Za-z0-9_]{1,25})\/status/i);
+  const extractedXHandle = xStatusHandleMatch && xStatusHandleMatch[1] ? `@${xStatusHandleMatch[1]}` : "";
+
   let pubName = post.publicationName || "THE FINANCIAL CHRONICLE";
   if (pubName.includes("•")) {
-    const parts = pubName.split("•");
-    pubName = parts[parts.length - 1].trim();
+    const parts = pubName.split("•").map(s => s.trim()).filter(Boolean);
+    if (parts.length >= 2 && /^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS|VIDEO|PODCAST|OPINION|REPORT|DISPATCH)$/i.test(parts[0])) {
+      pubName = parts[parts.length - 1];
+    } else {
+      pubName = parts.join(" • ");
+    }
   }
   pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, "").trim();
+  if (extractedXHandle && !pubName.includes("@")) {
+    pubName = `${extractedXHandle} • X.COM`;
+  }
   if (!pubName) pubName = "THE NEW INDIAN EXPRESS";
   const cleanPubUpper = escapeHtml(pubName.toUpperCase());
 
@@ -7571,6 +11957,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
   const rawHandle = (post.creatorHandle || "@curator").trim();
   const initial = escapeHtml((rawHandle.replace("@", "").trim().charAt(0) || "C").toUpperCase());
   const titleUpper = escapeHtml(`${rawHandle.toUpperCase()}'S SLANT`);
+  const posterAura = buildPosterCreatorAuraParts(rawHandle, initial);
   let pillIcon = "✍️";
   let pillLabel = "MY VIEW ON THIS SOURCE";
   if (isInnerVoice || tier === "tier3_opinion") {
@@ -7646,6 +12033,12 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     } else if (isFallbackToPosterPhoto) {
       captionIcon = "🎨";
       captionText = `EDITORIAL METAPHOR • ${cleanPubUpper || "DISPATCH"}`;
+    } else if (extractedXHandle || cleanPubUpper.includes("@") || (cleanHost && (cleanHost.includes("x.com") || cleanHost.includes("twitter.com")))) {
+      captionIcon = "📷";
+      captionText = `SOURCE VISUAL • ${cleanPubUpper || (extractedXHandle ? `${extractedXHandle.toUpperCase()} • X.COM` : "X.COM")}`;
+    } else if (tier === "tier2_web") {
+      captionIcon = "📷";
+      captionText = `SOURCE VISUAL • ${cleanPubUpper || (cleanHost ? cleanHost.toUpperCase() : "WEB DISPATCH")}`;
     }
 
     const isVideoOrWide = Boolean(
@@ -7831,13 +12224,21 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
     });
   }
 
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
   const p1SlideBadge = isChronicle
-    ? (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03")
+    ? (isChronicleCardsOnly
+        ? (forExportPage > 0 ? "01 / 02 • MOMENTS" : "01 / 02")
+        : (forExportPage > 0 ? "02 / 03 • MOMENTS" : "02 / 03"))
     : (bifurcation.isBifurcated ? (forExportPage > 0 ? "02 / 03 • ESSAY P1" : "PAGE 1 / 2") : (forExportPage > 0 ? "02 / 02 • ESSAY" : "02 / 02"));
   const p2SlideBadge = isChronicle
-    ? (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03")
+    ? (isChronicleCardsOnly
+        ? (forExportPage > 0 ? "02 / 02 • REFLECTION" : "02 / 02")
+        : (forExportPage > 0 ? "03 / 03 • REFLECTION" : "03 / 03"))
     : (forExportPage > 0 ? "03 / 03 • ESSAY P2" : "PAGE 2 / 2");
-  const folioRightP2 = (forExportPage > 0 || isChronicle) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02";
+  const folioRightP1 = isChronicle ? (isChronicleCardsOnly ? "01 / 02" : "02 / 03") : "02 / 02";
+  const folioRightP2 = isChronicle
+    ? (isChronicleCardsOnly ? "Every thought deserves a frame • 02 / 02" : "Every thought deserves a frame • 03 / 03")
+    : ((forExportPage > 0) ? "Every thought deserves a frame • 03 / 03" : "Every thought deserves a frame • 02 / 02");
   const receiptBrandTitle = isChronicle ? "SLANT MOMENTS" : "SLANT MINUTES";
   const chronicleDateStr = isChronicle ? formatChronicleDateDisplay(post.createdAt || post.date) : "";
 
@@ -7852,7 +12253,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${receiptBrandTitle}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            ${isChronicle ? `<span class="receipt-creator-name is-chronicle-date-label">${escapeHtml(chronicleDateStr)}</span>` : posterAura.receiptCreatorNameHtml}
             <span class="receipt-corner-slide-num">${p1SlideBadge}</span>
           </div>
         </div>
@@ -7871,11 +12272,14 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
             <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
-            <span class="receipt-folio-right">Every thought deserves a frame • ${isChronicle ? "02 / 03" : "02 / 02"}</span>
+            <span class="receipt-folio-right">Every thought deserves a frame • ${folioRightP1}</span>
           </div>
         </div>
         ` : ""}
   `;
+
+  const isStaticExport = Boolean(isForShareExport || index === "export");
+  const showShareAdPanel = Boolean(isStaticExport && forExportPage === 2 && !isChronicle);
 
   const page2InnerHtml = `
         <div class="receipt-brand-corner-bar continuation-header">
@@ -7884,7 +12288,7 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
             <span class="receipt-brand-text">${isChronicle ? receiptBrandTitle : `${receiptBrandTitle} ...`}</span>
           </div>
           <div class="receipt-corner-creator">
-            <span class="receipt-creator-name ${isChronicle ? "is-chronicle-date-label" : ""}">${isChronicle ? escapeHtml(chronicleDateStr) : handle}</span>
+            ${isChronicle ? `<span class="receipt-creator-name is-chronicle-date-label">${escapeHtml(chronicleDateStr)}</span>` : posterAura.receiptCreatorNameHtml}
             <span class="receipt-corner-slide-num">${p2SlideBadge}</span>
           </div>
         </div>
@@ -7896,7 +12300,15 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
         </div>
         `}
 
-        <div class="receipt-footer">
+        ${showShareAdPanel ? `
+        <div class="slant-passing-clouds-panel" style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 6px 0; width: 100%; box-sizing: border-box;">
+          <div class="slant-passing-clouds-frame" style="width: 100%; max-width: 100%; aspect-ratio: 7 / 3; border-radius: 0; overflow: visible; display: flex; align-items: center; justify-content: center; margin: auto; box-sizing: border-box;">
+            <img src="/slant-complete-statement-colour-frame.svg" class="slant-passing-clouds-svg-img" alt="Slant — Every thought deserves a frame" style="width: 100%; height: 100%; object-fit: contain; display: block; opacity: 0.93;">
+          </div>
+        </div>
+        ` : ""}
+
+        <div class="receipt-footer" ${showShareAdPanel ? 'style="margin-top: 0 !important;"' : ""}>
           <div class="receipt-folio-rule"></div>
           <div class="receipt-folio-text">
             <span class="receipt-folio-left"><span class="poster-web-globe-icon" aria-hidden="true">🌐</span>slant.today</span>
@@ -7904,8 +12316,6 @@ function buildUnifiedEssayPosterHtml(post, index, forExportPage = 0) {
           </div>
         </div>
   `;
-
-  const isStaticExport = (index === "export");
 
   // Specific Discrete Page 1 (Used for Export Page 1 AND Live Feed Slide 2 of Daily Chronicle)
   if (forExportPage === 1) {
@@ -7973,8 +12383,621 @@ function buildSlide3Html(post, index) {
 }
 
 /* ============================================================
-   POST CARD GENERATOR
+   POST CARD GENERATOR & SOURCE LOGO MEDALLION (OPTION A)
    ============================================================ */
+
+const _ytChannelLogoPendingUrls = new Set();
+
+function getCachedYouTubeChannelLogo(rawUrl) {
+  if (!rawUrl) return '';
+  try {
+    const mapRaw = localStorage.getItem('slant_yt_channel_logos_v1');
+    if (!mapRaw) return '';
+    const map = JSON.parse(mapRaw);
+    return (map && typeof map[rawUrl] === 'string') ? map[rawUrl] : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function setCachedYouTubeChannelLogo(rawUrl, logoUrl) {
+  if (!rawUrl || !logoUrl) return;
+  try {
+    const mapRaw = localStorage.getItem('slant_yt_channel_logos_v1');
+    const map = mapRaw ? JSON.parse(mapRaw) : {};
+    map[rawUrl] = logoUrl;
+    localStorage.setItem('slant_yt_channel_logos_v1', JSON.stringify(map));
+  } catch (_) {}
+}
+
+async function hydrateYouTubeChannelLogoForPost(rawUrl, postId) {
+  if (!rawUrl || _ytChannelLogoPendingUrls.has(rawUrl)) return;
+  _ytChannelLogoPendingUrls.add(rawUrl);
+  try {
+    const resp = await fetch(`/api/scrape?logoOnly=1&url=${encodeURIComponent(rawUrl)}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const logoUrl = data && data.sourceLogoUrl ? String(data.sourceLogoUrl).trim() : '';
+    if (!logoUrl || logoUrl.includes('google.com/s2/favicons')) return;
+
+    setCachedYouTubeChannelLogo(rawUrl, logoUrl);
+    if (postId && Array.isArray(allPosts)) {
+      const targetPost = allPosts.find(p => p && String(p.id) === String(postId));
+      if (targetPost) {
+        targetPost.sourceLogoUrl = logoUrl;
+        if (targetPost.generationInputs) {
+          targetPost.generationInputs.sourceLogoUrl = logoUrl;
+        }
+      }
+    }
+    document.querySelectorAll(`img.source-logo-medallion-img[data-source-url="${CSS.escape(rawUrl)}"]`).forEach(img => {
+      img.src = logoUrl;
+    });
+  } catch (_) {
+  } finally {
+    _ytChannelLogoPendingUrls.delete(rawUrl);
+  }
+}
+
+function handleSourceLogoImgError(imgEl) {
+  if (!imgEl) return;
+  const fallbackFavicon = imgEl.getAttribute('data-fallback-favicon') || '';
+  if (fallbackFavicon && imgEl.src !== fallbackFavicon && !imgEl.dataset.triedFallbackFavicon) {
+    imgEl.dataset.triedFallbackFavicon = '1';
+    imgEl.src = fallbackFavicon;
+    return;
+  }
+  imgEl.style.display = 'none';
+  const parent = imgEl.closest('.source-logo-medallion');
+  if (parent) {
+    const fallbackSvg = parent.querySelector('.source-logo-fallback-svg');
+    if (fallbackSvg) fallbackSvg.style.display = 'block';
+  }
+}
+window.handleSourceLogoImgError = handleSourceLogoImgError;
+
+function getPlatformMiniBadgeInfo(rawLink = '', pubName = '') {
+  const combined = `${rawLink} ${pubName}`.toLowerCase();
+
+  // 1. YouTube
+  if (/(?:youtube\.com|youtu\.be|\byoutube\b)/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-youtube',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="8,5 20,12 8,19"></polygon>
+        </svg>
+      `
+    };
+  }
+
+  // 2. Substack
+  if (/substack\.com|\bsubstack\b/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-substack',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="3" width="16" height="2.6" rx="0.8"></rect>
+          <rect x="4" y="7.5" width="16" height="2.6" rx="0.8"></rect>
+          <path d="M4 12h16v9l-8-4.5L4 21v-9z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 3. Instagram
+  if (/(?:instagram\.com|instagr\.am|\binstagram\b)/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-instagram',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="5"></rect>
+          <circle cx="12" cy="12" r="4"></circle>
+          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"></circle>
+        </svg>
+      `
+    };
+  }
+
+  // 4. X / Twitter
+  if (/(?:twitter\.com|(?:\b|\/)x\.com)/i.test(rawLink)) {
+    return {
+      platformClass: 'is-platform-x',
+      svgHtml: `
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 5. LinkedIn
+  if (/linkedin\.com|\blinkedin\b/i.test(combined)) {
+    return {
+      platformClass: 'is-platform-linkedin',
+      svgHtml: `
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.94 5a2 2 0 1 1-4-.002 2 2 0 0 1 4 .002zM7 8.48H3V21h4V8.48zm6.32 0H9.34V21h3.94v-6.57c0-3.66 4.77-4 4.77 0V21H22v-7.93c0-6.17-7.06-5.94-8.72-2.91l.04-1.68z"></path>
+        </svg>
+      `
+    };
+  }
+
+  // 6. Spotify / Podcasts
+  if (/(?:spotify\.com|podcasts\.apple\.com|soundcloud\.com)/i.test(rawLink)) {
+    return {
+      platformClass: 'is-platform-spotify',
+      svgHtml: `
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+          <path d="M4 9.5c4.8-1.6 11.2-1.2 16 1.2"></path>
+          <path d="M5.5 13.5c3.8-1.2 8.8-.9 12.5 1"></path>
+          <path d="M7 17.5c2.8-.8 6.4-.6 9 .8"></path>
+        </svg>
+      `
+    };
+  }
+
+  // Default: Web / Press Source
+  return {
+    platformClass: 'is-platform-web',
+    svgHtml: `
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"></circle>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <path d="M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18"></path>
+      </svg>
+    `
+  };
+}
+
+function buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) {
+  const rawLink = String(
+    post?.digitalLink ||
+    post?.videoUrl ||
+    post?.sourceUrl ||
+    post?.webUrl ||
+    post?.generationInputs?.sourceUrl ||
+    ''
+  ).trim();
+
+  const host = cleanHost || getCleanDomain(rawLink);
+  const sourceLabel = pubName || host || 'Source';
+  const isYt = Boolean(rawLink && /(?:youtube\.com|youtu\.be)/i.test(rawLink));
+  const platformBadge = getPlatformMiniBadgeInfo(rawLink, pubName);
+
+  let logoUrl = String(post?.sourceLogoUrl || post?.generationInputs?.sourceLogoUrl || '').trim();
+  const fallbackFavicon = host
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`
+    : '';
+
+  if (!logoUrl && isYt) {
+    const cachedYtLogo = getCachedYouTubeChannelLogo(rawLink);
+    if (cachedYtLogo) {
+      logoUrl = cachedYtLogo;
+    } else {
+      logoUrl = 'https://www.google.com/s2/favicons?domain=youtube.com&sz=64';
+      setTimeout(() => hydrateYouTubeChannelLogoForPost(rawLink, post?.id), 60);
+    }
+  } else if (!logoUrl && fallbackFavicon && /^https?:\/\//i.test(rawLink)) {
+    logoUrl = fallbackFavicon;
+  }
+
+  if (logoUrl) {
+    return `
+      <button type="button" class="icon-action-btn source-summary-action-btn has-source-logo" id="source-btn-${index}" onclick="toggleInlineSourceDrawer(event, '${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+        <span class="source-logo-medallion">
+          <img src="${escapeHtml(logoUrl)}"
+               class="source-logo-medallion-img"
+               data-source-post-id="${escapeHtml(String(post?.id || ''))}"
+               data-source-url="${escapeHtml(rawLink)}"
+               data-fallback-favicon="${escapeHtml(fallbackFavicon)}"
+               alt="${escapeHtml(sourceLabel)}"
+               loading="lazy"
+               referrerpolicy="no-referrer"
+               onerror="window.handleSourceLogoImgError && window.handleSourceLogoImgError(this)">
+          <svg class="source-logo-fallback-svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </span>
+        <span class="source-logo-corner-badge ${platformBadge.platformClass}" aria-hidden="true">
+          ${platformBadge.svgHtml}
+        </span>
+      </button>
+    `;
+  }
+
+  return `
+    <button type="button" class="icon-action-btn source-summary-action-btn" id="source-btn-${index}" onclick="toggleInlineSourceDrawer(event, '${index}')" title="View Source (${escapeHtml(sourceLabel)})" aria-label="View Source (${escapeHtml(sourceLabel)})">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+    </button>
+  `;
+}
+
+const openInlineSourceDrawerIndices = new Set();
+let inlineSourceDrawerObserver = null;
+let inlineSourceFeedScrollListenerAttached = false;
+let lastFeedScrollActivityTs = 0;
+let _feedScrollIdleCollapseTimer = null;
+
+function findVisibleViewportAnchorCard(excludeDrawer) {
+  const cards = document.querySelectorAll('.post-card');
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    if (excludeDrawer && c.contains(excludeDrawer)) continue;
+    const r = c.getBoundingClientRect();
+    if (r.bottom > 40 && r.top < vh - 40) {
+      return c;
+    }
+  }
+  return null;
+}
+
+function closeInlineSourceDrawer(index, options = {}) {
+  const drawer = document.getElementById(`inline-source-drawer-${index}`);
+  const btn = document.getElementById(`source-btn-${index}`);
+  openInlineSourceDrawerIndices.delete(String(index));
+
+  if (drawer) {
+    if (drawer._offscreenTimer) {
+      clearTimeout(drawer._offscreenTimer);
+      drawer._offscreenTimer = null;
+    }
+    if (inlineSourceDrawerObserver) {
+      try { inlineSourceDrawerObserver.unobserve(drawer); } catch (_) {}
+    }
+  }
+
+  if (openInlineSourceDrawerIndices.size === 0) {
+    teardownInlineSourceFeedScrollListener();
+  }
+  if (btn) btn.classList.remove('is-open');
+  if (!drawer) return;
+
+  // If collapsing silently while off-screen above the viewport, lock visible viewport card position so 0px shift occurs
+  let anchorCard = null;
+  let anchorTopBefore = 0;
+  if (options.compensateScroll) {
+    anchorCard = findVisibleViewportAnchorCard(drawer);
+    if (anchorCard) {
+      anchorTopBefore = anchorCard.getBoundingClientRect().top;
+    }
+  }
+
+  drawer.classList.remove('is-open', 'is-collapsing');
+  drawer.style.display = 'none';
+  drawer.innerHTML = '';
+
+  if (anchorCard) {
+    const anchorTopAfter = anchorCard.getBoundingClientRect().top;
+    const drift = anchorTopAfter - anchorTopBefore;
+    if (Math.abs(drift) > 0.5) {
+      window.scrollBy(0, drift);
+    }
+  }
+}
+
+function isInlineSourceDrawerOffscreen(drawer) {
+  if (!drawer) return false;
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const rect = drawer.getBoundingClientRect();
+  if (rect.height === 0 && rect.width === 0) return false;
+  // Offscreen if bottom is at/above top viewport edge OR top is at/below bottom viewport edge
+  return (rect.bottom <= 4) || (rect.top >= vh - 4);
+}
+
+function sweepAndCollapseOffscreenSourceDrawers() {
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const openDrawers = document.querySelectorAll('.inline-source-drawer.is-open');
+  if (openDrawers.length === 0) {
+    openInlineSourceDrawerIndices.clear();
+    teardownInlineSourceFeedScrollListener();
+    return;
+  }
+
+  openDrawers.forEach(drawer => {
+    const idx = drawer.id ? drawer.id.replace('inline-source-drawer-', '') : '';
+    if (!idx) return;
+    const rect = drawer.getBoundingClientRect();
+    const isVisibleNow = rect.bottom > 12 && rect.top < vh - 12;
+    if (isVisibleNow) {
+      drawer._hasEnteredViewport = true;
+      return;
+    }
+    const scrolledDistance = Math.abs((window.scrollY || window.pageYOffset || 0) - (drawer._openedAtScrollY || 0));
+    if (drawer._hasEnteredViewport || scrolledDistance > 70) {
+      if (isInlineSourceDrawerOffscreen(drawer)) {
+        closeInlineSourceDrawer(idx, { compensateScroll: rect.bottom <= 4 });
+      }
+    }
+  });
+}
+
+function scheduleSilentOffscreenDrawerCollapse(index, drawer) {
+  if (!drawer || !openInlineSourceDrawerIndices.has(String(index))) return;
+  if (drawer._offscreenTimer) clearTimeout(drawer._offscreenTimer);
+
+  const attemptCollapse = () => {
+    drawer._offscreenTimer = null;
+    if (!drawer || !drawer.classList.contains('is-open')) return;
+
+    const rect = drawer.getBoundingClientRect();
+    if (!isInlineSourceDrawerOffscreen(drawer)) {
+      // Returned to viewport before collapsing
+      return;
+    }
+
+    // If user's scroll momentum is still actively ticking and drawer is above viewport, wait until scroll pauses
+    const msSinceScroll = performance.now() - lastFeedScrollActivityTs;
+    if (rect.bottom <= 4 && msSinceScroll < 140) {
+      drawer._offscreenTimer = setTimeout(attemptCollapse, 120);
+      return;
+    }
+
+    closeInlineSourceDrawer(index, { compensateScroll: rect.bottom <= 4 });
+  };
+
+  drawer._offscreenTimer = setTimeout(attemptCollapse, 140);
+}
+
+function getOrCreateInlineSourceDrawerObserver() {
+  if (inlineSourceDrawerObserver || typeof IntersectionObserver === 'undefined') {
+    return inlineSourceDrawerObserver;
+  }
+  inlineSourceDrawerObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const drawer = entry.target;
+      if (!drawer || !drawer.id) return;
+      const idx = drawer.id.replace('inline-source-drawer-', '');
+      if (!openInlineSourceDrawerIndices.has(String(idx))) return;
+
+      if (entry.isIntersecting) {
+        drawer._hasEnteredViewport = true;
+        if (drawer._offscreenTimer) {
+          clearTimeout(drawer._offscreenTimer);
+          drawer._offscreenTimer = null;
+        }
+      } else {
+        const scrolledDistance = Math.abs((window.scrollY || window.pageYOffset || 0) - (drawer._openedAtScrollY || 0));
+        if (drawer._hasEnteredViewport || scrolledDistance > 70) {
+          scheduleSilentOffscreenDrawerCollapse(idx, drawer);
+        }
+      }
+    });
+  }, {
+    root: null,
+    rootMargin: '0px',
+    threshold: 0
+  });
+  return inlineSourceDrawerObserver;
+}
+
+function _onPassiveFeedScrollTrackTs() {
+  lastFeedScrollActivityTs = performance.now();
+  if (_feedScrollIdleCollapseTimer) {
+    clearTimeout(_feedScrollIdleCollapseTimer);
+  }
+  _feedScrollIdleCollapseTimer = setTimeout(() => {
+    _feedScrollIdleCollapseTimer = null;
+    sweepAndCollapseOffscreenSourceDrawers();
+  }, 160);
+}
+
+function ensureInlineSourceFeedScrollListener() {
+  if (inlineSourceFeedScrollListenerAttached) return;
+  inlineSourceFeedScrollListenerAttached = true;
+  window.addEventListener('scroll', _onPassiveFeedScrollTrackTs, { passive: true });
+}
+
+function teardownInlineSourceFeedScrollListener() {
+  if (_feedScrollIdleCollapseTimer) {
+    clearTimeout(_feedScrollIdleCollapseTimer);
+    _feedScrollIdleCollapseTimer = null;
+  }
+  if (!inlineSourceFeedScrollListenerAttached) return;
+  inlineSourceFeedScrollListenerAttached = false;
+  window.removeEventListener('scroll', _onPassiveFeedScrollTrackTs);
+}
+
+function toggleInlineSourceDrawer(event, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  if (index === 'preview') return;
+  const isSampleCard = index === 'sample' || (typeof index === 'string' && index.startsWith('sample_'));
+  if (!currentUser && (isDeepLinkScrollGated || isSampleCard)) {
+    openAuthModal('Sign in to view verified source context, video, and source summary.');
+    return;
+  }
+
+  const drawer = document.getElementById(`inline-source-drawer-${index}`);
+  const btn = document.getElementById(`source-btn-${index}`);
+  if (!drawer) {
+    openDetailModal(index);
+    return;
+  }
+
+  if (drawer._offscreenTimer) {
+    clearTimeout(drawer._offscreenTimer);
+    drawer._offscreenTimer = null;
+  }
+
+  const isOpen = drawer.style.display !== 'none' && drawer.classList.contains('is-open');
+  if (isOpen) {
+    closeInlineSourceDrawer(index, { compensateScroll: false });
+    return;
+  }
+
+  const post = getPostFromIndexOrId(index) || (typeof allPosts !== 'undefined' && allPosts.find(p => p && p.id === index));
+  if (!post || isInnerVoicePost(post)) return;
+
+  const rawLink = String(post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '').trim();
+  const cleanHost = getCleanDomain(rawLink);
+  let pubName = post.publicationName || cleanHost || 'Primary Source';
+  if (pubName.includes('•')) {
+    pubName = pubName.split('•')[0].trim() || pubName;
+  }
+  pubName = pubName.replace(/^(NEWSPAPER|ARTICLE|BOOK|MAGAZINE|PRESS):\s*/i, '').trim();
+
+  const sourceTitle = post.originalHeadline || post.sourceHeadline || post.spark || post.adaptedHeadline || 'Original Source';
+  const ytEmbed = getYouTubeEmbedUrl(rawLink);
+  const vimeoEmbed = getVimeoEmbedUrl(rawLink);
+  const twitterEmbed = getTwitterXEmbedUrl(rawLink);
+  const instagramEmbed = getInstagramEmbedUrl(rawLink);
+  const isVideo = Boolean(ytEmbed || vimeoEmbed || twitterEmbed || instagramEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)));
+
+  let mediaBlockHtml = '';
+  if (isVideo) {
+    if (ytEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <iframe
+            src="${ytEmbed}?autoplay=0&rel=0&modestbranding=1&playsinline=1"
+            title="Source Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+    } else if (vimeoEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <iframe
+            src="${vimeoEmbed}"
+            title="Source Video"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+    } else if (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink)) {
+      mediaBlockHtml = `
+        <div class="inline-source-video-box">
+          <video src="${escapeHtml(rawLink)}" controls playsinline></video>
+        </div>
+      `;
+    } else if (twitterEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-social-embed-box">
+          <iframe
+            src="${twitterEmbed}"
+            title="Embedded X Post"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+            allowfullscreen
+            loading="lazy">
+          </iframe>
+        </div>
+      `;
+    } else if (instagramEmbed) {
+      mediaBlockHtml = `
+        <div class="inline-source-social-embed-box">
+          <iframe
+            src="${instagramEmbed}"
+            title="Embedded Instagram Post"
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+            allowfullscreen
+            loading="lazy">
+          </iframe>
+        </div>
+      `;
+    }
+  }
+
+  let rawLedger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = (rawLedger && !isUnextractedOrBoilerplateLedger(rawLedger)) ? rawLedger : null;
+  if (rawLedger && !ledger) {
+    post.sourceLedger = null;
+    if (post.generationInputs) post.generationInputs.sourceLedger = null;
+  }
+  const summaryHtml = renderProofSummarySections(post, ledger);
+
+  drawer.innerHTML = `
+    <div class="inline-source-drawer-inner">
+      <div class="inline-source-drawer-header">
+        <div class="inline-source-drawer-meta">
+          <span class="inline-source-kicker">${escapeHtml((cleanHost && cleanHost.includes('youtube') ? `${pubName} • YouTube` : (cleanHost || pubName)).toUpperCase())}</span>
+          <div class="inline-source-headline">${escapeHtml(sourceTitle)}</div>
+        </div>
+        <div class="inline-source-drawer-actions">
+          <button type="button" class="inline-source-collapse-btn" onclick="toggleInlineSourceDrawer(event, '${index}')" title="Collapse Source">
+            <span>&#x25B4; Hide</span>
+          </button>
+        </div>
+      </div>
+      ${mediaBlockHtml}
+      <div class="inline-source-scroll-summary" id="inline-source-summary-${index}" style="display:${summaryHtml ? 'block' : 'none'};">
+        ${summaryHtml}
+      </div>
+      ${rawLink && /^https?:\/\//i.test(rawLink) ? `
+        <div class="inline-source-footer-citation">
+          <span>Verified source: <strong>${escapeHtml(pubName || cleanHost || 'Original Source')}</strong></span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  drawer.style.display = 'block';
+  drawer.classList.add('is-open');
+  if (btn) btn.classList.add('is-open');
+
+  const vh = window.innerHeight || document.documentElement.clientHeight || 800;
+  const initRect = drawer.getBoundingClientRect();
+  drawer._hasEnteredViewport = (initRect.bottom > 12 && initRect.top < vh - 12);
+  drawer._openedAtScrollY = window.scrollY || window.pageYOffset || 0;
+  openInlineSourceDrawerIndices.add(String(index));
+  ensureInlineSourceFeedScrollListener();
+  const observer = getOrCreateInlineSourceDrawerObserver();
+  if (observer) {
+    try { observer.observe(drawer); } catch (_) {}
+  }
+
+  // Asynchronous on-demand ledger fetch ONLY if substantive source text exists
+  const candidateTitle = post.originalHeadline || post.adaptedHeadline || '';
+  const candidateContent = post.sourceContext || post.generationInputs?.scrapedContent || '';
+  const canGenerateSubstantiveLedger = hasSubstantiveClientSourceText(candidateTitle, candidateContent, cleanHost || pubName);
+
+  if (!ledger && rawLink && canGenerateSubstantiveLedger && !post._isFetchingLedger) {
+    post._isFetchingLedger = true;
+    fetch('/api/ledger', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: rawLink,
+        title: candidateTitle,
+        content: candidateContent,
+        siteName: cleanHost || pubName
+      })
+    })
+      .then(r => r.json())
+      .then(data => {
+        post._isFetchingLedger = false;
+        if (data && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
+          post.sourceLedger = data.ledger;
+          if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
+          const summaryBox = document.getElementById(`inline-source-summary-${index}`);
+          if (summaryBox) {
+            const newSummaryHtml = renderProofSummarySections(post, data.ledger);
+            summaryBox.innerHTML = newSummaryHtml;
+            summaryBox.style.display = newSummaryHtml ? 'block' : 'none';
+          }
+        }
+      })
+      .catch(() => {
+        post._isFetchingLedger = false;
+      });
+  }
+}
+window.toggleInlineSourceDrawer = toggleInlineSourceDrawer;
 
 function createPostCardElement(post, index) {
   const card = document.createElement('article');
@@ -8017,13 +13040,15 @@ function createPostCardElement(post, index) {
   const isClean = !!cleanViewState[index];
   const isSaved = savedPostIds.has(post.id);
   const canDelete = canDeletePost(post);
-  const hasPaperCut = post.sourceType === 'photo' 
+  const hasPaperCut = !post.isWebCollage && (
+    post.sourceType === 'photo' 
     || !!post.paperCutImage 
     || !!post.hasPaperCut
     || (post.originalPhotoUrl && (post.originalPhotoUrl.includes('clipping') || post.sourceType === 'photo'))
     || (post.originalPhotoBase64 && post.originalPhotoBase64.length > 50)
     || (post.originalPhotoPath && !post.originalPhotoPath.startsWith('http') && post.originalPhotoPath !== post.digitalLink)
-    || (tier === 'tier1_press' && (post.originalPhotoUrl || post.originalPhotoBase64 || post.originalPhotoPath));
+    || (tier === 'tier1_press' && (post.originalPhotoUrl || post.originalPhotoBase64 || post.originalPhotoPath))
+  );
 
   // Determine Tab 3 label and icon based on tier
   let tab3Icon = '📰';
@@ -8060,22 +13085,22 @@ function createPostCardElement(post, index) {
   }
 
   const isInnerVoice = isInnerVoicePost(post);
-  const cardSlideCount = isChronicle ? 3 : 2;
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
+  const cardSlideCount = isChronicle ? (isChronicleCardsOnly ? 2 : 3) : 2;
 
-  // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle; 2-Slide for Standard Slants)
+  // Carousel Frame in 3:4 Aspect Ratio (3-Slide for Daily Chronicle with Watercolor; 2-Slide for Moments+Reflection Cards Only or Standard Slants)
   const visualSectionHtml = `
     <div class="carousel-view ${isClean ? 'clean-view' : ''}" id="carousel-${index}" data-post-index="${index}" data-current-slide="0" data-slide-count="${cardSlideCount}">
-      ${index === 'preview' ? `
-        <button type="button" class="preview-poster-eye-btn ${isClean ? 'active' : ''}" onclick="togglePreviewCleanView(event)" title="Clear text overlays to inspect pure artwork on deck">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-            <circle cx="12" cy="12" r="3"></circle>
-          </svg>
-          <span>${isClean ? 'Show Text' : 'Clear Text'}</span>
-        </button>
-      ` : ''}
       <div class="carousel-track" id="track-${index}">
-        <div class="carousel-slide slide-hook" ${index === 'preview' ? `onclick="togglePreviewCleanView(event)" style="cursor: pointer;" title="Click to toggle clear text"` : 'style="cursor: default;"'}>
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(post, index, 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(post, index, 2)}
+        </div>
+        ` : `
+        <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, '${index}')" style="cursor: default;">
           ${buildSlide1Html(post, index, cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
@@ -8086,6 +13111,7 @@ function createPostCardElement(post, index) {
           ${buildUnifiedEssayPosterHtml(post, index, 2)}
         </div>
         ` : ''}
+        `}
       </div>
 
       <!-- Navigation Buttons -->
@@ -8096,7 +13122,7 @@ function createPostCardElement(post, index) {
       <div class="carousel-dots" id="dots-${index}">
         <span class="carousel-dot active" onclick="goToSlide(event, '${index}', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, '${index}', 1)"></span>
-        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>` : ''}
+        ${(isChronicle && !isChronicleCardsOnly) ? `<span class="carousel-dot" onclick="goToSlide(event, '${index}', 2)"></span>` : ''}
       </div>
     </div>
   `;
@@ -8114,11 +13140,10 @@ function createPostCardElement(post, index) {
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
     `;
   } else if (isCaptionExpanded) {
-    // Expanded inline state: show complete text with subtle 'less' toggle
+    // Expanded inline state: show complete text (auto-shrinks on scroll without 'less' button)
     captionSnippetHtml = `
       <span class="post-creator-handle"><strong>${escapeHtml(handle)}</strong></span>
       <span class="post-caption-text" id="caption-text-${index}">${escapeHtml(curatorTakeClean)}</span>
-      <button type="button" class="read-more-btn" onclick="event.stopPropagation(); toggleCaptionExpand('${index}', false)">less</button>
     `;
   } else {
     // Collapsed state: neat word-aligned snippet with '... more' button
@@ -8130,13 +13155,35 @@ function createPostCardElement(post, index) {
     `;
   }
 
+  // Real cloud-persisted + locally-synced Heart, Like & Comment state
+  if (typeof applyLocalPostEngagementSnapshot === 'function') {
+    applyLocalPostEngagementSnapshot(post);
+  }
+  const currentUserKey = typeof getCurrentUserEngagementKey === 'function' ? getCurrentUserEngagementKey() : '';
+  const heartedByList = Array.isArray(post.heartedBy) ? post.heartedBy : [];
+  const likedByList = Array.isArray(post.likedBy) ? post.likedBy : [];
+  const commentsList = Array.isArray(post.comments) ? post.comments : [];
+  const heartCount = heartedByList.length > 0 ? heartedByList.length : (Number(post.heartCount) || 0);
+  const likeCount = likedByList.length > 0 ? likedByList.length : (Number(post.likeCount) || 0);
+  const commentCount = commentsList.length > 0 ? commentsList.length : (Number(post.commentCount) || 0);
+  const isHearted = Boolean(currentUserKey && heartedByList.some(k => String(k || '').toLowerCase() === currentUserKey));
+  const isLiked = Boolean(currentUserKey && likedByList.some(k => String(k || '').toLowerCase() === currentUserKey));
+  const allowComments = post.allowComments !== false;
+  const isCommentsOpen = Boolean(window.openCommentsDrawers && window.openCommentsDrawers[index]);
+  const postSeries = !isChronicle ? getPostSeriesInfo(post) : null;
+
   card.innerHTML = `
     <div class="post-header">
       <div class="creator-info" onclick="handleCreatorInfoClick(event, '${escapeHtml(handle)}')" style="cursor: pointer;">
-        <div class="creator-avatar">
-          <div class="avatar-inner">${initial}</div>
-        </div>
-        <span class="creator-handle">${escapeHtml(handle)}</span>
+        ${typeof buildCreatorAvatarAndHandleHtml === 'function'
+          ? buildCreatorAvatarAndHandleHtml(handle, initial, isLoginShowcaseOnlyPost(post))
+          : `<div class="creator-avatar"><div class="avatar-inner">${initial}</div></div><span class="creator-handle">${escapeHtml(handle)}</span>`}
+        ${postSeries ? `
+          <button type="button" class="post-header-series-pill" onclick="event.stopPropagation(); openSeriesInFeed('${escapeHtml(postSeries.id)}', '${escapeHtml(handle)}')" title="Part of Series: ${escapeHtml(postSeries.title)} — Tap to view Series">
+            <span>📚</span>
+            <span class="post-header-series-title">${escapeHtml(postSeries.title)}</span>
+          </button>
+        ` : ''}
         ${index === 'preview' ? `<button type="button" class="preview-card-edit-btn" onclick="event.stopPropagation(); openEditPosterModal(currentPreviewSlide || 0)" title="Edit poster headlines, takes, and receipts">✏️ Edit Content</button>` : ''}
       </div>
       <div class="post-header-right-actions">
@@ -8155,9 +13202,8 @@ function createPostCardElement(post, index) {
             </div>
           </div>
         ` : (isUnpublishedDraft ? `
-          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : 'Not published yet: tap rocket to publish'}">
+          <button type="button" class="draft-rocket-publish-btn" onclick="event.stopPropagation(); publishDraftPostFromFeed('${post.id}', this)" title="${isChronicle ? 'Saved as draft: tap to Save to My Diary Calendar' : (postSeries ? 'Private in Series • Tap rocket to publish to public feed' : 'Unpublished Draft • Tap rocket to publish')}" aria-label="${isChronicle ? 'Save to My Diary' : 'Publish Draft'}">
             <span class="draft-rocket-icon">${isChronicle ? '📔' : '🚀'}</span>
-            <span class="draft-rocket-text">${isChronicle ? 'Save to My Diary' : 'Unpublished'}</span>
           </button>
         ` : '')}
         <div class="post-menu-container">
@@ -8169,11 +13215,11 @@ function createPostCardElement(post, index) {
           </svg>
         </button>
         <div class="post-menu-dropdown" id="post-menu-${index}">
-          ${isUnpublishedDraft && canDelete ? `
+          ${isUnpublishedDraft ? `
             ${!isChronicle ? `
               <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
                 <span>🚀</span>
-                <span>Publish Draft Now</span>
+                <span>${postSeries ? 'Publish Series Post to Feed' : 'Publish Draft Now'}</span>
               </button>
             ` : (post.isDiaryDraftOnly ? `
               <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); publishDraftPostFromFeed('${post.id}')">
@@ -8183,10 +13229,23 @@ function createPostCardElement(post, index) {
             ` : '')}
             <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); openDraftInStudio('${post.id}')">
               <span>✏️</span>
-              <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit Draft in Studio'}</span>
+              <span>${isChronicle ? 'Edit Diary Entry in Studio' : 'Edit in Studio'}</span>
             </button>
           ` : ''}
           ${canDelete ? `
+            ${!isChronicle && !isUnpublishedDraft ? `
+              <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); unpublishPostToPrivateSeries('${post.id}')">
+                <span>🔒</span>
+                <span>${postSeries ? 'Make Private (Keep in Series Only)' : 'Make Private (Move to Drafts)'}</span>
+              </button>
+            ` : ''}
+            ${(!isChronicle && !postSeries) ? `
+              <button type="button" class="post-menu-item" onclick="event.stopPropagation(); toggleCardSeriesAssignSubmenu(event, '${post.id}', '${index}')">
+                <span>📚</span>
+                <span>Add to a Series...</span>
+              </button>
+              <div class="card-series-submenu" id="card-series-submenu-${index}" style="display:none;"></div>
+            ` : ''}
             <button type="button" class="post-menu-item text-primary-action" onclick="event.stopPropagation(); closeAllPostMenus(); openGenerationContextModal('${post.id}')" title="Inspect generation inputs and regenerate">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -8197,6 +13256,12 @@ function createPostCardElement(post, index) {
               </svg>
               <span>Generation Inputs</span>
             </button>
+            ${!isChronicle ? `
+            <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); togglePostAllowComments('${post.id}', '${index}')">
+              <span>💬</span>
+              <span id="menu-allow-comments-lbl-${index}">${allowComments ? 'Turn Off Comments' : 'Turn On Comments'}</span>
+            </button>
+            ` : ''}
             <button type="button" class="post-menu-item text-danger" onclick="event.stopPropagation(); closeAllPostMenus(); confirmDeletePost('${post.id}')">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -8207,16 +13272,6 @@ function createPostCardElement(post, index) {
               <span>Delete Slant</span>
             </button>
           ` : ''}
-          <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); sharePosters('${index}')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="18" cy="5" r="3"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
-              <circle cx="18" cy="19" r="3"></circle>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-            </svg>
-            <span>Share Slant</span>
-          </button>
           <button type="button" class="post-menu-item" onclick="event.stopPropagation(); closeAllPostMenus(); copyCardShareLink('${post.id}')">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -8233,16 +13288,34 @@ function createPostCardElement(post, index) {
 
     <div class="action-bar">
       <div class="action-group-left">
-        <!-- Heart / Like button -->
-        <button class="action-btn" onclick="toggleLike(this)" title="Like Poster">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <!-- 1. Heart button (Real cloud-persisted count) -->
+        <button class="action-btn heart-btn ${isHearted ? 'hearted' : ''}" id="heart-btn-${index}" onclick="togglePostReaction(event, '${index}', 'heart')" title="Heart Poster">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="${isHearted ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
           </svg>
-          <span class="like-count">64</span>
+          <span class="reaction-count" id="heart-count-${index}">${heartCount}</span>
         </button>
 
-        <!-- Share 3 Slide Posters (Native Web Share API with 3 image files) -->
-        <button class="icon-action-btn" onclick="sharePosters('${index}')" title="Share 3 Slide Posters">
+        <!-- 2. Like / Thumbs Up button (Real cloud-persisted count) -->
+        <button class="action-btn like-btn ${isLiked ? 'liked' : ''}" id="like-btn-${index}" onclick="togglePostReaction(event, '${index}', 'like')" title="Like Post">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="${isLiked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+          </svg>
+          <span class="reaction-count" id="like-count-${index}">${likeCount}</span>
+        </button>
+
+        <!-- 3. Comment button (Real cloud-persisted comments or Off if disabled by author) -->
+        ${!isChronicle ? `
+        <button class="action-btn comment-btn ${isCommentsOpen ? 'is-open' : ''} ${!allowComments ? 'comments-disabled' : ''}" id="comment-btn-${index}" onclick="togglePostCommentsDrawer(event, '${index}')" title="${allowComments ? 'View & add comments' : 'Comments turned off by author'}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span class="reaction-count" id="comment-count-${index}">${allowComments ? commentCount : 'Off'}</span>
+        </button>
+        ` : ''}
+
+        <!-- 4. Share Slide Posters (Native Web Share API with image files) -->
+        <button class="icon-action-btn" onclick="sharePosters('${index}')" title="Share Slide Posters">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="18" cy="5" r="3"></circle>
             <circle cx="6" cy="12" r="3"></circle>
@@ -8250,19 +13323,6 @@ function createPostCardElement(post, index) {
             <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
             <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
           </svg>
-        </button>
-
-        <!-- Clean Art Toggle (Show/Hide text overlays directly on feed) -->
-        <button class="icon-action-btn clean-view-btn ${isClean ? 'active' : ''}" id="clean-btn-${index}" onclick="toggleCleanView(event, '${index}')" title="${isClean ? 'Show text overlays' : 'Clean artwork (hide text)'}">
-          ${isClean
-            ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                 <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                 <line x1="1" y1="1" x2="23" y2="23"></line>
-               </svg>`
-            : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                 <circle cx="12" cy="12" r="3"></circle>
-               </svg>`}
         </button>
       </div>
 
@@ -8277,17 +13337,7 @@ function createPostCardElement(post, index) {
           </button>
         ` : ''}
 
-        ${(!isInnerVoice && !isBook) ? `
-          <button type="button" class="icon-action-btn source-summary-action-btn" onclick="openDetailModal('${index}')" title="View Source Summary & Facts" aria-label="View Source Summary & Facts">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#0284C7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </button>
-        ` : ''}
+        ${(!isInnerVoice && !isBook) ? buildPostSourceActionButtonHtml(post, index, pubName, cleanHost) : ''}
 
         ${hasPaperCut ? `
           <button class="icon-action-btn papercut-action-btn" onclick="openPaperCutModal('${index}')" title="View Paper Cut (${escapeHtml(pubName)})">
@@ -8300,14 +13350,19 @@ function createPostCardElement(post, index) {
           </button>
         ` : ''}
 
-        <!-- Bookmark / Save Story -->
-        <button class="icon-action-btn bookmark-btn ${isSaved ? 'is-saved' : ''}" id="bookmark-btn-${post.id}" onclick="toggleBookmark(event, '${post.id}')" title="${isSaved ? 'Remove from Saved' : 'Save Story'}">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button>
+        <!-- Bookmark / Save Story to Bucket List -->
+        <div class="bookmark-action-wrap">
+          <button class="icon-action-btn bookmark-btn ${isSaved ? 'is-saved' : ''}" id="bookmark-btn-${post.id}" data-bookmark-post="${post.id}" onclick="toggleBookmark(event, '${post.id}')" title="${isSaved ? 'Saved — Manage Buckets' : 'Save to Bucket'}">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="${isSaved ? '#F59E0B' : 'none'}" stroke="${isSaved ? '#F59E0B' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- Inline Collapsible Source Video + Scrolling Source Summary Drawer -->
+    <div class="inline-source-drawer" id="inline-source-drawer-${index}" style="display: none;"></div>
 
     <!-- Instagram-style Caption Area: Creator Handle + Curator Take + Native Inline Expand -->
     <div class="post-content">
@@ -8315,9 +13370,14 @@ function createPostCardElement(post, index) {
         ${captionSnippetHtml}
       </div>
     </div>
+
+    <!-- Inline Cloud-Persisted Comments Drawer -->
+    <div class="post-comments-drawer" id="comments-drawer-${index}" style="display: ${isCommentsOpen ? 'block' : 'none'};">
+      ${isCommentsOpen ? buildPostCommentsDrawerInnerHtml(post, index) : ''}
+    </div>
   `;
 
-  if (index === 'preview' && typeof requestAnimationFrame === 'function') {
+  if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(card);
     });
@@ -8408,8 +13468,86 @@ function goToSlide(event, postIndex, slideIndex) {
   if (slideIndex >= 1 && typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(() => {
       calibrateAllLiveEssayPaginations(carousel);
+      triggerSlantMinutesPagePeek(carousel, slideIndex);
     });
   }
+}
+
+function triggerSlantMinutesPagePeek(carousel, slideIndex) {
+  if (!carousel || slideIndex < 1) return;
+  const slides = carousel.querySelectorAll('.carousel-slide');
+  const targetSlide = slides[slideIndex];
+  if (!targetSlide) return;
+  const vp = targetSlide.querySelector('.slant-minute-scroll-viewport');
+  if (!vp) return;
+
+  if (vp._peekCleanup) {
+    vp._peekCleanup();
+  }
+
+  const startTimer = setTimeout(() => {
+    const maxScroll = vp.scrollHeight - vp.clientHeight;
+    // Only peek if there is genuinely a second page / scrollable content below and user is still at the top
+    if (maxScroll < 32 || vp.scrollTop > 12) return;
+
+    const peekDistance = Math.min(86, Math.max(52, Math.round(maxScroll * 0.22)));
+    const downDuration = 340;
+    const holdDuration = 220;
+    const upDuration = 360;
+    let rafId = null;
+    let holdTimer = null;
+    let aborted = false;
+
+    const abortPeek = () => {
+      aborted = true;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (holdTimer) clearTimeout(holdTimer);
+      vp.removeEventListener('touchstart', abortPeek);
+      vp.removeEventListener('wheel', abortPeek);
+      vp.removeEventListener('pointerdown', abortPeek);
+      vp._peekCleanup = null;
+    };
+
+    vp.addEventListener('touchstart', abortPeek, { passive: true });
+    vp.addEventListener('wheel', abortPeek, { passive: true });
+    vp.addEventListener('pointerdown', abortPeek, { passive: true });
+    vp._peekCleanup = abortPeek;
+
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+    const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+    const t0 = performance.now();
+    const stepDown = (now) => {
+      if (aborted) return;
+      const elapsed = now - t0;
+      const progress = Math.min(1, elapsed / downDuration);
+      vp.scrollTop = Math.round(peekDistance * easeOutCubic(progress));
+      if (progress < 1) {
+        rafId = requestAnimationFrame(stepDown);
+      } else {
+        holdTimer = setTimeout(() => {
+          if (aborted) return;
+          const t1 = performance.now();
+          const startTop = vp.scrollTop;
+          const stepUp = (nowUp) => {
+            if (aborted) return;
+            const elapsedUp = nowUp - t1;
+            const progressUp = Math.min(1, elapsedUp / upDuration);
+            vp.scrollTop = Math.round(startTop * (1 - easeInOutCubic(progressUp)));
+            if (progressUp < 1) {
+              rafId = requestAnimationFrame(stepUp);
+            } else {
+              abortPeek();
+            }
+          };
+          rafId = requestAnimationFrame(stepUp);
+        }, holdDuration);
+      }
+    };
+    rafId = requestAnimationFrame(stepDown);
+  }, 260);
+
+  vp._peekCleanup = () => clearTimeout(startTimer);
 }
 
 let activeEssayMomentumRaf = null;
@@ -8479,14 +13617,713 @@ function setupCarouselGestures(postIndex) {
   carousel.addEventListener('mouseleave', () => { isMouseDown = false; });
 }
 
+window.openCommentsDrawers = window.openCommentsDrawers || {};
+let creatorAllowComments = true;
+
+function setCreatorAllowComments(allowed) {
+  creatorAllowComments = Boolean(allowed);
+  const toggle1 = document.getElementById('creatorAllowCommentsToggle');
+  const badge1 = document.getElementById('creatorAllowCommentsBadge');
+  const sub1 = document.getElementById('creatorAllowCommentsSub');
+  const toggle3 = document.getElementById('step3AllowCommentsToggle');
+  const badge3 = document.getElementById('step3AllowCommentsBadge');
+
+  if (toggle1) toggle1.checked = creatorAllowComments;
+  if (toggle3) toggle3.checked = creatorAllowComments;
+
+  if (badge1) {
+    badge1.textContent = creatorAllowComments ? 'Allowed' : 'Turned Off';
+    badge1.style.color = creatorAllowComments ? '#059669' : '#64748B';
+  }
+  if (sub1) {
+    sub1.textContent = creatorAllowComments
+      ? 'Readers can comment and discuss below your post'
+      : 'Comments will be disabled on this post';
+  }
+  if (badge3) {
+    badge3.textContent = creatorAllowComments ? 'Allowed' : 'Turned Off';
+    badge3.style.color = creatorAllowComments ? '#059669' : '#64748B';
+  }
+
+  if (currentSynthesizedPost) {
+    currentSynthesizedPost.allowComments = creatorAllowComments;
+    const previewCommentBtn = document.getElementById('comment-btn-preview');
+    const previewCommentCount = document.getElementById('comment-count-preview');
+    if (previewCommentBtn) {
+      previewCommentBtn.classList.toggle('comments-disabled', !creatorAllowComments);
+      previewCommentBtn.title = creatorAllowComments ? 'View & add comments' : 'Comments turned off by author';
+    }
+    if (previewCommentCount) {
+      const cCount = Array.isArray(currentSynthesizedPost.comments) ? currentSynthesizedPost.comments.length : 0;
+      previewCommentCount.textContent = creatorAllowComments ? String(cCount) : 'Off';
+    }
+  }
+}
+
+/* ============================================================
+   CREATOR SERIES SELECTOR & INLINE ADD (STEP 1 & STEP 3)
+   ============================================================ */
+
+function closeAllCreatorSeriesPopovers() {
+  document.querySelectorAll('.creator-series-popover.show').forEach(p => p.classList.remove('show'));
+  toggleCreatorSeriesNewInput(1, false);
+  toggleCreatorSeriesNewInput(3, false);
+}
+window.closeAllCreatorSeriesPopovers = closeAllCreatorSeriesPopovers;
+
+function syncCreatorSeriesDropdowns() {
+  syncSeriesFromLoadedPosts();
+  const optionsHtml = [
+    '<option value="">None (Standalone)</option>',
+    ...(Array.isArray(creatorSeriesList) ? creatorSeriesList : []).map(s => {
+      if (!s || !s.id) return '';
+      const isSelected = activeCreatorSeriesId === s.id;
+      const stats = getSeriesStats(s.id);
+      const countSuffix = stats.total > 0 ? ` (${stats.total})` : '';
+      return `<option value="${escapeHtml(s.id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(s.icon || '📚')} ${escapeHtml(s.title)}${countSuffix}</option>`;
+    })
+  ].join('');
+
+  [1, 3].forEach(stepNum => {
+    const sel = document.getElementById(`creatorSeriesSelect${stepNum}`);
+    if (sel) {
+      sel.innerHTML = optionsHtml;
+      sel.value = activeCreatorSeriesId || '';
+      sel.classList.toggle('has-series', Boolean(activeCreatorSeriesId));
+    }
+  });
+}
+window.syncCreatorSeriesDropdowns = syncCreatorSeriesDropdowns;
+
+function setCreatorSeries(seriesId) {
+  syncSeriesFromLoadedPosts();
+  const sId = seriesId ? String(seriesId).trim() : null;
+  const matched = sId && Array.isArray(creatorSeriesList)
+    ? creatorSeriesList.find(s => s && s.id === sId)
+    : null;
+
+  activeCreatorSeriesId = matched ? matched.id : null;
+  syncCreatorSeriesDropdowns();
+
+  // Keep Step 3 bottom Save / Publish buttons uniform ("Save Draft" & "Publish 🚀") even when a Series is selected
+  const isChron = Boolean(currentSynthesizedPost && typeof isChronicleModePost === 'function' && isChronicleModePost(currentSynthesizedPost));
+  if (!isChron) {
+    const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
+    const publishBtn = document.getElementById('publishBtn');
+    const saveLbl = document.getElementById('step3SaveLabel');
+    if (bottomSaveBtn) {
+      bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>';
+      bottomSaveBtn.title = matched
+        ? `Save as draft inside Series "${matched.title}"`
+        : 'Save privately to your feed & drafts without publishing';
+    }
+    if (publishBtn) {
+      publishBtn.innerHTML = '<span>Publish 🚀</span>';
+    }
+    if (saveLbl) {
+      saveLbl.textContent = 'Save Draft';
+    }
+  }
+
+  if (currentSynthesizedPost) {
+    if (matched) {
+      currentSynthesizedPost.seriesId = matched.id;
+      currentSynthesizedPost.seriesTitle = matched.title;
+      if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+      currentSynthesizedPost.generationInputs.seriesId = matched.id;
+      currentSynthesizedPost.generationInputs.seriesTitle = matched.title;
+    } else {
+      delete currentSynthesizedPost.seriesId;
+      delete currentSynthesizedPost.seriesTitle;
+      if (currentSynthesizedPost.generationInputs) {
+        delete currentSynthesizedPost.generationInputs.seriesId;
+        delete currentSynthesizedPost.generationInputs.seriesTitle;
+      }
+    }
+  }
+
+  toggleCreatorSeriesNewInput(1, false);
+  toggleCreatorSeriesNewInput(3, false);
+}
+window.setCreatorSeries = setCreatorSeries;
+
+function onCreatorSeriesDropdownChange(value) {
+  setCreatorSeries(value || null);
+}
+window.onCreatorSeriesDropdownChange = onCreatorSeriesDropdownChange;
+
+function toggleCreatorSeriesNewInput(stepNum = 1, showInput = true) {
+  const selectGroup = document.getElementById(`creatorSeriesSelectGroup${stepNum}`);
+  const createGroup = document.getElementById(`creatorSeriesCreateGroup${stepNum}`);
+  const inp = document.getElementById(`creatorSeriesNewInput${stepNum}`);
+  if (!selectGroup || !createGroup) return;
+
+  if (showInput) {
+    selectGroup.style.display = 'none';
+    createGroup.style.display = 'flex';
+    if (inp) {
+      inp.value = '';
+      setTimeout(() => inp.focus(), 30);
+    }
+  } else {
+    createGroup.style.display = 'none';
+    selectGroup.style.display = 'flex';
+    if (inp) inp.value = '';
+  }
+}
+window.toggleCreatorSeriesNewInput = toggleCreatorSeriesNewInput;
+
+function createNewCreatorSeriesInline(stepNum = 1) {
+  const inp = document.getElementById(`creatorSeriesNewInput${stepNum}`);
+  const rawTitle = inp ? inp.value.trim() : '';
+  if (!rawTitle) {
+    if (inp) inp.focus();
+    return;
+  }
+
+  clearSeriesTombstone(null, rawTitle);
+  let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  const isNew = !series;
+  if (!series) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    series = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    clearSeriesTombstone(series.id, series.title);
+    creatorSeriesList.push(series);
+    persistCreatorSeries(true);
+    updateAuthUI();
+  }
+
+  setCreatorSeries(series.id);
+  showTemporaryToast(isNew ? `📚 Created Series "${series.title}"!` : `📚 Selected Series "${series.title}"`);
+}
+window.createNewCreatorSeriesInline = createNewCreatorSeriesInline;
+window.toggleCreatorSeriesPopover = (event, stepNum = 1) => toggleCreatorSeriesNewInput(stepNum, true);
+window.createCreatorSeriesFromPopover = (event, stepNum = 1) => createNewCreatorSeriesInline(stepNum);
+
+function getCurrentUserEngagementKey() {
+  if (currentUser) {
+    const k = String(currentUser.email || currentUser.handle || currentUser.id || '').trim().toLowerCase();
+    if (k) return k;
+  }
+  try {
+    const cachedEmail = String(localStorage.getItem('slant_user_email') || '').trim().toLowerCase();
+    if (cachedEmail) return cachedEmail;
+  } catch (_) {}
+  return '';
+}
+
+function getLocalEngagementCacheMap() {
+  try {
+    const raw = localStorage.getItem('slant_post_engagement_cache_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (_) {}
+  return {};
+}
+
+function saveLocalPostEngagementSnapshot(post, deletedCommentId = null) {
+  if (!post || !post.id) return;
+  try {
+    const map = getLocalEngagementCacheMap();
+    const prev = map[post.id] || {};
+    const deletedCommentIds = Array.isArray(prev.deletedCommentIds) ? [...prev.deletedCommentIds] : [];
+    if (deletedCommentId && !deletedCommentIds.includes(deletedCommentId)) {
+      deletedCommentIds.push(deletedCommentId);
+    }
+    map[post.id] = {
+      heartedBy: Array.isArray(post.heartedBy) ? [...post.heartedBy] : [],
+      likedBy: Array.isArray(post.likedBy) ? [...post.likedBy] : [],
+      heartCount: Array.isArray(post.heartedBy) ? post.heartedBy.length : (Number(post.heartCount) || 0),
+      likeCount: Array.isArray(post.likedBy) ? post.likedBy.length : (Number(post.likeCount) || 0),
+      comments: Array.isArray(post.comments) ? [...post.comments] : [],
+      commentCount: Array.isArray(post.comments) ? post.comments.length : (Number(post.commentCount) || 0),
+      allowComments: post.allowComments !== false,
+      deletedCommentIds,
+      updatedAt: Date.now()
+    };
+    localStorage.setItem('slant_post_engagement_cache_v1', JSON.stringify(map));
+
+    // Also keep slant_user_posts_cache synchronized if this post is cached there
+    const userPostsRaw = localStorage.getItem('slant_user_posts_cache');
+    if (userPostsRaw) {
+      const userPosts = JSON.parse(userPostsRaw);
+      if (Array.isArray(userPosts)) {
+        let updatedCache = false;
+        userPosts.forEach(up => {
+          if (up && up.id === post.id) {
+            up.heartedBy = map[post.id].heartedBy;
+            up.likedBy = map[post.id].likedBy;
+            up.heartCount = map[post.id].heartCount;
+            up.likeCount = map[post.id].likeCount;
+            up.comments = map[post.id].comments;
+            up.commentCount = map[post.id].commentCount;
+            up.allowComments = map[post.id].allowComments;
+            updatedCache = true;
+          }
+        });
+        if (updatedCache) {
+          localStorage.setItem('slant_user_posts_cache', JSON.stringify(userPosts));
+        }
+      }
+    }
+  } catch (_) {}
+}
+
+function applyLocalPostEngagementSnapshot(post) {
+  if (!post || !post.id) return;
+  try {
+    const map = getLocalEngagementCacheMap();
+    const snap = map[post.id];
+    if (!snap) return;
+
+    const deletedSet = new Set(Array.isArray(snap.deletedCommentIds) ? snap.deletedCommentIds : []);
+
+    // Merge comments from both post and local snapshot (excluding explicitly deleted comment IDs)
+    const cmtMap = new Map();
+    if (Array.isArray(post.comments)) {
+      post.comments.forEach(c => {
+        if (c && c.id && !deletedSet.has(c.id)) cmtMap.set(c.id, c);
+      });
+    }
+    if (Array.isArray(snap.comments)) {
+      snap.comments.forEach(c => {
+        if (c && c.id && !deletedSet.has(c.id) && !cmtMap.has(c.id)) {
+          cmtMap.set(c.id, c);
+        }
+      });
+    }
+    if (cmtMap.size > 0 || Array.isArray(snap.comments)) {
+      post.comments = Array.from(cmtMap.values());
+      post.commentCount = post.comments.length;
+    }
+
+    // Preserve user's exact Heart / Like state from local snapshot if newer or if post lacks it
+    if (Array.isArray(snap.heartedBy)) {
+      post.heartedBy = snap.heartedBy;
+      post.heartCount = snap.heartedBy.length;
+    }
+    if (Array.isArray(snap.likedBy)) {
+      post.likedBy = snap.likedBy;
+      post.likeCount = snap.likedBy.length;
+    }
+    if (typeof snap.allowComments === 'boolean') {
+      post.allowComments = snap.allowComments;
+    }
+  } catch (_) {}
+}
+
+function syncAllRenderedPostEngagementDOM() {
+  const userKey = getCurrentUserEngagementKey();
+  const cards = document.querySelectorAll('.post-card[data-post-id]');
+  cards.forEach(card => {
+    const postId = card.getAttribute('data-post-id');
+    const post = Array.isArray(allPosts) ? allPosts.find(p => p && String(p.id) === String(postId)) : null;
+    if (!post) return;
+    applyLocalPostEngagementSnapshot(post);
+
+    const heartBtn = card.querySelector('.heart-btn');
+    const likeBtn = card.querySelector('.like-btn');
+    const commentBtn = card.querySelector('.comment-btn');
+
+    const heartedByList = Array.isArray(post.heartedBy) ? post.heartedBy : [];
+    const likedByList = Array.isArray(post.likedBy) ? post.likedBy : [];
+    const commentsList = Array.isArray(post.comments) ? post.comments : [];
+
+    const isHearted = Boolean(userKey && heartedByList.some(k => String(k || '').toLowerCase() === userKey));
+    const isLiked = Boolean(userKey && likedByList.some(k => String(k || '').toLowerCase() === userKey));
+    const heartCount = heartedByList.length > 0 ? heartedByList.length : (Number(post.heartCount) || 0);
+    const likeCount = likedByList.length > 0 ? likedByList.length : (Number(post.likeCount) || 0);
+    const commentCount = commentsList.length > 0 ? commentsList.length : (Number(post.commentCount) || 0);
+    const allowComments = post.allowComments !== false;
+
+    if (heartBtn) {
+      heartBtn.classList.toggle('hearted', isHearted);
+      const svg = heartBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', isHearted ? 'currentColor' : 'none');
+      const cEl = heartBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = String(heartCount);
+    }
+    if (likeBtn) {
+      likeBtn.classList.toggle('liked', isLiked);
+      const svg = likeBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', isLiked ? 'currentColor' : 'none');
+      const cEl = likeBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = String(likeCount);
+    }
+    if (commentBtn) {
+      commentBtn.classList.toggle('comments-disabled', !allowComments);
+      const cEl = commentBtn.querySelector('.reaction-count');
+      if (cEl) cEl.textContent = allowComments ? String(commentCount) : 'Off';
+    }
+  });
+}
+
+async function togglePostReaction(event, index, reactionType = 'heart') {
+  if (event) event.stopPropagation();
+  const userKey = getCurrentUserEngagementKey();
+  if (!currentUser && !userKey) {
+    openAuthModal('Sign in to heart, like, and comment on visual slants.');
+    return;
+  }
+
+  const post = getPostFromIndexOrId(index);
+  if (!post || !userKey) return;
+
+  const isLike = reactionType === 'like';
+  const listKey = isLike ? 'likedBy' : 'heartedBy';
+  const countKey = isLike ? 'likeCount' : 'heartCount';
+
+  if (!Array.isArray(post[listKey])) {
+    post[listKey] = [];
+  }
+
+  const existingIdx = post[listKey].findIndex(k => String(k || '').toLowerCase() === userKey);
+  let isActive = false;
+  if (existingIdx >= 0) {
+    post[listKey].splice(existingIdx, 1);
+    isActive = false;
+  } else {
+    post[listKey].push(userKey);
+    isActive = true;
+  }
+  post[countKey] = post[listKey].length;
+  saveLocalPostEngagementSnapshot(post);
+
+  // Immediate optimistic UI update
+  const btn = document.getElementById(`${isLike ? 'like' : 'heart'}-btn-${index}`);
+  const countEl = document.getElementById(`${isLike ? 'like' : 'heart'}-count-${index}`);
+  if (btn) {
+    btn.classList.toggle(isLike ? 'liked' : 'hearted', isActive);
+    const svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', isActive ? 'currentColor' : 'none');
+  }
+  if (countEl) {
+    countEl.textContent = String(post[countKey]);
+  }
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  // Persist to Supabase via /api/posts
+  try {
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'toggle_reaction',
+        postId: post.id,
+        reactionType: isLike ? 'like' : 'heart',
+        userKey
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success) {
+        if (Array.isArray(data.heartedBy)) post.heartedBy = data.heartedBy;
+        if (Array.isArray(data.likedBy)) post.likedBy = data.likedBy;
+        if (typeof data.heartCount === 'number') post.heartCount = data.heartCount;
+        if (typeof data.likeCount === 'number') post.likeCount = data.likeCount;
+        saveLocalPostEngagementSnapshot(post);
+        const hCountEl = document.getElementById(`heart-count-${index}`);
+        const lCountEl = document.getElementById(`like-count-${index}`);
+        if (hCountEl) hCountEl.textContent = String(post.heartCount || 0);
+        if (lCountEl) lCountEl.textContent = String(post.likeCount || 0);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not sync reaction to cloud:', err);
+  }
+}
+
+function formatCommentRelativeTime(iso) {
+  if (!iso) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (diffSec < 60) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
+  return `${Math.floor(diffSec / 86400)}d`;
+}
+
+function buildPostCommentsDrawerInnerHtml(post, index) {
+  if (!post) return '';
+  applyLocalPostEngagementSnapshot(post);
+  const allowComments = post.allowComments !== false;
+  const comments = Array.isArray(post.comments) ? post.comments : [];
+  const userEmail = getCurrentUserEngagementKey();
+  const userHandle = currentUser && currentUser.handle ? String(currentUser.handle).toLowerCase() : '';
+  const isMaster = userEmail === 'shridharoct16@gmail.com';
+  const isPostOwner = Boolean(
+    (userEmail && String(post.userEmail || '').toLowerCase() === userEmail) ||
+    (userHandle && String(post.creatorHandle || '').toLowerCase() === userHandle)
+  );
+
+  const itemsHtml = comments.length > 0
+    ? comments.map(c => {
+        const cHandle = escapeHtml(c.handle || '@reader');
+        const cText = escapeHtml(c.text || '');
+        const cTime = formatCommentRelativeTime(c.createdAt);
+        const isCommentOwner = Boolean(
+          (userEmail && String(c.email || '').toLowerCase() === userEmail) ||
+          (userHandle && String(c.handle || '').toLowerCase() === userHandle)
+        );
+        const canRemove = isMaster || isPostOwner || isCommentOwner;
+        return `
+          <div class="post-comment-item" id="cmt-item-${escapeHtml(c.id || '')}">
+            <div class="post-comment-body">
+              <span class="post-comment-handle">${cHandle}</span>
+              <span class="post-comment-text">${cText}</span>
+              ${cTime ? `<span class="post-comment-time">${cTime}</span>` : ''}
+            </div>
+            ${canRemove ? `
+              <button type="button" class="post-comment-del-btn" onclick="deletePostComment(event, '${index}', '${escapeHtml(c.id || '')}')" title="Delete comment" aria-label="Delete comment">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }).join('')
+    : `<div style="font-size: 11.8px; color: var(--text-muted, #94A3B8); padding: 2px 4px;">${allowComments ? 'No comments yet. Start the conversation below.' : 'No comments on this post.'}</div>`;
+
+  const inputHtml = allowComments
+    ? `
+      <form class="post-comment-form" onsubmit="submitPostComment(event, '${index}')">
+        <textarea class="post-comment-input" id="comment-input-${index}" rows="3" maxlength="500" placeholder="${(currentUser || userEmail) ? 'Write a comment...' : 'Sign in to add a comment...'}" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();submitPostComment(event, '${index}');}"></textarea>
+        <div class="post-comment-actions-row">
+          <button type="button" class="post-comment-cancel-btn" onclick="togglePostCommentsDrawer(event, '${index}')">Cancel</button>
+          <button type="submit" class="post-comment-submit-btn" id="comment-submit-${index}">Post</button>
+        </div>
+      </form>
+    `
+    : `<div style="font-size: 11.2px; font-weight: 700; color: var(--text-muted, #94A3B8); padding: 4px 4px 0;">🔒 Comments are turned off for this post by the author.</div>`;
+
+  return `
+    <div class="post-comments-box">
+      <div class="post-comments-header">
+        <span class="post-comments-header-title">Comments (${comments.length})</span>
+        <button type="button" class="post-comments-close-btn" onclick="togglePostCommentsDrawer(event, '${index}')" title="Close comments">✕</button>
+      </div>
+      <div class="post-comments-list" id="comments-list-${index}">
+        ${itemsHtml}
+      </div>
+      ${inputHtml}
+    </div>
+  `;
+}
+
+function togglePostCommentsDrawer(event, index) {
+  if (event) event.stopPropagation();
+  const key = String(index);
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const isOpen = !window.openCommentsDrawers[key];
+  if (!isOpen) {
+    delete window.openCommentsDrawers[key];
+  } else {
+    window.openCommentsDrawers[key] = true;
+  }
+
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  const btn = document.getElementById(`comment-btn-${index}`);
+  if (btn) {
+    btn.classList.toggle('is-open', isOpen);
+  }
+  if (drawer) {
+    if (isOpen) {
+      drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+      drawer.style.display = 'block';
+      const inp = document.getElementById(`comment-input-${index}`);
+      if (inp && (currentUser || getCurrentUserEngagementKey()) && post.allowComments !== false) {
+        setTimeout(() => inp.focus(), 40);
+      }
+    } else {
+      drawer.style.display = 'none';
+    }
+  }
+}
+
+async function submitPostComment(event, index) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const userEmail = getCurrentUserEngagementKey();
+  if (!currentUser && !userEmail) {
+    openAuthModal('Sign in to comment on visual slants.');
+    return;
+  }
+  const post = getPostFromIndexOrId(index);
+  if (!post) return;
+  if (post.allowComments === false) {
+    showTemporaryToast('🔒 Comments are turned off for this post.');
+    return;
+  }
+
+  const inp = document.getElementById(`comment-input-${index}`);
+  const submitBtn = document.getElementById(`comment-submit-${index}`);
+  const text = inp ? inp.value.trim() : '';
+  if (!text) return;
+
+  const rawHandle = (currentUser && currentUser.handle) || (userEmail ? '@' + userEmail.split('@')[0] : '@reader');
+  const userHandle = rawHandle.startsWith('@') ? rawHandle : ('@' + rawHandle);
+
+  const optimisticComment = {
+    id: 'cmt-' + Date.now(),
+    handle: userHandle,
+    email: userEmail,
+    text: text.slice(0, 500),
+    createdAt: new Date().toISOString()
+  };
+
+  if (!Array.isArray(post.comments)) post.comments = [];
+  post.comments.push(optimisticComment);
+  post.commentCount = post.comments.length;
+  saveLocalPostEngagementSnapshot(post);
+
+  if (inp) inp.value = '';
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer) {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+  const countEl = document.getElementById(`comment-count-${index}`);
+  if (countEl) countEl.textContent = String(post.commentCount);
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    const resp = await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'add_comment',
+        postId: post.id,
+        userHandle,
+        userEmail,
+        text: optimisticComment.text
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data && data.success && Array.isArray(data.comments)) {
+        post.comments = data.comments;
+        post.commentCount = data.comments.length;
+        saveLocalPostEngagementSnapshot(post);
+        if (drawer) drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+        if (countEl) countEl.textContent = String(post.commentCount);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not persist comment:', err);
+  }
+}
+
+async function deletePostComment(event, index, commentId) {
+  if (event) event.stopPropagation();
+  const post = getPostFromIndexOrId(index);
+  if (!post || !commentId) return;
+
+  if (Array.isArray(post.comments)) {
+    post.comments = post.comments.filter(c => c && c.id !== commentId);
+    post.commentCount = post.comments.length;
+  }
+  saveLocalPostEngagementSnapshot(post, commentId);
+
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer) {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+  const countEl = document.getElementById(`comment-count-${index}`);
+  if (countEl) {
+    countEl.textContent = post.allowComments !== false ? String(post.commentCount || 0) : 'Off';
+  }
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete_comment',
+        postId: post.id,
+        commentId,
+        userEmail: getCurrentUserEngagementKey(),
+        userHandle: currentUser ? currentUser.handle : ''
+      })
+    });
+  } catch (err) {
+    console.warn('Could not delete comment from cloud:', err);
+  }
+}
+
+async function togglePostAllowComments(postId, index) {
+  const post = getPostFromIndexOrId(index) || (Array.isArray(allPosts) ? allPosts.find(p => p && p.id === postId) : null);
+  if (!post) return;
+
+  const nextAllow = post.allowComments === false ? true : false;
+  post.allowComments = nextAllow;
+  saveLocalPostEngagementSnapshot(post);
+
+  const menuLbl = document.getElementById(`menu-allow-comments-lbl-${index}`);
+  if (menuLbl) {
+    menuLbl.textContent = nextAllow ? 'Turn Off Comments' : 'Turn On Comments';
+  }
+  const commentBtn = document.getElementById(`comment-btn-${index}`);
+  const commentCountEl = document.getElementById(`comment-count-${index}`);
+  if (commentBtn) {
+    commentBtn.classList.toggle('comments-disabled', !nextAllow);
+    commentBtn.title = nextAllow ? 'View & add comments' : 'Comments turned off by author';
+  }
+  if (commentCountEl) {
+    const cCount = Array.isArray(post.comments) ? post.comments.length : (Number(post.commentCount) || 0);
+    commentCountEl.textContent = nextAllow ? String(cCount) : 'Off';
+  }
+  const drawer = document.getElementById(`comments-drawer-${index}`);
+  if (drawer && drawer.style.display !== 'none') {
+    drawer.innerHTML = buildPostCommentsDrawerInnerHtml(post, index);
+  }
+
+  showTemporaryToast(nextAllow ? '💬 Comments turned ON for this post' : '🔒 Comments turned OFF for this post');
+
+  if (String(index) === 'preview' || !post.id) return;
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'set_allow_comments',
+        postId: post.id,
+        allowComments: nextAllow,
+        userEmail: currentUser ? currentUser.email : ''
+      })
+    });
+  } catch (err) {
+    console.warn('Failed to update allowComments on cloud:', err);
+  }
+}
+
 function toggleLike(btn) {
   if (!currentUser) {
     openAuthModal('Sign in to like and react to visual slants.');
     return;
   }
   btn.classList.toggle('liked');
-  const countSpan = btn.querySelector('.like-count');
-  let val = parseInt(countSpan.textContent, 10);
+  const countSpan = btn.querySelector('.like-count') || btn.querySelector('.reaction-count');
+  if (!countSpan) return;
+  let val = parseInt(countSpan.textContent, 10) || 0;
   if (btn.classList.contains('liked')) {
     countSpan.textContent = val + 1;
   } else {
@@ -8519,16 +14356,163 @@ function toggleDiaryCornerMenu(index) {
 }
 
 function closeAllPostMenus() {
-  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.post-menu-dropdown.show, .diary-corner-popover.show, .save-bucket-popover.show, .creator-series-popover.show').forEach(m => m.classList.remove('show'));
 }
 
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container')) {
+  if (!e.target.closest('.post-menu-container') && !e.target.closest('.diary-corner-container') && !e.target.closest('.bookmark-action-wrap') && !e.target.closest('.creator-series-picker-wrap')) {
     closeAllPostMenus();
   }
 });
 
+function toggleCardSeriesAssignSubmenu(event, postId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const sub = document.getElementById(`card-series-submenu-${index}`);
+  if (!sub) return;
+  if (sub.style.display !== 'none') {
+    sub.style.display = 'none';
+    return;
+  }
+
+  syncSeriesFromLoadedPosts();
+  const post = getPostFromIndexOrId(postId) || getPostFromIndexOrId(index);
+  const currentInfo = getPostSeriesInfo(post);
+  const currentSeriesId = currentInfo ? currentInfo.id : null;
+
+  const itemsHtml = [
+    `<button type="button" class="save-bucket-item ${!currentSeriesId ? 'is-checked' : ''}" onclick="assignPostToSeriesFromCard(event, '${escapeHtml(postId)}', '', '${escapeHtml(index)}')">
+      <span class="save-bucket-check">${!currentSeriesId ? '✓' : ''}</span>
+      <span class="save-bucket-name">None (Standalone)</span>
+    </button>`,
+    ...creatorSeriesList.map(s => {
+      const isChecked = currentSeriesId === s.id;
+      return `
+        <button type="button" class="save-bucket-item ${isChecked ? 'is-checked' : ''}" onclick="assignPostToSeriesFromCard(event, '${escapeHtml(postId)}', '${escapeHtml(s.id)}', '${escapeHtml(index)}')">
+          <span class="save-bucket-check">${isChecked ? '✓' : ''}</span>
+          <span class="save-bucket-icon">${escapeHtml(s.icon || '📚')}</span>
+          <span class="save-bucket-name">${escapeHtml(s.title)}</span>
+        </button>
+      `;
+    })
+  ].join('');
+
+  sub.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:3px; padding:4px 2px;">
+      ${itemsHtml}
+      <form class="save-bucket-create-form" onsubmit="createAndAssignPostSeriesFromCard(event, '${escapeHtml(postId)}', '${escapeHtml(index)}')" onclick="event.stopPropagation()">
+        <input type="text" class="save-bucket-create-input" id="card-series-input-${escapeHtml(index)}" placeholder="+ New series..." maxlength="44" autocomplete="off" onclick="event.stopPropagation()">
+        <button type="submit" class="save-bucket-create-btn">Add</button>
+      </form>
+    </div>
+  `;
+  sub.style.display = 'block';
+}
+window.toggleCardSeriesAssignSubmenu = toggleCardSeriesAssignSubmenu;
+
+async function assignPostToSeriesFromCard(event, postId, seriesId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const post = getPostFromIndexOrId(postId) || getPostFromIndexOrId(index);
+  if (!post) return;
+
+  const matched = seriesId ? creatorSeriesList.find(s => s && s.id === seriesId) : null;
+  if (matched) {
+    post.seriesId = matched.id;
+    post.seriesTitle = matched.title;
+    if (!post.generationInputs) post.generationInputs = {};
+    post.generationInputs.seriesId = matched.id;
+    post.generationInputs.seriesTitle = matched.title;
+  } else {
+    delete post.seriesId;
+    delete post.seriesTitle;
+    if (post.generationInputs) {
+      delete post.generationInputs.seriesId;
+      delete post.generationInputs.seriesTitle;
+    }
+  }
+
+  closeAllPostMenus();
+  updateAuthUI();
+  renderFeed();
+  showTemporaryToast(matched ? `📚 Added to Series "${matched.title}"` : 'Removed from Series');
+
+  if (typeof saveSinglePostToCloud === 'function') {
+    try { await saveSinglePostToCloud(post); } catch (_) {}
+  } else {
+    try {
+      await fetch('/api/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post)
+      });
+    } catch (_) {}
+  }
+}
+window.assignPostToSeriesFromCard = assignPostToSeriesFromCard;
+
+async function createAndAssignPostSeriesFromCard(event, postId, index) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const inp = document.getElementById(`card-series-input-${index}`);
+  const rawTitle = inp ? inp.value.trim() : '';
+  if (!rawTitle) return;
+
+  clearSeriesTombstone(null, rawTitle);
+  let series = creatorSeriesList.find(s => s && s.title.toLowerCase() === rawTitle.toLowerCase());
+  if (!series) {
+    const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || ('s_' + Date.now());
+    series = {
+      id: `series_${slug}_${Date.now().toString(36).slice(-3)}`,
+      title: rawTitle,
+      icon: '📚',
+      createdAt: new Date().toISOString()
+    };
+    clearSeriesTombstone(series.id, series.title);
+    creatorSeriesList.push(series);
+    persistCreatorSeries(true);
+  }
+  await assignPostToSeriesFromCard(event, postId, series.id, index);
+}
+window.createAndAssignPostSeriesFromCard = createAndAssignPostSeriesFromCard;
+
+async function unpublishPostToPrivateSeries(postId) {
+  const post = getPostFromIndexOrId(postId);
+  if (!post) return;
+
+  post.isDraft = true;
+  post.isPrivate = true;
+  post.isPubliclyPublished = false;
+  post.status = 'draft';
+
+  const sInfo = getPostSeriesInfo(post);
+  showTemporaryToast(sInfo
+    ? `🔒 Post is now private inside Series "${sInfo.title}" (removed from public feed)`
+    : '🔒 Post moved to private drafts (removed from public feed)');
+
+  updateAuthUI();
+  renderFeed();
+
+  try {
+    await fetch('/api/posts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(post)
+    });
+  } catch (err) {
+    console.warn('Could not sync private state to cloud:', err);
+  }
+}
+window.unpublishPostToPrivateSeries = unpublishPostToPrivateSeries;
+
 let activeCuratorFilter = null;
+let activeCuratorSeriesFilter = 'all';
 
 function handleCreatorInfoClick(event, handle) {
   if (event) event.stopPropagation();
@@ -8539,35 +14523,217 @@ function handleCreatorInfoClick(event, handle) {
     openAuthModal(`Sign in to explore all opinions and slants by @${clean}.`);
     return;
   }
-  filterByCurator(clean);
+  filterByCurator(clean, 'all');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function filterFeedByCurator(curatorIdentifier) {
   if (!curatorIdentifier) return;
-  filterByCurator(curatorIdentifier);
+  filterByCurator(curatorIdentifier, 'all');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function filterByCurator(curatorName) {
+function selectCuratorProfileSeries(curatorName, seriesId) {
+  filterByCurator(curatorName, seriesId || 'all');
+}
+window.selectCuratorProfileSeries = selectCuratorProfileSeries;
+
+function exitCuratorProfileView() {
+  activeCuratorFilter = null;
+  activeCuratorSeriesFilter = 'all';
+  selectCategory('all');
+}
+window.exitCuratorProfileView = exitCuratorProfileView;
+
+function filterByCurator(curatorName, selectedSeriesId = 'all') {
   if (!curatorName) return;
   const clean = String(curatorName).replace(/^@/, '').toLowerCase().trim();
   activeCuratorFilter = clean;
+  activeCuratorSeriesFilter = String(selectedSeriesId || 'all');
 
   const targetPosts = (typeof allStories !== 'undefined' && allStories && allStories.length > 0) ? allStories : (typeof allPosts !== 'undefined' ? allPosts : []);
   if (targetPosts && targetPosts.length > 0) {
     const matched = targetPosts.filter(p => {
+      if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+      if (isPostChronicleDiary(p)) return false;
+      const isOwnedByMe = isPostOwnedByCurrentUser(p);
+      if (isPostPrivateOrDraft(p) && !isOwnedByMe) return false;
       const author = (p.creatorHandle || '').toLowerCase().replace(/^@/, '').trim();
       const email = (p.userEmail || '').toLowerCase().trim();
       return author === clean || author.includes(clean) || email === clean || email.includes(clean);
     });
 
     if (matched.length > 0) {
-      currentBatchFilteredPosts = matched;
+      // Extract all shared Series belonging to this curator
+      const seriesMap = new Map();
+      matched.forEach(p => {
+        if (isPostPrivateOrDraft(p)) return; // Only show published/shared posts in profile series
+        const sInfo = getPostSeriesInfo(p);
+        if (!sInfo || !sInfo.title) return;
+        const key = sInfo.id || ('series_' + sInfo.title.toLowerCase().replace(/[^a-z0-9]+/g, '_'));
+        const img = p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl || '';
+        const ts = p.createdAt ? new Date(p.createdAt).getTime() : 0;
+        const existing = seriesMap.get(key);
+        if (!existing) {
+          seriesMap.set(key, {
+            id: key,
+            title: sInfo.title,
+            description: sInfo.description || String(p.seriesDescription || p.generationInputs?.seriesDescription || '').trim(),
+            customCoverImage: sInfo.customCoverImage || String(p.seriesCoverImage || p.generationInputs?.seriesCoverImage || '').trim(),
+            coverImage: img,
+            latestTs: ts,
+            icon: sInfo.icon || '📚',
+            count: 1
+          });
+        } else {
+          existing.count += 1;
+          if (!existing.description && (sInfo.description || p.seriesDescription || p.generationInputs?.seriesDescription)) {
+            existing.description = sInfo.description || String(p.seriesDescription || p.generationInputs?.seriesDescription || '').trim();
+          }
+          if (!existing.customCoverImage && (sInfo.customCoverImage || p.seriesCoverImage || p.generationInputs?.seriesCoverImage)) {
+            existing.customCoverImage = sInfo.customCoverImage || String(p.seriesCoverImage || p.generationInputs?.seriesCoverImage || '').trim();
+          }
+          if ((!existing.coverImage && img) || (img && ts >= existing.latestTs)) {
+            existing.coverImage = img;
+            existing.latestTs = ts;
+          }
+        }
+      });
+
+      const sharedSeriesList = Array.from(seriesMap.values());
+      const displayHandle = String(matched[0].creatorHandle || curatorName).replace(/^@/, '').trim();
+      const avatarInitial = (displayHandle.charAt(0) || 'S').toUpperCase();
+      const firstCoverPost = matched.find(p => p.illustrationBase64 || p.illustrationUrl || p.aiIllustrationUrl) || {};
+      const allProfileCover = firstCoverPost.illustrationBase64 || firstCoverPost.illustrationUrl || firstCoverPost.aiIllustrationUrl || '';
+
+      const activeSeriesObj = (activeCuratorSeriesFilter && activeCuratorSeriesFilter !== 'all')
+        ? sharedSeriesList.find(s => s.id === activeCuratorSeriesFilter || String(s.title || '').toLowerCase() === activeCuratorSeriesFilter.toLowerCase())
+        : null;
+
+      if (activeSeriesObj) {
+        document.title = `${activeSeriesObj.title} • Series by @${displayHandle} • Slant`;
+      }
+
+      const visiblePosts = activeSeriesObj
+        ? matched.filter(p => {
+            const sInfo = getPostSeriesInfo(p);
+            return sInfo && (sInfo.id === activeSeriesObj.id || String(sInfo.title || '').toLowerCase() === String(activeSeriesObj.title || '').toLowerCase());
+          })
+        : matched;
+
+      currentBatchFilteredPosts = visiblePosts;
       currentRenderedBatch = 0;
       const container = document.getElementById('feedContainer');
-      if (container) container.innerHTML = '';
-      renderBatchCards(matched.slice(0, FEED_BATCH_SIZE), 0);
-      showTemporaryToast(`✨ Showing opinions by @${clean}`);
+      if (container) {
+        container.innerHTML = '';
+
+        const profileWrap = document.createElement('div');
+        profileWrap.className = 'curator-profile-feed-header';
+
+        const seriesShelfHtml = sharedSeriesList.length > 0 ? `
+          <div class="curator-profile-series-section">
+            <div class="curator-profile-series-label">📚 Series Shared by @${escapeHtml(displayHandle)} (${sharedSeriesList.length})</div>
+            <div class="series-poster-thumbnails-strip" role="region" aria-label="Curator Shared Series">
+              <button type="button" class="series-poster-thumb-card is-all-card ${!activeSeriesObj ? 'active' : ''}" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', 'all')">
+                ${allProfileCover
+                  ? `<img src="${escapeHtml(allProfileCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+                  : `<div class="series-poster-thumb-fallback is-all-fallback"></div>`}
+                <div class="series-poster-thumb-scrim-top">
+                  <span class="series-poster-thumb-icon">✨</span>
+                  <span class="series-poster-thumb-count">${matched.length}</span>
+                </div>
+                <div class="series-poster-thumb-scrim-bottom">
+                  <div class="series-poster-thumb-kicker">PROFILE</div>
+                  <div class="series-poster-thumb-title">All Slants</div>
+                  <div class="series-poster-thumb-sub">${matched.length} ${matched.length === 1 ? 'story' : 'stories'}</div>
+                </div>
+              </button>
+              ${sharedSeriesList.map((s, idx) => {
+                const isAct = activeSeriesObj && activeSeriesObj.id === s.id;
+                const resolvedCover = s.customCoverImage || s.coverImage || '';
+                const subText = s.description ? s.description : `${s.count} ${s.count === 1 ? 'story' : 'stories'}`;
+                return `
+                  <button type="button" class="series-poster-thumb-card ${isAct ? 'active' : ''}" onclick="selectCuratorProfileSeries('${escapeHtml(displayHandle)}', '${escapeHtml(s.id)}')">
+                    ${resolvedCover
+                      ? `<img src="${escapeHtml(resolvedCover)}" class="series-poster-thumb-img" alt="" loading="lazy">`
+                      : `<div class="series-poster-thumb-fallback palette-${idx % 4}"></div>`}
+                    <div class="series-poster-thumb-scrim-top">
+                      <span class="series-poster-thumb-icon">${escapeHtml(s.icon || '📚')}</span>
+                      <span class="series-poster-thumb-count">${s.count}</span>
+                    </div>
+                    <div class="series-poster-thumb-scrim-bottom">
+                      <div class="series-poster-thumb-kicker">SERIES</div>
+                      <div class="series-poster-thumb-title">${escapeHtml(s.title)}</div>
+                      <div class="series-poster-thumb-sub">${escapeHtml(subText)}</div>
+                    </div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+            ${activeSeriesObj ? `
+              <div class="series-active-notebook-banner" style="margin-top:4px;">
+                <div class="series-studio-top-row">
+                  <div class="series-notebook-cover-box" style="cursor:default;">
+                    ${(activeSeriesObj.customCoverImage || activeSeriesObj.coverImage)
+                      ? `<img src="${escapeHtml(activeSeriesObj.customCoverImage || activeSeriesObj.coverImage)}" class="series-notebook-cover-img" alt="">`
+                      : `<div class="series-notebook-cover-fallback"><span>📚</span></div>`}
+                  </div>
+                  <div class="series-studio-header-and-title-col">
+                    <div class="series-notebook-top">
+                      <span class="series-notebook-kicker">📚 SERIES BY @${escapeHtml(displayHandle.toUpperCase())}</span>
+                      <span class="series-stat-pill is-public">🌐 ${activeSeriesObj.count} ${activeSeriesObj.count === 1 ? 'Post' : 'Posts'}</span>
+                    </div>
+                    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; width:100%;">
+                      <h4 class="series-notebook-title" style="flex:1; min-width:0;">${escapeHtml(activeSeriesObj.title)}</h4>
+                      ${!activeSeriesObj.description ? `
+                        <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="width:28px; height:28px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.55); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; flex-shrink:0; margin-left:auto;">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="18" cy="5" r="3"></circle>
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="19" r="3"></circle>
+                            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                          </svg>
+                        </button>
+                      ` : ''}
+                    </div>
+                  </div>
+                </div>
+                ${activeSeriesObj.description ? `
+                  <div class="series-notebook-desc-wrap" style="display:flex; align-items:flex-end; justify-content:space-between; gap:10px; width:100%;">
+                    <p class="series-notebook-desc-text" style="cursor:default; flex:1; margin:0;">${escapeHtml(activeSeriesObj.description)}</p>
+                    <button type="button" class="series-corner-share-icon-btn" onclick="shareSeriesNotebook('${escapeHtml(activeSeriesObj.id)}', '${escapeHtml(displayHandle)}', event)" title="Share Series" aria-label="Share Series" style="width:28px; height:28px; border-radius:50%; border:1px solid rgba(148,163,184,0.35); background:rgba(15,23,42,0.55); color:var(--text-primary, #F8FAFC); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; flex-shrink:0; margin-left:auto;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                      </svg>
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+            ` : ''}
+          </div>
+        ` : '';
+
+        const wallHeaderHtml = typeof buildCuratorProfileWallHeaderHtml === 'function'
+          ? buildCuratorProfileWallHeaderHtml(displayHandle, avatarInitial, matched, sharedSeriesList)
+          : '';
+
+        profileWrap.innerHTML = `
+          ${wallHeaderHtml}
+          ${seriesShelfHtml}
+        `;
+        container.appendChild(profileWrap);
+
+        if (typeof ensurePublicCuratorProfileLoaded === 'function') {
+          ensurePublicCuratorProfileLoaded(displayHandle);
+        }
+      }
+
+      renderBatchCards(visiblePosts.slice(0, FEED_BATCH_SIZE), 0);
       return;
     }
   }
@@ -8595,93 +14761,185 @@ function cleanSourceParagraphs(rawText) {
     .slice(0, 4);
 }
 
+function isBoilerplateNoSubstanceText(str) {
+  if (!str) return false;
+  const lower = String(str).toLowerCase();
+  return (
+    lower.includes('contains no substantive textual body') ||
+    lower.includes('no substantive textual body') ||
+    lower.includes('absence of article text') ||
+    lower.includes('presents no central thesis') ||
+    lower.includes('no verifiable analytical argument') ||
+    lower.includes('beyond the platform name') ||
+    lower.includes('contains no verifiable text') ||
+    lower.includes('no extractable text') ||
+    lower.includes('lacks a textual body') ||
+    lower.includes('only provides a reference url') ||
+    lower.includes('no central thesis extracted from source') ||
+    lower.includes('source does not provide detailed empirical evidence') ||
+    lower.includes('presents reporting and ongoing context regarding') ||
+    lower.includes('presents reporting and contextual developments surrounding') ||
+    lower.includes('examines principal announcements and policy implications concerning') ||
+    lower.includes('details primary events and ongoing policy or market dynamics regarding') ||
+    lower.includes('details the foundational timeline and primary stakeholder statements') ||
+    lower.includes('outlines practical ramifications and observable real-world shifts') ||
+    lower.includes('highlights developments regarding') ||
+    lower.includes('stakeholders navigate the shifting balance between current actions') ||
+    lower.includes('balancing immediate policy implementation with broader long-term')
+  );
+}
+
+function isUnextractedOrBoilerplateLedger(ledger) {
+  if (!ledger || typeof ledger !== 'object') return true;
+  if (ledger.unextracted) return true;
+  let contextText = '';
+  let thesisText = '';
+  if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
+    contextText = String(ledger.subject_and_thesis.context || '').trim();
+    thesisText = String(ledger.subject_and_thesis.thesis || '').trim();
+  } else if (typeof ledger.subject_and_thesis === 'string') {
+    thesisText = ledger.subject_and_thesis.trim();
+  }
+  if (isBoilerplateNoSubstanceText(contextText) || isBoilerplateNoSubstanceText(thesisText)) {
+    return true;
+  }
+  const claims = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
+  if (claims.some(c => isBoilerplateNoSubstanceText(typeof c === 'object' ? (c.evidence || c.title || '') : String(c)))) {
+    return true;
+  }
+  if (!contextText && !thesisText && claims.length === 0) {
+    return true;
+  }
+  return false;
+}
+
+function hasSubstantiveClientSourceText(title = '', content = '', siteName = '') {
+  const genericNames = new Set([
+    'instagram', 'instagram.com', 'x', 'x.com', 'twitter', 'twitter.com',
+    'youtube', 'youtube.com', 'facebook', 'facebook.com', 'threads', 'threads.net',
+    'linkedin', 'linkedin.com', 'tiktok', 'tiktok.com', 'reddit', 'reddit.com',
+    'curated web article', 'source article / video', 'web source', 'youtube video',
+    'login • instagram', 'sign in', 'just a moment...'
+  ]);
+  const rawTitle = String(title || '').trim();
+  const lowerTitle = rawTitle.toLowerCase();
+  const isGenericTitle = !rawTitle || rawTitle.length < 15 || genericNames.has(lowerTitle) || lowerTitle === String(siteName || '').trim().toLowerCase();
+
+  const strippedContent = String(content || '')
+    .replace(/^Title:\s*.*$/gim, '')
+    .replace(/^Channel \/ Speaker:\s*.*$/gim, '')
+    .replace(/^Author:\s*.*$/gim, '')
+    .replace(/^Platform:\s*.*$/gim, '')
+    .replace(/^Video Duration:\s*.*$/gim, '')
+    .replace(/^Creator Published Description & Notes:\s*$/gim, '')
+    .replace(/^===.*===$/gim, '')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (isBoilerplateNoSubstanceText(strippedContent)) return false;
+  if (strippedContent.length < 55 && isGenericTitle) return false;
+  if (strippedContent.length < 35 && rawTitle.length < 30) return false;
+  return true;
+}
+
 function renderProofSummarySections(post, ledger) {
   let paragraphsHtml = '';
+  const validLedger = (ledger && !isUnextractedOrBoilerplateLedger(ledger)) ? ledger : null;
 
-  if (ledger) {
-    // Section 1: Subject & Central Thesis
+  if (validLedger) {
+    // Unified Section 1: Summary & Key Facts (Combining Thesis + Claims + Key Facts into one crisp short read)
     let thesisText = '';
     let contextText = '';
-    if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
-      contextText = cleanSourceExcerpt(ledger.subject_and_thesis.context || '');
-      thesisText = cleanSourceExcerpt(ledger.subject_and_thesis.thesis || '');
-    } else if (ledger.subject_and_thesis) {
-      thesisText = cleanSourceExcerpt(String(ledger.subject_and_thesis));
+    if (validLedger.subject_and_thesis && typeof validLedger.subject_and_thesis === 'object') {
+      contextText = cleanSourceExcerpt(validLedger.subject_and_thesis.context || '');
+      thesisText = cleanSourceExcerpt(validLedger.subject_and_thesis.thesis || '');
+    } else if (validLedger.subject_and_thesis) {
+      thesisText = cleanSourceExcerpt(String(validLedger.subject_and_thesis));
     }
 
-    if (thesisText || contextText) {
+    const ledgerClaims = (Array.isArray(validLedger.core_claims_and_evidence) && validLedger.core_claims_and_evidence.length > 0)
+      ? validLedger.core_claims_and_evidence
+      : (Array.isArray(validLedger.detailed?.detailed_claims) ? validLedger.detailed.detailed_claims : []);
+    const keyFacts = Array.isArray(validLedger.detailed?.key_facts)
+      ? validLedger.detailed.key_facts.filter(f => f && !isBoilerplateNoSubstanceText(f)).slice(0, 4)
+      : [];
+
+    if (thesisText || contextText || ledgerClaims.length > 0 || keyFacts.length > 0) {
+      const claimsBulletsHtml = ledgerClaims.slice(0, 4).map(claim => {
+        let title = '';
+        let evidence = '';
+        let quote = '';
+        if (claim && typeof claim === 'object') {
+          title = claim.title || '';
+          evidence = claim.evidence || claim.text || '';
+          quote = claim.quote || '';
+        } else {
+          const str = String(claim || '');
+          const colonIdx = str.indexOf(':');
+          if (colonIdx > 0 && colonIdx < 45) {
+            title = str.slice(0, colonIdx).trim();
+            evidence = str.slice(colonIdx + 1).trim();
+          } else {
+            evidence = str;
+          }
+        }
+        if (isBoilerplateNoSubstanceText(evidence)) return '';
+        return `
+          <div class="unbiased-claim-item">
+            <span class="claim-bullet">▪</span>
+            <div class="claim-content">
+              ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+              ${quote ? `<div style="margin-top:4px; font-style:italic; color:#475569; font-size:12px;">“${escapeHtml(quote)}”</div>` : ''}
+            </div>
+          </div>
+        `;
+      }).filter(Boolean).join('');
+
+      const extraFactsHtml = (claimsBulletsHtml ? '' : keyFacts.map(f => `
+        <div class="unbiased-claim-item">
+          <span class="claim-bullet">▪</span>
+          <div class="claim-content">${escapeHtml(f)}</div>
+        </div>
+      `).join(''));
+
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>🎯</span> § 1 • SUBJECT & CENTRAL THESIS
+            <span>📰</span> SUMMARY & KEY FACTS
           </div>
-          <p class="unbiased-text">
-            ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
-          </p>
+          ${(contextText || thesisText) ? `
+            <p class="unbiased-text" style="margin-bottom:${(claimsBulletsHtml || extraFactsHtml) ? '10px' : '0'};">
+              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+            </p>
+          ` : ''}
+          ${(claimsBulletsHtml || extraFactsHtml) ? `
+            <div class="unbiased-claims-list">
+              ${claimsBulletsHtml || extraFactsHtml}
+            </div>
+          ` : ''}
         </div>
       `;
     }
 
-    // Section 2: Core Claims & Verified Evidence
-    const ledgerClaims = (Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length > 0)
-      ? ledger.core_claims_and_evidence
-      : (Array.isArray(ledger.detailed?.detailed_claims) ? ledger.detailed.detailed_claims : []);
-    if (ledgerClaims.length > 0) {
-      paragraphsHtml += `
-        <div class="unbiased-summary-section">
-          <div class="unbiased-section-label">
-            <span>📊</span> § 2 • CORE CLAIMS & EVIDENCE
-          </div>
-          <div class="unbiased-claims-list">
-            ${ledgerClaims.map((claim, idx) => {
-              let title = '';
-              let evidence = '';
-              if (claim && typeof claim === 'object') {
-                title = claim.title || '';
-                evidence = claim.evidence || claim.text || '';
-              } else {
-                const str = String(claim || '');
-                const colonIdx = str.indexOf(':');
-                if (colonIdx > 0 && colonIdx < 45) {
-                  title = str.slice(0, colonIdx).trim();
-                  evidence = str.slice(colonIdx + 1).trim();
-                } else {
-                  evidence = str;
-                }
-              }
-              return `
-                <div class="unbiased-claim-item">
-                  <span class="claim-bullet">▪</span>
-                  <div class="claim-content">
-                    ${title ? `<strong>${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
-
-    // Section 3: Central Conflict & Trade-offs
+    // Unified Section 2: Underlying Friction & Open Question
     let tensionText = '';
     let counterQuestions = '';
-    if (ledger.underlying_tensions && typeof ledger.underlying_tensions === 'object') {
-      tensionText = cleanSourceExcerpt([ledger.underlying_tensions.primary_conflict, ledger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
-      counterQuestions = cleanSourceExcerpt(ledger.underlying_tensions.counter_questions || '');
-    } else if (ledger.underlying_tensions) {
-      tensionText = cleanSourceExcerpt(String(ledger.underlying_tensions));
+    if (validLedger.underlying_tensions && typeof validLedger.underlying_tensions === 'object') {
+      tensionText = cleanSourceExcerpt([validLedger.underlying_tensions.primary_conflict, validLedger.underlying_tensions.tradeoffs].filter(Boolean).join(' '));
+      counterQuestions = cleanSourceExcerpt(validLedger.underlying_tensions.counter_questions || '');
+    } else if (validLedger.underlying_tensions) {
+      tensionText = cleanSourceExcerpt(String(validLedger.underlying_tensions));
     }
 
-    if (!tensionText && (thesisText || ledgerClaims.length > 0)) {
-      tensionText = 'Balancing immediate practical adoption with broader systemic and long-term implications.';
-    }
+    if (isBoilerplateNoSubstanceText(tensionText)) tensionText = '';
+    if (isBoilerplateNoSubstanceText(counterQuestions)) counterQuestions = '';
 
     if (tensionText || counterQuestions) {
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>⚖️</span> § 3 • CENTRAL CONFLICT & TRADE-OFFS
+            <span>⚖️</span> UNDERLYING FRICTION & OPEN QUESTION
           </div>
           ${tensionText ? `<p class="unbiased-text">${escapeHtml(tensionText)}</p>` : ''}
           ${counterQuestions ? `
@@ -8693,34 +14951,25 @@ function renderProofSummarySections(post, ledger) {
       `;
     }
   } else {
-    // Pure source context fallback (Strictly NO curator broadsheet essay!)
+    // Pure source context or General Post Context when social media link (Instagram/X/YouTube) has no text transcript
     const rawSourceText = post.sourceContext || post.generationInputs?.scrapedContent || post.newsExcerpt || '';
-    const sourceParas = cleanSourceParagraphs(rawSourceText);
+    const sourceParas = cleanSourceParagraphs(rawSourceText).filter(p => !isBoilerplateNoSubstanceText(p));
 
     if (sourceParas.length > 0) {
       paragraphsHtml += `
         <div class="unbiased-summary-section">
           <div class="unbiased-section-label">
-            <span>📰</span> PRIMARY SOURCE RECORD
+            <span>📰</span> SUMMARY & KEY FACTS
           </div>
           <div style="display:flex; flex-direction:column; gap:8px;">
             ${sourceParas.map(p => `<p class="unbiased-text">${escapeHtml(cleanSourceExcerpt(p))}</p>`).join('')}
           </div>
         </div>
       `;
-    } else {
-      paragraphsHtml += `
-        <div class="unbiased-summary-section" style="padding: 16px; background: rgba(99, 102, 241, 0.05); border-radius: 8px;">
-          <div style="display:flex; align-items:center; gap:10px; color: #6366F1; font-weight:700; font-size:13px;">
-            <div class="ledger-loading-spinner" style="width:16px; height:16px; border:2px solid #6366F1; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></div>
-            <span>Analyzing primary source to generate objective summary...</span>
-          </div>
-        </div>
-      `;
     }
   }
 
-  return paragraphsHtml || '<div class="unbiased-summary-section"><p class="unbiased-text">Original source text confirmed by archival records.</p></div>';
+  return paragraphsHtml;
 }
 
 function openDetailModal(index) {
@@ -8749,7 +14998,13 @@ function openDetailModal(index) {
   const rawLink = post.digitalLink || post.videoUrl || post.sourceUrl || post.webUrl || post.generationInputs?.sourceUrl || '';
   const cleanHost = getCleanDomain(rawLink);
   const handle = escapeHtml(post.creatorHandle || '@curator');
-  let ledger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let rawLedger = post.sourceLedger || post.generationInputs?.sourceLedger;
+  let ledger = (rawLedger && !isUnextractedOrBoilerplateLedger(rawLedger)) ? rawLedger : null;
+  if (rawLedger && !ledger) {
+    // Strip any previously saved boilerplate "no substantive text" ledger so it never reappears
+    post.sourceLedger = null;
+    if (post.generationInputs) post.generationInputs.sourceLedger = null;
+  }
 
   // 1. Stars Badge (Top Banner)
   const starsBadge = document.getElementById('proofStarsBadge');
@@ -8826,7 +15081,9 @@ function openDetailModal(index) {
   // 3. Video Embed & Paper Cut Sections (TOP)
   const ytEmbed = getYouTubeEmbedUrl(rawLink);
   const vimeoEmbed = getVimeoEmbedUrl(rawLink);
-  const isVideo = !!ytEmbed || !!vimeoEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
+  const twitterEmbed = getTwitterXEmbedUrl(rawLink);
+  const instagramEmbed = getInstagramEmbedUrl(rawLink);
+  const isVideo = !!ytEmbed || !!vimeoEmbed || !!twitterEmbed || !!instagramEmbed || post.sourceType === 'youtube' || post.sourceType === 'video' || post.sourceType === 'video_audio' || !!post.videoUrl || (rawLink && /\.(mp4|webm|mov)(\?.*)?$/i.test(rawLink));
 
   const hasPaper = !isVideo && (post.sourceType === 'photo' 
     || !!post.paperCutImage 
@@ -8865,12 +15122,21 @@ function openDetailModal(index) {
         videoEmbedWrap.innerHTML = `
           <video src="${escapeHtml(rawLink)}" controls playsinline style="width:100%; height:100%; max-height:480px; background:#000; border-radius:6px;"></video>
         `;
+      } else if ((twitterEmbed || instagramEmbed) && videoEmbedWrap) {
+        videoEmbedWrap.innerHTML = `
+          <iframe 
+            src="${twitterEmbed || instagramEmbed}" 
+            title="Embedded Social Post" 
+            style="width:100%; min-height:380px; height:100%; border:none; background:#fff; border-radius:8px;" 
+            allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen; web-share" 
+            allowfullscreen>
+          </iframe>
+        `;
       } else if (videoEmbedWrap) {
         videoEmbedWrap.innerHTML = `
-          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:160px; color:#CBD5E1; text-align:center; padding:16px;">
-            <span style="font-size:30px; margin-bottom:6px;">▶</span>
-            <span style="font-weight:700;">Broadcast / Video Source</span>
-            <a href="${escapeHtml(rawLink)}" target="_blank" rel="noopener noreferrer" style="margin-top:6px; color:#818CF8; text-decoration:underline; font-size:12px;">Watch on host platform &nearr;</a>
+          <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:140px; color:#CBD5E1; text-align:center; padding:16px;">
+            <span style="font-size:28px; margin-bottom:6px;">▶</span>
+            <span style="font-weight:700;">Broadcast / Video Source (${escapeHtml(cleanHost || pubName)})</span>
           </div>
         `;
       }
@@ -8914,37 +15180,47 @@ function openDetailModal(index) {
   }
 
   // 4. Primary Unbiased 1-Minute Read Sections (Pure Source Summary)
+  const proofExcerptsBoxEl = document.getElementById('proofExcerptsBox');
   const proofParagraphsEl = document.getElementById('proofParagraphs');
   const readTimeEl = document.getElementById('proofReadTime');
 
   if (proofParagraphsEl) {
-    proofParagraphsEl.innerHTML = renderProofSummarySections(post, ledger);
+    const summaryMarkup = renderProofSummarySections(post, ledger);
+    proofParagraphsEl.innerHTML = summaryMarkup;
+    if (proofExcerptsBoxEl) {
+      proofExcerptsBoxEl.style.display = summaryMarkup ? 'block' : 'none';
+    }
 
     // Word count & read time indicator
     const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
     const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
     if (readTimeEl) {
-      readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+      readTimeEl.textContent = wordCount > 0 ? `⏱️ 1-MIN READ (${wordCount} words)` : '';
+      readTimeEl.style.display = wordCount > 0 ? 'inline-flex' : 'none';
     }
   }
 
-  // Asynchronous on-demand ledger fetch if missing
-  if (!ledger && rawLink && !post._isFetchingLedger) {
+  // Asynchronous on-demand ledger fetch ONLY if substantive source text exists
+  const candidateTitle = post.originalHeadline || post.adaptedHeadline || '';
+  const candidateContent = post.sourceContext || post.generationInputs?.scrapedContent || '';
+  const canGenerateSubstantiveLedger = hasSubstantiveClientSourceText(candidateTitle, candidateContent, cleanHost || pubName);
+
+  if (!ledger && rawLink && canGenerateSubstantiveLedger && !post._isFetchingLedger) {
     post._isFetchingLedger = true;
     fetch('/api/ledger', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: rawLink,
-        title: post.originalHeadline || post.adaptedHeadline || '',
-        content: post.sourceContext || post.generationInputs?.scrapedContent || '',
+        title: candidateTitle,
+        content: candidateContent,
         siteName: cleanHost || pubName
       })
     })
       .then(r => r.json())
       .then(data => {
         post._isFetchingLedger = false;
-        if (data && data.success && data.ledger) {
+        if (data && data.success && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
           post.sourceLedger = data.ledger;
           if (post.generationInputs) post.generationInputs.sourceLedger = data.ledger;
 
@@ -8957,11 +15233,16 @@ function openDetailModal(index) {
               starsBadge.style.display = 'inline-flex';
             }
             if (proofParagraphsEl) {
-              proofParagraphsEl.innerHTML = renderProofSummarySections(post, data.ledger);
+              const updatedMarkup = renderProofSummarySections(post, data.ledger);
+              proofParagraphsEl.innerHTML = updatedMarkup;
+              if (proofExcerptsBoxEl) {
+                proofExcerptsBoxEl.style.display = updatedMarkup ? 'block' : 'none';
+              }
               const rawText = proofParagraphsEl.innerText || proofParagraphsEl.textContent || '';
               const wordCount = rawText.trim().split(/\s+/).filter(Boolean).length;
               if (readTimeEl) {
-                readTimeEl.textContent = `⏱️ 1-MIN READ (${wordCount} words)`;
+                readTimeEl.textContent = wordCount > 0 ? `⏱️ 1-MIN READ (${wordCount} words)` : '';
+                readTimeEl.style.display = wordCount > 0 ? 'inline-flex' : 'none';
               }
             }
           }
@@ -8985,37 +15266,21 @@ function openDetailModal(index) {
     }
   }
 
-  // 6. Actual Source Link Towards End
+  // 6. Hide External Exit Link Cards so users stay in-app
   const sourceAnchorCard = document.getElementById('proofSourceAnchorCard');
   if (sourceAnchorCard) {
-    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
-      sourceAnchorCard.style.display = 'flex';
-      const hostEl = document.getElementById('proofSourceAnchorHost');
-      if (hostEl) hostEl.textContent = (cleanHost || pubName).toUpperCase();
-      const urlEl = document.getElementById('proofSourceAnchorUrl');
-      if (urlEl) urlEl.textContent = rawLink;
-      const btnEl = document.getElementById('proofSourceAnchorBtn');
-      if (btnEl) btnEl.href = rawLink;
-    } else {
-      sourceAnchorCard.style.display = 'none';
-    }
+    sourceAnchorCard.style.display = 'none';
   }
 
-  // 7. Footer Actions
+  // 7. Footer Attribution (No outbound exit button)
   const archivedByEl = document.getElementById('proofArchivedBy');
   if (archivedByEl) {
-    archivedByEl.textContent = `Archived by ${handle}`;
+    archivedByEl.textContent = `Archived by ${handle} • Verified source: ${(cleanHost || pubName)}`;
   }
 
   const extLink = document.getElementById('proofExternalLink');
   if (extLink) {
-    if (rawLink && !rawLink.startsWith('blob:') && !rawLink.startsWith('data:')) {
-      extLink.href = rawLink;
-      extLink.innerHTML = '<span>🌐 Open Original Source &nearr;</span>';
-      extLink.style.display = 'inline-flex';
-    } else {
-      extLink.style.display = 'none';
-    }
+    extLink.style.display = 'none';
   }
 
   // Update browser URL query without reload
@@ -9504,12 +15769,17 @@ function loadPostIntoStudioToRegenerate(postId) {
     if (inputs.sourceType === 'inner_voice') {
       innerVoicePhotoBase64 = photoData;
       innerVoicePhotoMimeType = creatorReferenceImageMimeType;
+      window._attachedScenePhotos = [{
+        id: 'scene_restored_' + Date.now(),
+        base64: photoData,
+        mimeType: creatorReferenceImageMimeType,
+        isStarred: true
+      }];
+      if (typeof renderAttachedScenePhotosUI === 'function') {
+        try { renderAttachedScenePhotosUI(); } catch (_) {}
+      }
       const thumb = document.getElementById('innerVoicePhotoThumb');
       if (thumb) thumb.src = photoData;
-      const preview = document.getElementById('innerVoicePhotoPreview');
-      if (preview) preview.style.display = 'flex';
-      const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-      if (emptyBox) emptyBox.style.display = 'none';
     }
 
     if (typeof updateReferencePhotoUI === 'function') {
@@ -10058,15 +16328,15 @@ async function capturePostSlidesAsFiles(post, index) {
   if (bifurcation.isBifurcated) {
     // 3 Discrete Slides (Max 3): 1 Hook + 2 Essay Pages
     slideConfigs.push(
-      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 3) },
-      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) },
-      { num: 3, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 2) }
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', isLastSlide: false, html: buildSlide1Html(exportPost, index, 3) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: false, html: buildUnifiedEssayPosterHtml(exportPost, 'export', 1, true) },
+      { num: 3, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: true, html: buildUnifiedEssayPosterHtml(exportPost, 'export', 2, true) }
     );
   } else {
     // 2 Discrete Slides: 1 Hook + 1 Unified Essay Page
     slideConfigs.push(
-      { num: 1, class: 'slide-hook', bg: '#0B0F17', html: buildSlide1Html(exportPost, index, 2) },
-      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', html: buildUnifiedEssayPosterHtml(exportPost, index, 1) }
+      { num: 1, class: 'slide-hook', bg: '#0B0F17', isLastSlide: false, html: buildSlide1Html(exportPost, index, 2) },
+      { num: 2, class: 'slide-receipt', bg: '#F7F5EE', isLastSlide: true, html: buildUnifiedEssayPosterHtml(exportPost, 'export', 1, true) }
     );
   }
 
@@ -10166,6 +16436,46 @@ async function capturePostSlidesAsFiles(post, index) {
         </div>
       `;
 
+      // Boost small attribution/source-inspiration/caption font sizes in generated shareable posters for crisp legibility
+      container.querySelectorAll('.tactile-news-inner').forEach(el => {
+        el.style.setProperty('padding', '7px 11px 8px', 'important');
+        el.style.setProperty('gap', '3.5px', 'important');
+      });
+      container.querySelectorAll('.tactile-news-header').forEach(el => {
+        el.style.setProperty('font-size', '10.6px', 'important');
+        el.style.setProperty('line-height', '1.25', 'important');
+        el.style.setProperty('gap', '5.5px', 'important');
+      });
+      container.querySelectorAll('.tactile-news-headline').forEach(el => {
+        el.style.setProperty('font-size', '13.8px', 'important');
+        el.style.setProperty('line-height', '1.28', 'important');
+      });
+      container.querySelectorAll('.slide-hook-curator-kicker-text').forEach(el => {
+        el.style.setProperty('font-size', '9.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-scene-caption').forEach(el => {
+        el.style.setProperty('font-size', '9.6px', 'important');
+        el.style.setProperty('line-height', '1.24', 'important');
+      });
+      container.querySelectorAll('.scene-caption-icon').forEach(el => {
+        el.style.setProperty('font-size', '10.5px', 'important');
+      });
+      container.querySelectorAll('.signed-curator-title').forEach(el => {
+        el.style.setProperty('font-size', '9.6px', 'important');
+      });
+      container.querySelectorAll('.signed-curator-badge-pill').forEach(el => {
+        el.style.setProperty('font-size', '8.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-reflection-label').forEach(el => {
+        el.style.setProperty('font-size', '9.5px', 'important');
+      });
+      container.querySelectorAll('.receipt-reflection-text').forEach(el => {
+        el.style.setProperty('font-size', '11.8px', 'important');
+      });
+      container.querySelectorAll('.receipt-folio-text, .poster-footer-domain, .poster-footer-punchline').forEach(el => {
+        el.style.setProperty('font-size', '10px', 'important');
+      });
+
       // Wait for images inside to load with 3.5s safe timeout
       const imgs = Array.from(container.querySelectorAll('img'));
       await Promise.all(imgs.map(img => {
@@ -10183,28 +16493,128 @@ async function capturePostSlidesAsFiles(post, index) {
         handleReceiptPhotoLoad(img);
       });
 
-      // Overflow safety guard for Essay slides: only trigger if real content overflows by >10px
+      // Overflow safety guard for Essay slides & dynamic centered sizing for the 3rd-page Passing Clouds SVG
       const pageBlock = container.querySelector('.essay-page-block');
-      if (pageBlock && pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
-        const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
-        const sceneFrameEl = pageBlock.querySelector('.photo-aspect-landscape .receipt-scene-frame');
-        const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
-        const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
-        const scales = [0.97, 0.94, 0.91, 0.88];
-        for (const s of scales) {
-          if (pageBlock.scrollHeight <= pageBlock.clientHeight + 4) break;
-          bodyParas.forEach(p => {
-            p.style.setProperty('font-size', `${Math.max(11.5, baseFontSize * s).toFixed(2)}px`, 'important');
-            p.style.setProperty('line-height', `${Math.max(1.44, 1.58 * s).toFixed(2)}`, 'important');
-            p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(5 * s))}px`, 'important');
-          });
-          if (pullquoteEl) {
-            pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
-            pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
+      if (pageBlock) {
+        const cloudsPanelEl = pageBlock.querySelector('.slant-passing-clouds-panel');
+        if (cloudsPanelEl) {
+          const cloudsFrameEl = cloudsPanelEl.querySelector('.slant-passing-clouds-frame');
+          const p2ContentEl = pageBlock.querySelector('.receipt-paragraphs') || pageBlock.querySelector('.chronicle-poster3-reflection');
+          pageBlock.style.setProperty('display', 'flex', 'important');
+          pageBlock.style.setProperty('flex-direction', 'column', 'important');
+          cloudsPanelEl.style.setProperty('flex', '1 1 auto', 'important');
+          cloudsPanelEl.style.setProperty('display', 'flex', 'important');
+          cloudsPanelEl.style.setProperty('align-items', 'center', 'important');
+          cloudsPanelEl.style.setProperty('justify-content', 'center', 'important');
+          cloudsPanelEl.style.setProperty('margin', '0', 'important');
+          cloudsPanelEl.style.setProperty('padding', '6px 0', 'important');
+
+          const colW = 414;
+          const maxExportSvgH = Math.round(colW * (3 / 7)); // 177px (2688x1152 = 7:3)
+          const minExportSvgH = 120;
+          const minRequiredExportSpace = minExportSvgH + 16;
+
+          const getExportSpaceLeft = () => {
+            const hdrEl = pageBlock.querySelector('.receipt-brand-corner-bar');
+            const ftrEl = pageBlock.querySelector('.receipt-footer');
+            const hHdr = hdrEl ? (hdrEl.offsetHeight + 8) : 28;
+            const hBody = p2ContentEl ? (p2ContentEl.scrollHeight || p2ContentEl.offsetHeight || 0) : 0;
+            const hFtr = ftrEl ? (ftrEl.offsetHeight + 8) : 26;
+            const innerH = (pageBlock.clientHeight || 600) - 34;
+            return innerH - hHdr - hBody - hFtr;
+          };
+
+          const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+          if (getExportSpaceLeft() < minRequiredExportSpace && bodyParas.length > 0) {
+            const baseFontSize = parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6;
+            const scales = [0.96, 0.92, 0.88, 0.84];
+            for (const s of scales) {
+              if (getExportSpaceLeft() >= minRequiredExportSpace) break;
+              bodyParas.forEach(p => {
+                p.style.setProperty('font-size', `${Math.max(11.0, baseFontSize * s).toFixed(2)}px`, 'important');
+                p.style.setProperty('line-height', `${Math.max(1.38, 1.56 * s).toFixed(2)}`, 'important');
+                p.style.setProperty('margin-bottom', `${Math.max(3, Math.round(5 * s))}px`, 'important');
+              });
+            }
           }
-          if (sceneFrameEl) {
-            sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
+
+          if (cloudsFrameEl) {
+            const spaceLeft = Math.max(minRequiredExportSpace, getExportSpaceLeft());
+            const fitSvgH = Math.max(minExportSvgH, Math.min(maxExportSvgH, spaceLeft - 16));
+            const fitSvgW = Math.min(colW, Math.round(fitSvgH * (7 / 3)));
+            cloudsFrameEl.style.setProperty('width', `${fitSvgW}px`, 'important');
+            cloudsFrameEl.style.setProperty('height', `${fitSvgH}px`, 'important');
+            cloudsFrameEl.style.setProperty('margin', 'auto', 'important');
           }
+        } else if (pageBlock.scrollHeight > pageBlock.clientHeight + 10) {
+          const pullquoteEl = pageBlock.querySelector('.essay-highlight-pullquote');
+          const sceneFrameEl = pageBlock.querySelector('.photo-aspect-landscape .receipt-scene-frame');
+          const bodyParas = Array.from(pageBlock.querySelectorAll('.receipt-p1, .receipt-p3'));
+          const baseFontSize = bodyParas[0] ? (parseFloat(window.getComputedStyle(bodyParas[0]).fontSize) || 13.6) : 13.6;
+          const scales = [0.97, 0.94, 0.91, 0.88];
+          for (const s of scales) {
+            if (pageBlock.scrollHeight <= pageBlock.clientHeight + 4) break;
+            bodyParas.forEach(p => {
+              p.style.setProperty('font-size', `${Math.max(11.5, baseFontSize * s).toFixed(2)}px`, 'important');
+              p.style.setProperty('line-height', `${Math.max(1.44, 1.58 * s).toFixed(2)}`, 'important');
+              p.style.setProperty('margin-bottom', `${Math.max(4, Math.round(5 * s))}px`, 'important');
+            });
+            if (pullquoteEl) {
+              pullquoteEl.style.setProperty('padding', `${Math.max(5, Math.round(7 * s))}px ${Math.max(9, Math.round(11 * s))}px`, 'important');
+              pullquoteEl.style.setProperty('margin-bottom', `${Math.max(5, Math.round(8 * s))}px`, 'important');
+            }
+            if (sceneFrameEl) {
+              sceneFrameEl.style.setProperty('max-height', `${Math.max(115, Math.round(155 * s))}px`, 'important');
+            }
+          }
+        }
+      }
+
+      // Rasterize the scalable Passing Clouds SVG at 2x Retina into a PNG data URL with newsprint ink blending so html2canvas renders every vector path crisply
+      const cloudsSvgImgs = Array.from(container.querySelectorAll('.slant-passing-clouds-svg-img'));
+      for (const svgImg of cloudsSvgImgs) {
+        if (svgImg.complete && svgImg.naturalWidth > 0) {
+          try {
+            const rect = svgImg.getBoundingClientRect();
+            const tw = Math.max(280, Math.round(rect.width) || 414);
+            const th = Math.max(120, Math.round(rect.height) || 177);
+            const offC = document.createElement('canvas');
+            offC.width = tw * 2;
+            offC.height = th * 2;
+            const ctx = offC.getContext('2d');
+            if (ctx) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(svgImg, 0, 0, offC.width, offC.height);
+              try {
+                const imgData = ctx.getImageData(0, 0, offC.width, offC.height);
+                const d = imgData.data;
+                for (let p = 0; p < d.length; p += 4) {
+                  const a = d[p + 3];
+                  if (a === 0) continue;
+                  const r = d[p], g = d[p + 1], b = d[p + 2];
+                  // Knock out neutral parchment letter-counter fills (#F7F5EE) to true transparent alpha
+                  if (r >= 242 && g >= 240 && b >= 232 && Math.abs(r - b) <= 18) {
+                    d[p + 3] = 0;
+                  } else {
+                    // Subtle newsprint ink absorption (93% ink opacity) so strokes blend into the broadsheet paper
+                    d[p + 3] = Math.round(a * 0.93);
+                  }
+                }
+                ctx.putImageData(imgData, 0, 0);
+              } catch (_) {}
+              svgImg.style.setProperty('opacity', '1', 'important');
+              const pngUrl = offC.toDataURL('image/png');
+              if (pngUrl && pngUrl.length > 100) {
+                await new Promise(res => {
+                  svgImg.onload = () => res(true);
+                  svgImg.onerror = () => res(false);
+                  setTimeout(() => res(false), 800);
+                  svgImg.src = pngUrl;
+                });
+              }
+            }
+          } catch (_) {}
         }
       }
 
@@ -11519,6 +17929,11 @@ function toggleRegularVisualSubjectDropdown(event) {
 
 function renderChronicleMomentVisualDropdowns() {
   if (!Array.isArray(dailyChronicleMoments)) return;
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const checkedMode = window._selectedPosterVisualMode
+    || ((window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
+      ? 'web_collage'
+      : 'original_photo');
   const learningProfile = getVisualConfidenceLearningProfile();
   const totalLearned = Number(learningProfile.totalApprovals) || 0;
 
@@ -11527,7 +17942,7 @@ function renderChronicleMomentVisualDropdowns() {
     if (!slot) return;
 
     const mText = String(m?.text || '').trim();
-    if (mText.length < 4) {
+    if (mText.length < 4 || (!zeroCredits && checkedMode !== 'ai_art')) {
       slot.style.display = 'none';
       slot.innerHTML = '';
       return;
@@ -11550,7 +17965,7 @@ function renderChronicleMomentVisualDropdowns() {
     const activeOpt = options[selIdx] || options[0];
     const activeConf = Number(activeOpt?.confidence) || 94;
     const activeLearned = Number(activeOpt?.learnedApprovals) || 0;
-    const isExpanded = (openChronicleMomentDropdownIdx === mIdx);
+    const isExpanded = (!zeroCredits && openChronicleMomentDropdownIdx === mIdx);
     const mNumStr = String(mIdx + 1).padStart(2, '0');
 
     const optionsMenuHtml = isExpanded
@@ -11588,11 +18003,14 @@ function renderChronicleMomentVisualDropdowns() {
       : '';
 
     slot.style.display = 'block';
+    slot.style.opacity = zeroCredits ? '0.45' : '1';
+    slot.style.filter = zeroCredits ? 'grayscale(0.8)' : 'none';
+    slot.style.pointerEvents = zeroCredits ? 'none' : 'auto';
     slot.innerHTML = `
       <div class="moment-visual-dropdown-wrap ${isExpanded ? 'is-open' : ''}">
         <button type="button" class="moment-visual-dropdown-trigger" onclick="toggleChronicleMomentVisualDropdown(${mIdx}, event)" title="Tap to view or switch visual projection options for Moment ${mNumStr}">
           <div class="mv-trigger-left">
-            <span class="mv-trigger-tag">🎨 Visual</span>
+            <span class="mv-trigger-tag">${zeroCredits ? '🔒 Locked' : '🎨 Visual'}</span>
             <span class="mv-trigger-title">${escapeHtml(activeOpt.title || 'Scene Projection')}</span>
             <span class="mv-trigger-conf">${activeConf}%</span>
             ${activeLearned > 0 ? `<span class="mv-trigger-learned" title="Boosted from ${activeLearned} past approval(s)">🧠</span>` : ''}
@@ -11615,6 +18033,12 @@ function renderPolishVisualSubjects() {
   const headerTitle = document.getElementById('polishVsHeaderTitle');
   const headerSubtitle = document.getElementById('polishVsHeaderSubtitle');
 
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const checkedMode = window._selectedPosterVisualMode
+    || ((window._isWebCollageAttached || (window._webCollageState && window._webCollageState.isOpen))
+      ? 'web_collage'
+      : 'original_photo');
+
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
   const learningProfile = getVisualConfidenceLearningProfile();
   const totalLearned = Number(learningProfile.totalApprovals) || 0;
@@ -11634,24 +18058,49 @@ function renderPolishVisualSubjects() {
     return;
   }
 
+  // If user has credits AND checked Original Photo or Web Collage, hide AI Core Scene Visual so only the checked mode is shown!
+  if (!zeroCredits && checkedMode !== 'ai_art') {
+    picker.style.display = 'none';
+    return;
+  }
+
   picker.style.display = 'flex';
+  if (zeroCredits) {
+    picker.style.opacity = '0.45';
+    picker.style.filter = 'grayscale(0.8)';
+    picker.style.pointerEvents = 'none';
+  } else {
+    picker.style.opacity = '1';
+    picker.style.filter = 'none';
+    picker.style.pointerEvents = 'auto';
+  }
+
   const activeVs = currentPolishVisualSubjects[selectedPolishVisualSubjectIdx] || currentPolishVisualSubjects[0];
   const activeConf = Number(activeVs?.confidence) || 93;
   const activeLearned = Number(activeVs?.learnedApprovals) || 0;
 
   if (headerTitle) {
-    headerTitle.textContent = 'CORE SCENE VISUAL';
+    headerTitle.textContent = zeroCredits ? '🔒 CORE SCENE VISUAL (0⚡ CREDITS)' : 'CORE SCENE VISUAL';
   }
   if (headerSubtitle) {
-    headerSubtitle.textContent = totalLearned > 0
-      ? `Default scene is auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap the dropdown below to switch visual options.`
-      : 'Default scene is auto-selected by confidence score — tap the dropdown below to switch visual options, and your approvals adapt future confidence.';
+    if (zeroCredits) {
+      headerSubtitle.textContent = 'Disabled while you have 0 AI credits today — use Original/Attached Photo or Web Source above, or get credits via request/subscription.';
+    } else {
+      headerSubtitle.textContent = totalLearned > 0
+        ? `Default scene is auto-selected by confidence score (🧠 adapted from ${totalLearned} approval${totalLearned > 1 ? 's' : ''}) — tap the dropdown below to switch visual options.`
+        : 'Default scene is auto-selected by confidence score — tap the dropdown below to switch visual options, and your approvals adapt future confidence.';
+    }
   }
   if (statusPill) {
-    statusPill.style.display = 'none';
+    if (zeroCredits) {
+      statusPill.style.display = 'inline-flex';
+      statusPill.textContent = '🔒 Disabled (0⚡)';
+    } else {
+      statusPill.style.display = 'none';
+    }
   }
 
-  const expandedCardsHtml = isRegularVisualDropdownOpen
+  const expandedCardsHtml = (!zeroCredits && isRegularVisualDropdownOpen)
     ? `<div class="moment-visual-dropdown-menu" style="margin-top:6px;">
          <div class="polish-vs-cards-list">
            ${currentPolishVisualSubjects.map((vs, idx) => {
@@ -11683,17 +18132,17 @@ function renderPolishVisualSubjects() {
     : '';
 
   listEl.innerHTML = `
-    <div class="moment-visual-dropdown-wrap ${isRegularVisualDropdownOpen ? 'is-open' : ''}">
+    <div class="moment-visual-dropdown-wrap ${(!zeroCredits && isRegularVisualDropdownOpen) ? 'is-open' : ''}">
       <button type="button" class="moment-visual-dropdown-trigger" onclick="toggleRegularVisualSubjectDropdown(event)">
         <div class="mv-trigger-left">
-          <span class="mv-trigger-tag">★ Active Scene</span>
+          <span class="mv-trigger-tag">${zeroCredits ? '🔒 Locked' : '★ Active Scene'}</span>
           <span class="mv-trigger-title">${escapeHtml(activeVs?.title || 'Core Scene Visual')}</span>
           <span class="mv-trigger-conf">${activeConf}%</span>
           ${activeLearned > 0 ? `<span class="mv-trigger-learned" title="Boosted from ${activeLearned} past approval(s)">🧠</span>` : ''}
         </div>
         <div class="mv-trigger-right">
           <span class="mv-trigger-count">${currentPolishVisualSubjects.length} options</span>
-          <span class="mv-trigger-chevron">${isRegularVisualDropdownOpen ? '▴' : '▾'}</span>
+          <span class="mv-trigger-chevron">${(!zeroCredits && isRegularVisualDropdownOpen) ? '▴' : '▾'}</span>
         </div>
       </button>
       ${expandedCardsHtml}
@@ -11787,6 +18236,9 @@ function selectPolishVisualSubject(idx, silent = false) {
   }
 
   renderPolishVisualSubjects();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
   if (!silent && typeof showTemporaryToast === 'function') {
     showTemporaryToast(`🎨 Core Visual set: "${selectedPolishVisualSubject.title}" (${selectedPolishVisualSubject.confidence || 92}% confidence)`);
   }
@@ -11949,6 +18401,7 @@ async function refreshVisualProjectionsWithAI(opts = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'polish_take',
+        includeVisualOptions: true,
         text: rawText,
         spark: sparkText,
         scrapedTitle: scrapedTitle,
@@ -12039,31 +18492,44 @@ async function polishUserTake() {
     return;
   }
 
-  // Set loading state on button
-  const originalBtnHtml = btn ? btn.innerHTML : `<span class="btn-spark-icon">✨</span><span class="btn-text">Review &amp; Polish</span>`;
+  // Set loading state on button without changing text width so neighboring visual toggle never shifts
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = `<span class="btn-spark-icon spinning">⏳</span> Reviewing &amp; Polishing...`;
+    btn.classList.remove('needs-review-glow');
+    btn.classList.add('is-polishing');
+    btn.innerHTML = `<span class="polish-glow-spinner" id="slantPolishBtnIcon" aria-hidden="true"></span><span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>`;
   }
 
   const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  const cacheKey = `${rawText}||${sparkText}||${scrapedTitle}`;
 
   try {
-    const resp = await fetch('/api/synthesize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'polish_take',
-        text: rawText,
-        spark: sparkText,
-        scrapedTitle: scrapedTitle,
-        countryContext: creatorCountryContext?.name || 'India',
-        chronicleMode: isChronicle,
-        chronicleMoments: isChronicle ? getActiveChronicleMomentsPayload() : [],
-        familyCast: typeof getSanitizedCastPayload === 'function' ? getSanitizedCastPayload(familyCastProfileCache) : null,
-        visualConfidenceHistory: getVisualConfidenceLearningProfile().counts
-      })
-    });
+    let data = null;
+    if (window._lastPolishResponseCache && (window._lastPolishResponseCache.key === cacheKey || window._lastPolishResponseCache.polishedKey === cacheKey)) {
+      data = window._lastPolishResponseCache.data;
+    } else {
+      const resp = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'polish_take',
+          includeVisualOptions: false,
+          text: rawText,
+          spark: sparkText,
+          scrapedTitle: scrapedTitle
+        })
+      });
+      if (resp.ok) {
+        data = await resp.json();
+        if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+          window._lastPolishResponseCache = {
+            key: cacheKey,
+            polishedKey: `${String(data.polished || '').trim()}||${sparkText}||${scrapedTitle}`,
+            data
+          };
+        }
+      }
+    }
 
     let polished = '';
     let highlightedHtml = '';
@@ -12071,24 +18537,27 @@ async function polishUserTake() {
     let counts = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, total: 0 };
     let visualSubjects = null;
     let momentVisualProjections = null;
+    let structureBeats = null;
     let reviewSuccessful = false;
     let serverError = '';
 
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data && Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
+    if (data) {
+      if (Array.isArray(data.visualSubjects) && data.visualSubjects.length > 0) {
         visualSubjects = data.visualSubjects;
       }
-      if (data && Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
+      if (Array.isArray(data.momentVisualProjections) && data.momentVisualProjections.length > 0) {
         momentVisualProjections = data.momentVisualProjections;
       }
-      if (data && data.success !== false && (data.polished || data.highlightedHtml)) {
+      if (data.structureBeats && typeof data.structureBeats === 'object') {
+        structureBeats = data.structureBeats;
+      }
+      if (data.success !== false && (data.polished || data.highlightedHtml)) {
         reviewSuccessful = true;
         polished = data.polished || '';
         highlightedHtml = data.highlightedHtml || '';
         corrections = Array.isArray(data.corrections) ? data.corrections : [];
         if (data.counts) counts = data.counts;
-      } else if (data && data.error) {
+      } else if (data.error) {
         serverError = data.error;
       }
     }
@@ -12097,6 +18566,20 @@ async function polishUserTake() {
       polished = formatCuratorTakeApt(rawText);
       highlightedHtml = escapeHtml(polished);
     }
+
+    const clientPolishedBeats = evaluateClientFallbackStructureBeats(polished || rawText, sparkText);
+    if (!structureBeats) {
+      structureBeats = clientPolishedBeats;
+    } else {
+      structureBeats = {
+        hasMoment: Boolean(structureBeats.hasMoment) || clientPolishedBeats.hasMoment,
+        hasWhyItMatters: Boolean(structureBeats.hasWhyItMatters) || clientPolishedBeats.hasWhyItMatters,
+        hasConviction: Boolean(structureBeats.hasConviction) || clientPolishedBeats.hasConviction,
+        depthScore: Math.max(Number(structureBeats.depthScore) || 0, clientPolishedBeats.depthScore || 0),
+        nudge: structureBeats.nudge || clientPolishedBeats.nudge
+      };
+    }
+    renderPolishStructureBeatsUI(structureBeats, isChronicle, rawText, polished);
 
     if (isChronicle) {
       if (Array.isArray(momentVisualProjections) && momentVisualProjections.length > 0) {
@@ -12226,6 +18709,7 @@ async function polishUserTake() {
       currentPolishVisualSubjects = buildClientFallbackVisualSubjects(rawText, sparkText, scrapedTitle);
       selectPolishVisualSubject(0, true);
     }
+    renderPolishStructureBeatsUI(evaluateClientFallbackStructureBeats(polished || rawText, sparkText), isChronicle, rawText, polished);
     if (display) display.textContent = polished;
     if (reviewCard) {
       reviewCard.style.display = 'flex';
@@ -12235,9 +18719,1199 @@ async function polishUserTake() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = originalBtnHtml;
+      btn.classList.remove('is-polishing');
+      btn.innerHTML = `<span class="btn-spark-icon" id="slantPolishBtnIcon">✨</span><span class="btn-text" id="slantPolishBtnText">Review &amp; Polish</span>`;
+    }
+    if (typeof updateLivePerspectiveDepthUI === 'function') {
+      updateLivePerspectiveDepthUI(false);
     }
   }
+}
+
+const PERSPECTIVE_MIN_WORDS = 25;
+const PERSPECTIVE_MIN_DEPTH_SCORE = 70;
+let activeDepthCoachBeat = null;
+let verifiedPolishDepthState = {
+  verified: false,
+  rawFingerprint: '',
+  polishedFingerprint: '',
+  hasMoment: false,
+  hasWhyItMatters: false,
+  hasConviction: false,
+  depthScore: 0,
+  nudge: ''
+};
+
+function evaluatePerspectiveDepth(rawText = '', spark = '') {
+  const cleanRaw = String(rawText || '').trim();
+  const cleanSpark = String(spark || '').trim();
+  const combined = `${cleanSpark} ${cleanRaw}`.trim();
+
+  const words = combined ? combined.split(/\s+/).filter(Boolean) : [];
+  const wordCount = words.length;
+  const minWords = PERSPECTIVE_MIN_WORDS;
+  const hasMinWords = wordCount >= minWords;
+  const wordsRemaining = Math.max(0, minWords - wordCount);
+
+  // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once
+  const rawClauses = cleanRaw
+    .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
+    .map(c => c.trim())
+    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
+
+  const usedIdx = new Set();
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
+  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
+
+  // 1. Check Conviction on a distinct clause (requires at least 2 clauses total so opening moment isn't misread as conviction)
+  let convIdx = -1;
+  for (let i = rawClauses.length - 1; i >= 0; i--) {
+    if (rawClauses.length >= 2 && convictionRegex.test(rawClauses[i])) {
+      convIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  // 2. Check Why It Matters on a distinct remaining clause
+  let whyIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    if (rawClauses.length >= 2 && whyRegex.test(rawClauses[i])) {
+      whyIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  // 3. Check Moment on a distinct remaining clause (or opening clause >= 6 words)
+  let momentIdx = -1;
+  for (let i = 0; i < rawClauses.length; i++) {
+    if (usedIdx.has(i)) continue;
+    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
+    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+      momentIdx = i;
+      usedIdx.add(i);
+      break;
+    }
+  }
+
+  let hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  let hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
+  let hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
+
+  // Check if current text matches the most recent Review & Polish verification
+  const isVerifiedByPolish = Boolean(
+    verifiedPolishDepthState.verified &&
+    cleanRaw.length > 0 &&
+    (cleanRaw === verifiedPolishDepthState.rawFingerprint || cleanRaw === verifiedPolishDepthState.polishedFingerprint)
+  );
+
+  if (isVerifiedByPolish) {
+    hasMoment = Boolean(verifiedPolishDepthState.hasMoment);
+    hasWhyItMatters = Boolean(verifiedPolishDepthState.hasWhyItMatters);
+    hasConviction = Boolean(verifiedPolishDepthState.hasConviction);
+  }
+
+  const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
+  const hasAllThreeBeats = beatsCount === 3;
+  const hasTwoOfThreeBeats = beatsCount >= 2;
+
+  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
+  const clauseBonus = Math.min(8, rawClauses.length * 2);
+  const computedDepthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+
+  const depthScore = isVerifiedByPolish
+    ? Math.max(Number(verifiedPolishDepthState.depthScore) || 0, computedDepthScore)
+    : computedDepthScore;
+
+  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved
+  const isReady = isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
+
+  const missingLabels = [];
+  if (!hasMoment) missingLabels.push('Moment');
+  if (!hasWhyItMatters) missingLabels.push('Why It Matters');
+  if (!hasConviction) missingLabels.push('Conviction');
+
+  let nudge = '';
+  if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
+    nudge = verifiedPolishDepthState.nudge;
+  } else if (!hasWhyItMatters && !hasConviction) {
+    nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
+  } else if (!hasWhyItMatters) {
+    nudge = 'Beautiful moment and conviction — add 1 line on the shift or reason why this matters so deeply to you.';
+  } else if (!hasConviction) {
+    nudge = 'You have the moment and the shift — now add 1 liberating line on the belief, principle, or life you are claiming for yourself going forward.';
+  } else if (depthScore < PERSPECTIVE_MIN_DEPTH_SCORE) {
+    nudge = 'All 3 signals are taking shape — expand your thought by 1–2 sentences so your depth crosses 70%.';
+  } else {
+    nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
+  }
+
+  return {
+    wordCount,
+    minWords,
+    hasMinWords,
+    wordsRemaining,
+    hasMoment,
+    hasWhyItMatters,
+    hasConviction,
+    beatsCount,
+    hasTwoOfThreeBeats,
+    hasAllThreeBeats,
+    depthScore,
+    isVerifiedByPolish,
+    isReady,
+    missingLabels,
+    nudge
+  };
+}
+
+/* ============================================================
+   CONVICTION TIER FLASH CELEBRATION & ROLLING 5-POST PROFILE AURA
+   - Individual posts NEVER display a grade badge in the public feed
+   - Synthesis completion triggers a private sparkling celebration overlay
+   - Profile earns a living badge from the rolling last 5 published Slants
+   - Active Glow (<= 7 days since last post) vs Resting Matte (> 7 days, never wiped)
+   ============================================================ */
+const CONVICTION_AURA_REQUIRED_POSTS = 5;
+const CONVICTION_AURA_ACTIVE_GLOW_DAYS = 8;
+let _curatorAuraCacheMap = new Map();
+let _curatorAuraCacheVersion = 0;
+
+function getCachedCuratorConvictionAura(rawHandle) {
+  const poolLen = (typeof allStories !== 'undefined' && Array.isArray(allStories) ? allStories.length : 0)
+    + (Array.isArray(allPosts) ? allPosts.length : 0);
+  if (_curatorAuraCacheVersion !== poolLen) {
+    _curatorAuraCacheMap.clear();
+    _curatorAuraCacheVersion = poolLen;
+  }
+  const key = String(rawHandle || '').replace(/^@/, '').toLowerCase().trim();
+  if (!key) return null;
+  if (_curatorAuraCacheMap.has(key)) {
+    return _curatorAuraCacheMap.get(key);
+  }
+  const computed = computeCuratorRollingConvictionProfile(key);
+  _curatorAuraCacheMap.set(key, computed);
+  return computed;
+}
+
+function buildCreatorAvatarAndHandleHtml(rawHandle, initial, skipAura = false, prefilteredPosts = null) {
+  const cleanHandleText = String(rawHandle || '@curator').trim();
+  const hasAtPrefix = cleanHandleText.startsWith('@');
+  const bareName = hasAtPrefix ? cleanHandleText.slice(1) : cleanHandleText;
+
+  if (skipAura) {
+    return `
+      <div class="creator-avatar">
+        <div class="avatar-inner">${initial}</div>
+      </div>
+      <span class="creator-handle">${escapeHtml(cleanHandleText)}</span>
+    `;
+  }
+
+  const aura = Array.isArray(prefilteredPosts)
+    ? computeCuratorRollingConvictionProfile(prefilteredPosts)
+    : getCachedCuratorConvictionAura(bareName);
+
+  if (!aura || !aura.unlocked) {
+    return `
+      <div class="creator-avatar">
+        <div class="avatar-inner">${initial}</div>
+      </div>
+      <span class="creator-handle">${escapeHtml(cleanHandleText)}</span>
+    `;
+  }
+
+  const tierKey = aura.tierMeta.tierKey;
+  const glowClass = aura.isGlowing ? 'is-aura-glowing' : 'is-aura-unlit';
+  const tooltip = aura.isGlowing
+    ? `${aura.tierMeta.badgeTitle} (${aura.avgScore}% rolling 5-Slant conviction) • Active Slanter`
+    : `${aura.tierMeta.badgeTitle} (${aura.avgScore}% rolling 5-Slant conviction) • Unlit after ${aura.daysSinceLatest}d break`;
+
+  return `
+    <div class="creator-avatar has-conviction-aura ${escapeHtml(tierKey)} ${glowClass}" title="${escapeHtml(tooltip)}">
+      <div class="avatar-inner">${initial}</div>
+      <span class="avatar-conviction-star ${escapeHtml(tierKey)} ${glowClass}" aria-hidden="true">✦</span>
+    </div>
+    <span class="creator-handle has-conviction-aura ${escapeHtml(tierKey)} ${glowClass}" title="${escapeHtml(tooltip)}"><span class="creator-at-symbol">@</span><span class="creator-handle-name">${escapeHtml(bareName)}</span></span>
+  `;
+}
+
+function buildPosterCreatorAuraParts(rawHandle, initial) {
+  const cleanHandleText = String(rawHandle || '@curator').trim();
+  const bareName = cleanHandleText.replace(/^@/, '');
+  const safeBareName = escapeHtml(bareName);
+  const safeHandle = escapeHtml(cleanHandleText.startsWith('@') ? cleanHandleText : `@${bareName}`);
+  const safeInitial = escapeHtml((bareName.charAt(0) || initial || 'C').toUpperCase());
+  const safeTitleUpper = escapeHtml(`${cleanHandleText.toUpperCase()}'S SLANT`);
+
+  const aura = getCachedCuratorConvictionAura(bareName);
+  if (!aura || !aura.unlocked) {
+    return {
+      isGlowing: false,
+      tierKey: '',
+      posterCornerCreatorHtml: `<span class="poster-corner-creator">${safeHandle}</span>`,
+      receiptCreatorNameHtml: `<span class="receipt-creator-name">${safeHandle}</span>`,
+      kickerAvatarHtml: `<span class="slide-hook-curator-kicker-avatar">${safeInitial}</span>`,
+      signedAvatarHtml: `<span class="signed-curator-avatar">${safeInitial}</span>`,
+      signedTitleHtml: `<span class="signed-curator-title">${safeTitleUpper}</span>`,
+      chronicleSignatureHandleHtml: `<span class="chronicle-signature-handle">${safeHandle}</span>`
+    };
+  }
+
+  const tierKey = escapeHtml(aura.tierMeta.tierKey);
+  const glowClass = aura.isGlowing ? 'is-aura-glowing' : 'is-aura-unlit';
+  const starHtml = `<span class="poster-conviction-star ${tierKey} ${glowClass}" aria-hidden="true">✦</span>`;
+  const miniAvatarStarHtml = `<span class="avatar-conviction-star is-poster-mini-star ${tierKey} ${glowClass}" aria-hidden="true">✦</span>`;
+
+  return {
+    isGlowing: Boolean(aura.isGlowing),
+    tierKey,
+    posterCornerCreatorHtml: `<span class="poster-corner-creator has-conviction-aura ${tierKey} ${glowClass}">${starHtml}<span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${safeBareName}</span></span>`,
+    receiptCreatorNameHtml: `<span class="receipt-creator-name has-conviction-aura ${tierKey} ${glowClass}">${starHtml}<span class="poster-creator-at">@</span><span class="poster-creator-handle-text">${safeBareName}</span></span>`,
+    kickerAvatarHtml: `<span class="slide-hook-curator-kicker-avatar">${safeInitial}</span>`,
+    signedAvatarHtml: `<span class="signed-curator-avatar">${safeInitial}</span>`,
+    signedTitleHtml: `<span class="signed-curator-title">${safeTitleUpper}</span>`,
+    chronicleSignatureHandleHtml: `<span class="chronicle-signature-handle">${safeHandle}</span>`
+  };
+}
+
+function getConvictionTierMeta(score = 75) {
+  const num = Math.max(70, Math.min(100, Math.round(Number(score) || 75)));
+  if (num >= 90) {
+    return {
+      tierKey: 'tier3_piercing',
+      rangeLabel: '90–100%',
+      stars: '✦✦✦',
+      flashTitle: 'PIERCED CONVICTION',
+      badgeTitle: 'Piercing Voice',
+      icon: '🔥',
+      score: num,
+      flashMessage: 'Uncommon depth, vulnerability & clarity — the highest tier of Slant synthesis.',
+      color: '#D97706',
+      bgTint: 'rgba(245, 158, 11, 0.14)',
+      borderTint: 'rgba(245, 158, 11, 0.42)',
+      burstPalette: ['#FBBF24', '#FDE68A', '#F59E0B', '#FFFBEB', '#FB923C', '#FCD34D']
+    };
+  }
+  if (num >= 80) {
+    return {
+      tierKey: 'tier2_deep',
+      rangeLabel: '80–89%',
+      stars: '✦✦',
+      flashTitle: 'DEEP CONVICTION',
+      badgeTitle: 'Deep Slanter',
+      icon: '✨',
+      score: num,
+      flashMessage: 'Richly reasoned shift and personal conviction — crafted with depth.',
+      color: '#0D9488',
+      bgTint: 'rgba(16, 185, 129, 0.13)',
+      borderTint: 'rgba(16, 185, 129, 0.38)',
+      burstPalette: ['#34D399', '#A7F3D0', '#FDE68A', '#10B981', '#6EE7B7', '#FBBF24']
+    };
+  }
+  return {
+    tierKey: 'tier1_sharp',
+    rangeLabel: '70–79%',
+    stars: '✦',
+    flashTitle: 'SHARP CONVICTION',
+    badgeTitle: 'Sharp Voice',
+    icon: '⚡',
+    score: num,
+    flashMessage: 'Clear editorial spark & grounded stance — framed and ready.',
+    color: '#4F46E5',
+    bgTint: 'rgba(99, 102, 241, 0.12)',
+    borderTint: 'rgba(99, 102, 241, 0.35)',
+    burstPalette: ['#818CF8', '#C7D2FE', '#FBBF24', '#A5B4FC', '#F472B6', '#E0E7FF']
+  };
+}
+
+function resolvePostConvictionScore(post) {
+  if (!post) return 75;
+  const explicit = Number(
+    post.convictionScore
+    || post.generationInputs?.convictionScore
+    || post.depthScore
+    || post.generationInputs?.depthScore
+  );
+  if (Number.isFinite(explicit) && explicit >= 70 && explicit <= 100) {
+    return Math.round(explicit);
+  }
+  const rawTake = String(
+    post.userSlantTake
+    || post.polishedCuratorTake
+    || post.generationInputs?.slantTake
+    || post.curatorTake
+    || post.creatorOpinion
+    || ''
+  ).trim();
+  const rawSpark = String(
+    post.spark
+    || post.generationInputs?.spark
+    || post.whyItMatters
+    || post.broadsheetReflection
+    || ''
+  ).trim();
+  const rawSummary = String(post.summary || post.broadsheetObservation || '').trim();
+  const primaryText = (rawTake.length >= 25 ? `${rawTake} ${rawSpark}` : `${rawTake} ${rawSpark} ${rawSummary}`).trim();
+  const words = primaryText.split(/\s+/).filter(Boolean).length;
+  const clauses = primaryText
+    .split(/(?:[.!?;—\n]+|,\s+(?:and|but|because|while|when|where|so|yet|which|that)\b)/i)
+    .map(s => s.trim())
+    .filter(s => s.length >= 8);
+
+  const momentRegex = /\b(when|while|today|yesterday|recently|morning|evening|night|saw|watched|read|reading|heard|listening|noticed|remember|walked|walking|sat|sitting|met|talked|built|building|working|years ago|growing up|once|moment|scene|photo|video|article|book|story|experience|day|week|child|kid|son|daughter|family|friend|home|office|street|market|shop|temple|school)\b/i;
+  const whyRegex = /\b(because|matters|realize|realized|shift|shifted|changed|changes|shows|reveals|reminds|taught|teaches|problem|truth is|reality|underneath|deeper|reason|impact|cost|value|meaning|important|lesson|instead of|rather than|beyond|difference|makes us|makes me|why)\b/i;
+  const convictionRegex = /\b(must|should|need to|believe|stand|claim|choose|choosing|never|always|future|forward|life|principle|conviction|commit|promise|worth|deserve|deserves|let us|we have to|i will|we can|real power|true|freedom|peace|dignity|respect|craft|honest|human)\b/i;
+
+  const hasMoment = momentRegex.test(primaryText);
+  const hasWhy = whyRegex.test(primaryText);
+  const hasConv = convictionRegex.test(primaryText);
+  const beats = (hasMoment ? 1 : 0) + (hasWhy ? 1 : 0) + (hasConv ? 1 : 0);
+
+  const beatPts = beats === 3 ? 44 : (beats === 2 ? 36 : 28);
+  const wordPts = Math.min(44, Math.round((Math.min(words, 75) / 75) * 44));
+  const clausePts = Math.min(10, clauses.length * 2);
+  return Math.max(71, Math.min(98, beatPts + wordPts + clausePts));
+}
+
+function computeCuratorRollingConvictionProfile(curatorHandleOrPosts, candidateScore = null) {
+  let postsList = [];
+  if (Array.isArray(curatorHandleOrPosts)) {
+    postsList = curatorHandleOrPosts;
+  } else {
+    const sourcePool = (typeof allStories !== 'undefined' && Array.isArray(allStories) && allStories.length > 0)
+      ? allStories
+      : (Array.isArray(allPosts) ? allPosts : []);
+    const cleanHandle = String(curatorHandleOrPosts || '').replace(/^@/, '').toLowerCase().trim();
+    if (cleanHandle) {
+      postsList = sourcePool.filter(p => {
+        if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+        if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        if (!(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline)) return false;
+        const h = String(p.creatorHandle || '').replace(/^@/, '').toLowerCase().trim();
+        const em = String(p.userEmail || '').toLowerCase().trim();
+        return h === cleanHandle || h.includes(cleanHandle) || (em && (em === cleanHandle || em.split('@')[0] === cleanHandle));
+      });
+    } else if (typeof currentUser !== 'undefined' && currentUser) {
+      postsList = sourcePool.filter(p => {
+        if (!p || p.deleted || p.isDeleted || deletedPostIds.has(p.id) || isLoginShowcaseOnlyPost(p)) return false;
+        if (isPostChronicleDiary(p) || isPostPrivateOrDraft(p)) return false;
+        if (!(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline)) return false;
+        return isPostOwnedByCurrentUser(p);
+      });
+    }
+  }
+
+  const publishedSorted = postsList
+    .filter(p => p && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p) && Boolean(p.adaptedHeadline || p.originalHeadline || p.sourceHeadline))
+    .slice()
+    .sort((a, b) => {
+      const tA = new Date(a.createdAt || a.created_at || a.date || 0).getTime() || 0;
+      const tB = new Date(b.createdAt || b.created_at || b.date || 0).getTime() || 0;
+      return tB - tA;
+    });
+
+  const recentScores = publishedSorted.slice(0, CONVICTION_AURA_REQUIRED_POSTS).map(p => ({
+    score: resolvePostConvictionScore(p),
+    meta: getConvictionTierMeta(resolvePostConvictionScore(p)),
+    createdAt: p.createdAt || p.created_at || p.date || null
+  }));
+
+  if (Number.isFinite(Number(candidateScore)) && Number(candidateScore) >= 70) {
+    const cNum = Math.round(Number(candidateScore));
+    recentScores.unshift({
+      score: cNum,
+      meta: getConvictionTierMeta(cNum),
+      createdAt: new Date().toISOString(),
+      isPreviewCandidate: true
+    });
+    if (recentScores.length > CONVICTION_AURA_REQUIRED_POSTS) {
+      recentScores.length = CONVICTION_AURA_REQUIRED_POSTS;
+    }
+  }
+
+  const totalPublished = publishedSorted.length + (Number.isFinite(Number(candidateScore)) ? 1 : 0);
+  const windowCount = recentScores.length;
+  const unlocked = windowCount >= CONVICTION_AURA_REQUIRED_POSTS;
+  const avgScore = windowCount > 0
+    ? Math.round(recentScores.reduce((sum, item) => sum + item.score, 0) / windowCount)
+    : 0;
+
+  const latestTs = recentScores[0]?.createdAt ? new Date(recentScores[0].createdAt).getTime() : 0;
+  const daysSinceLatest = latestTs > 0
+    ? Math.max(0, Math.floor((Date.now() - latestTs) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const isGlowing = unlocked && (latestTs === 0 || daysSinceLatest <= CONVICTION_AURA_ACTIVE_GLOW_DAYS);
+  const isResting = unlocked && !isGlowing;
+
+  // Determine rolling 5-post badge tier
+  const piercingCount = recentScores.filter(it => it.score >= 90).length;
+  const deepOrHigherCount = recentScores.filter(it => it.score >= 80).length;
+  let badgeTierScore = avgScore;
+  if (piercingCount >= 3 && deepOrHigherCount === CONVICTION_AURA_REQUIRED_POSTS) {
+    badgeTierScore = Math.max(90, avgScore);
+  } else if (deepOrHigherCount >= 3) {
+    badgeTierScore = Math.max(82, avgScore);
+  }
+  const tierMeta = getConvictionTierMeta(badgeTierScore || 75);
+
+  return {
+    unlocked,
+    totalPublished,
+    windowCount,
+    remainingToUnlock: Math.max(0, CONVICTION_AURA_REQUIRED_POSTS - windowCount),
+    avgScore,
+    recentScores,
+    daysSinceLatest,
+    isGlowing,
+    isResting,
+    tierMeta
+  };
+}
+
+function buildCuratorProfileAuraBadgeHtml(profileAura, compact = false) {
+  if (!profileAura || !profileAura.unlocked) return '';
+  const { tierMeta, isGlowing, isResting, avgScore, daysSinceLatest } = profileAura;
+  const stateClass = isGlowing ? 'is-glowing' : 'is-resting';
+  const stateHint = isGlowing
+    ? `Active Profile Aura • Rolling last 5 Slants avg ${avgScore}% (${tierMeta.rangeLabel})`
+    : `Resting Profile Aura (${daysSinceLatest}d since last Slant) • Publish your next Slant to reignite glow immediately`;
+
+  const dotsHtml = profileAura.recentScores.map(it => {
+    const dotClass = it.score >= 90 ? 'is-tier3' : (it.score >= 80 ? 'is-tier2' : 'is-tier1');
+    return `<span class="aura-mini-dot ${dotClass}" title="${it.meta.badgeTitle} (${it.score}%)"></span>`;
+  }).join('');
+
+  if (compact) {
+    return `
+      <span class="curator-aura-badge is-compact ${escapeHtml(tierMeta.tierKey)} ${stateClass}" title="${escapeHtml(stateHint)}">
+        <span class="curator-aura-icon">${isResting ? '🌙' : tierMeta.icon}</span>
+        <span class="curator-aura-title">${escapeHtml(tierMeta.badgeTitle)}</span>
+      </span>
+    `;
+  }
+
+  return `
+    <div class="curator-aura-badge ${escapeHtml(tierMeta.tierKey)} ${stateClass}" title="${escapeHtml(stateHint)}">
+      <span class="curator-aura-icon">${isResting ? '🌙' : tierMeta.icon}</span>
+      <span class="curator-aura-title">${escapeHtml(tierMeta.badgeTitle)}</span>
+      <span class="curator-aura-dots" aria-hidden="true">${dotsHtml}</span>
+      <span class="curator-aura-state-tag">${isGlowing ? '✦ Active' : 'Resting'}</span>
+    </div>
+  `;
+}
+
+function renderMyStoriesConvictionAuraBanner(container) {
+  if (!container || !currentUser) return;
+  const profileAura = computeCuratorRollingConvictionProfile(null);
+  const banner = document.createElement('div');
+  banner.className = `my-conviction-aura-banner ${profileAura.unlocked ? (profileAura.isGlowing ? 'is-glowing' : 'is-resting') : 'is-locked'} ${profileAura.tierMeta.tierKey}`;
+
+  const slots = [];
+  for (let i = 0; i < CONVICTION_AURA_REQUIRED_POSTS; i++) {
+    const item = profileAura.recentScores[i];
+    if (item) {
+      const slotClass = item.score >= 90 ? 'is-tier3' : (item.score >= 80 ? 'is-tier2' : 'is-tier1');
+      slots.push(`
+        <div class="aura-5post-pill ${slotClass}" title="Slant #${i + 1}: ${item.meta.flashTitle} (${item.score}%)">
+          <span class="aura-5post-stars">${item.meta.stars}</span>
+          <span class="aura-5post-score">${item.score}%</span>
+        </div>
+      `);
+    } else {
+      slots.push(`
+        <div class="aura-5post-pill is-empty" title="Publish a Slant to fill this rolling slot">
+          <span class="aura-5post-stars">○</span>
+          <span class="aura-5post-score">Slot ${i + 1}</span>
+        </div>
+      `);
+    }
+  }
+
+  banner.innerHTML = `
+    <div class="my-conviction-aura-top">
+      <div class="my-conviction-aura-title-group">
+        <span class="my-conviction-aura-kicker">✨ ROLLING 5-SLANT PROFILE AURA</span>
+        <div class="my-conviction-aura-headline">
+          ${profileAura.unlocked
+            ? `<span class="my-conviction-aura-badge-pill ${profileAura.tierMeta.tierKey} ${profileAura.isGlowing ? 'is-glowing' : 'is-resting'}">
+                 <span>${profileAura.isResting ? '🌙' : profileAura.tierMeta.icon}</span>
+                 <span>${escapeHtml(profileAura.tierMeta.badgeTitle)}</span>
+                 <span class="my-conviction-aura-avg">(${profileAura.avgScore}% avg)</span>
+               </span>
+               <span class="my-conviction-aura-status-chip ${profileAura.isGlowing ? 'is-glowing' : 'is-resting'}">
+                 ${profileAura.isGlowing ? '🔥 Glowing on Profile' : '🌙 Resting • Post 1 Slant to Reignite'}
+               </span>`
+            : `<span class="my-conviction-aura-unlock-title">${profileAura.windowCount} / ${CONVICTION_AURA_REQUIRED_POSTS} Published Slants to Unlock Profile Aura</span>`}
+        </div>
+      </div>
+    </div>
+    <div class="my-conviction-aura-slots-row">
+      ${slots.join('')}
+    </div>
+    <div class="my-conviction-aura-sub">
+      ${profileAura.unlocked
+        ? (profileAura.isGlowing
+            ? 'Your profile badge dynamically evolves with your last 5 published Slants — no grades are ever shown on individual posts.'
+            : 'Your hard-earned badge is resting quietly after a break. Publish your next Slant whenever inspiration strikes to light it right back up.')
+        : `Publish ${profileAura.remainingToUnlock} more ${profileAura.remainingToUnlock === 1 ? 'Slant' : 'Slants'} to earn your dynamic profile badge (Sharp Voice • Deep Slanter • Piercing Voice).`}
+    </div>
+  `;
+  container.appendChild(banner);
+}
+
+function showSynthesisConvictionFlashOverlay(score, post = null) {
+  const tierMeta = getConvictionTierMeta(score);
+  const previewRoll = computeCuratorRollingConvictionProfile(null, tierMeta.score);
+
+  const existing = document.getElementById('synthesisConvictionFlashOverlay');
+  if (existing) {
+    if (existing._cleanupBurstRaf) existing._cleanupBurstRaf();
+    existing.remove();
+  }
+
+  const overlay = document.createElement('div');
+  overlay.id = 'synthesisConvictionFlashOverlay';
+  overlay.className = `synthesis-conviction-flash-overlay ${tierMeta.tierKey}`;
+
+  // Build per-character shattering HTML for the standalone title (e.g. "PIERCED" / "CONVICTION")
+  const words = String(tierMeta.flashTitle || 'PIERCED CONVICTION').trim().split(/\s+/);
+  let globalCharIdx = 0;
+  const totalChars = words.reduce((acc, w) => acc + w.length, 0);
+
+  const wordsHtml = words.map((word) => {
+    const charsHtml = Array.from(word).map((ch) => {
+      const idx = globalCharIdx++;
+      const normPos = (idx / Math.max(1, totalChars - 1)) - 0.5; // -0.5 (left) to +0.5 (right)
+      const crackX = Math.round(normPos * 36 + (Math.random() - 0.5) * 18);
+      const crackY = Math.round((Math.random() - 0.5) * 20 - 6);
+      const crackRot = Math.round(normPos * 18 + (Math.random() - 0.5) * 16);
+      const fallX = Math.round(normPos * 220 + (Math.random() - 0.5) * 110);
+      const fallRot = Math.round((normPos >= 0 ? 1 : -1) * (35 + Math.random() * 95));
+      const fallDelay = Math.round(Math.random() * 170);
+      return `<span class="conv-char" style="--char-idx:${idx}; --crack-x:${crackX}px; --crack-y:${crackY}px; --crack-rot:${crackRot}deg; --fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">${escapeHtml(ch)}</span>`;
+    }).join('');
+    return `<div class="conviction-standalone-word-line">${charsHtml}</div>`;
+  }).join('');
+
+  const dotsRow = [];
+  for (let i = 0; i < CONVICTION_AURA_REQUIRED_POSTS; i++) {
+    const it = previewRoll.recentScores[i];
+    const fallX = Math.round((i - 2) * 55 + (Math.random() - 0.5) * 30);
+    const fallRot = Math.round((Math.random() - 0.5) * 110);
+    const fallDelay = Math.round(60 + Math.random() * 140);
+    if (it) {
+      const cls = it.score >= 90 ? 'is-tier3' : (it.score >= 80 ? 'is-tier2' : 'is-tier1');
+      dotsRow.push(`<span class="flash-5post-dot conv-fall-piece ${cls} ${i === 0 ? 'is-current-pop' : ''}" style="--fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">${it.meta.stars}</span>`);
+    } else {
+      dotsRow.push(`<span class="flash-5post-dot conv-fall-piece is-empty" style="--fall-x:${fallX}px; --fall-rot:${fallRot}deg; --fall-delay:${fallDelay}ms;">○</span>`);
+    }
+  }
+
+  overlay.innerHTML = `
+    <canvas class="conviction-burst-canvas" id="convictionBurstCanvas"></canvas>
+    <div class="conviction-standalone-stage ${tierMeta.tierKey}">
+      <div class="conviction-burst-crest conv-fall-piece" style="--fall-x:0px; --fall-rot:-28deg; --fall-delay:0ms;">
+        <span class="conviction-crest-stars">${tierMeta.stars}</span>
+        <span class="conviction-crest-icon">${tierMeta.icon}</span>
+        <span class="conviction-crest-stars">${tierMeta.stars}</span>
+      </div>
+      <div class="conviction-standalone-words" aria-label="${escapeHtml(tierMeta.flashTitle)}">
+        ${wordsHtml}
+      </div>
+      <div class="conviction-standalone-score-sub conv-fall-piece" style="--fall-x:18px; --fall-rot:16deg; --fall-delay:90ms;">
+        <span class="conviction-standalone-score-num">${tierMeta.score}% DEPTH</span>
+      </div>
+      <div class="conviction-standalone-dots-row">
+        ${dotsRow.join('')}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  // Full-Screen 60 FPS Canvas Particle Splash & Shatter Engine
+  const canvas = overlay.querySelector('#convictionBurstCanvas');
+  const ctx = canvas ? canvas.getContext('2d') : null;
+  const palette = Array.isArray(tierMeta.burstPalette)
+    ? tierMeta.burstPalette
+    : ['#FBBF24', '#FDE68A', '#F59E0B', '#FFFBEB', '#FB923C'];
+
+  let rafId = null;
+  let isDisposed = false;
+  let fallTriggered = false;
+  const particles = [];
+  const shockwaves = [];
+
+  const resizeCanvas = () => {
+    if (!canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resizeCanvas();
+
+  const spawnSplashBurst = () => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.46;
+
+    shockwaves.push(
+      { x: cx, y: cy, r: 10, maxR: Math.min(window.innerWidth, window.innerHeight) * 0.56, alpha: 0.9, color: palette[0], width: 5 },
+      { x: cx, y: cy, r: 4, maxR: Math.min(window.innerWidth, window.innerHeight) * 0.40, alpha: 0.7, color: palette[1], width: 2.5 }
+    );
+
+    const count = 135;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.25;
+      const speed = 4.5 + Math.pow(Math.random(), 0.7) * 21;
+      const kindRoll = Math.random();
+      const kind = kindRoll < 0.34 ? 'star' : (kindRoll < 0.74 ? 'confetti' : 'ember');
+      particles.push({
+        x: cx + (Math.random() - 0.5) * 18,
+        y: cy + (Math.random() - 0.5) * 18,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (1.5 + Math.random() * 2.5),
+        gravity: kind === 'confetti' ? 0.16 : 0.20,
+        drag: kind === 'confetti' ? 0.955 : 0.965,
+        size: kind === 'star' ? (6 + Math.random() * 8) : (kind === 'confetti' ? (6 + Math.random() * 7) : (3 + Math.random() * 4.5)),
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.18,
+        tilt: Math.random() * Math.PI * 2,
+        tiltSpeed: 0.08 + Math.random() * 0.14,
+        alpha: 1,
+        decay: 0.0055 + Math.random() * 0.006,
+        kind
+      });
+    }
+  };
+
+  const spawnShatterCrumbleSparks = () => {
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight * 0.46;
+    const spanW = Math.min(340, window.innerWidth * 0.78);
+    for (let i = 0; i < 75; i++) {
+      const px = cx + (Math.random() - 0.5) * spanW;
+      const py = cy + (Math.random() - 0.5) * 90;
+      const kind = Math.random() < 0.45 ? 'star' : (Math.random() < 0.8 ? 'confetti' : 'ember');
+      particles.push({
+        x: px,
+        y: py,
+        vx: (px - cx) * 0.035 + (Math.random() - 0.5) * 5.5,
+        vy: -1.5 + Math.random() * 4.5,
+        gravity: 0.34 + Math.random() * 0.14,
+        drag: 0.985,
+        size: kind === 'star' ? (5 + Math.random() * 6) : (4 + Math.random() * 6),
+        color: palette[Math.floor(Math.random() * palette.length)],
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.22,
+        tilt: Math.random() * Math.PI * 2,
+        tiltSpeed: 0.1 + Math.random() * 0.16,
+        alpha: 1,
+        decay: 0.012 + Math.random() * 0.009,
+        kind
+      });
+    }
+  };
+
+  const drawFourPointStar = (c, x, y, r, rot) => {
+    c.save();
+    c.translate(x, y);
+    c.rotate(rot);
+    c.beginPath();
+    const inner = r * 0.32;
+    for (let i = 0; i < 8; i++) {
+      const rad = (i % 2 === 0) ? r : inner;
+      const a = (i * Math.PI) / 4;
+      const px = Math.cos(a) * rad;
+      const py = Math.sin(a) * rad;
+      if (i === 0) c.moveTo(px, py);
+      else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.fill();
+    c.restore();
+  };
+
+  const renderLoop = () => {
+    if (isDisposed || !ctx || !canvas) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+
+    // Draw expanding shockwaves
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+      const sw = shockwaves[i];
+      sw.r += (sw.maxR - sw.r) * 0.14;
+      sw.alpha *= 0.91;
+      if (sw.alpha <= 0.02) {
+        shockwaves.splice(i, 1);
+        continue;
+      }
+      ctx.save();
+      ctx.globalAlpha = sw.alpha;
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = sw.width;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Update & draw particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.vx *= p.drag;
+      p.vy = p.vy * p.drag + p.gravity;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rotation += p.rotSpeed;
+      p.tilt += p.tiltSpeed;
+      p.alpha -= p.decay;
+
+      if (p.alpha <= 0.01 || p.y > H + 60) {
+        particles.splice(i, 1);
+        continue;
+      }
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+      ctx.fillStyle = p.color;
+
+      if (p.kind === 'star') {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+        drawFourPointStar(ctx, p.x, p.y, p.size, p.rotation);
+      } else if (p.kind === 'confetti') {
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        const w = p.size * 1.35;
+        const h = Math.max(1.8, p.size * Math.abs(Math.cos(p.tilt)));
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+      } else {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    rafId = requestAnimationFrame(renderLoop);
+  };
+
+  spawnSplashBurst();
+  rafId = requestAnimationFrame(renderLoop);
+
+  const triggerFallApart = () => {
+    if (fallTriggered || isDisposed) return;
+    fallTriggered = true;
+    overlay.classList.add('is-falling-apart');
+    spawnShatterCrumbleSparks();
+    setTimeout(() => {
+      if (overlay._cleanupBurstRaf) overlay._cleanupBurstRaf();
+      if (overlay && overlay.parentNode) overlay.remove();
+    }, 1250);
+  };
+
+  overlay._cleanupBurstRaf = () => {
+    isDisposed = true;
+    if (rafId) cancelAnimationFrame(rafId);
+  };
+
+  overlay.onclick = () => {
+    triggerFallApart();
+  };
+
+  // Hold standalone title in center for 2.35s, then shatter & fall apart with gravity!
+  setTimeout(triggerFallApart, 2350);
+}
+window.showSynthesisConvictionFlashOverlay = showSynthesisConvictionFlashOverlay;
+
+
+const DEPTH_BEAT_COACH_META = {
+  moment: {
+    title: '✦ Moment — Bring me into the scene with you',
+    prompt: 'Start where it felt real. What were you doing, building, watching, or experiencing right when this thought hit you? Don\'t filter it — just paint the real moment.',
+    starter: 'As I was sitting with this recently, I noticed '
+  },
+  why: {
+    title: '⚖️ Why It Matters — Name what shifted inside you',
+    prompt: 'You\'ve captured the moment. Now go one layer deeper, my friend — why does this feel different from before? What old barrier broke, or what truth is hiding underneath?',
+    starter: 'What really changed for me here is that '
+  },
+  conviction: {
+    title: '🧭 Conviction — Claim your truth & the life you want',
+    prompt: 'Don\'t hold back at the end. What is the personal truth, freedom, or way of living you are claiming for yourself going forward? Speak it with full conviction.',
+    starter: 'Moving forward, the life and principle I stand by is '
+  }
+};
+
+function showLiveDepthBeatHint(beatKey, event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  if (activeDepthCoachBeat === beatKey) {
+    activeDepthCoachBeat = null;
+  } else {
+    activeDepthCoachBeat = beatKey;
+  }
+  updateLivePerspectiveDepthUI(false);
+}
+
+function insertDepthBeatStarter(beatKey, event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const meta = DEPTH_BEAT_COACH_META[beatKey];
+  const input = document.getElementById('creatorSlantTakeInput');
+  if (!meta || !input) return;
+
+  const current = input.value || '';
+  const trimmed = current.trimEnd();
+  const separator = !trimmed ? '' : (/[.!?]$/.test(trimmed) ? ' ' : '. ');
+  input.value = trimmed + separator + meta.starter;
+  activeDepthCoachBeat = null;
+  input.focus();
+  try {
+    input.setSelectionRange(input.value.length, input.value.length);
+  } catch (_) {}
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function updateLivePerspectiveDepthUI(highlightMissing = false) {
+  const bar = document.getElementById('slantLiveDepthBar');
+  if (!bar) return;
+
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (isChronicle) {
+    bar.style.display = 'none';
+    const synthBtn = document.getElementById('step1DirectSynthBtn');
+    if (synthBtn) synthBtn.classList.remove('is-depth-locked');
+    updateCreatorSubStageUI();
+    return;
+  }
+  bar.style.display = 'flex';
+
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const rawText = slantInput ? slantInput.value : '';
+  const sparkText = sparkInput ? sparkInput.value : '';
+
+  const depth = evaluatePerspectiveDepth(rawText, sparkText);
+
+  bar.classList.toggle('is-ready', depth.isReady);
+  if (depth.isReady) {
+    bar.classList.remove('is-gate-warning');
+  } else if (highlightMissing) {
+    bar.classList.add('is-gate-warning');
+  }
+
+  // Sync Step 1 Synthesize button visual readiness state
+  const synthBtn = document.getElementById('step1DirectSynthBtn');
+  if (synthBtn) {
+    synthBtn.classList.toggle('is-depth-locked', !depth.isReady);
+    synthBtn.classList.toggle('is-depth-unlocked', depth.isReady);
+  }
+
+  // Subtly glow "Review & Polish" once user starts writing their perspective until it is reviewed
+  const polishBtn = document.getElementById('slantPolishActionBtn');
+  if (polishBtn) {
+    const hasPerspectiveText = depth.wordCount >= 4 || rawText.trim().length >= 18;
+    const shouldGlowForReview = hasPerspectiveText && !depth.isVerifiedByPolish && !polishBtn.classList.contains('is-polishing');
+    polishBtn.classList.toggle('needs-review-glow', shouldGlowForReview);
+    polishBtn.classList.toggle('is-review-complete', Boolean(depth.isVerifiedByPolish));
+  }
+
+  const setBeatPill = (pillId, checkId, isMet, key) => {
+    const pill = document.getElementById(pillId);
+    const check = document.getElementById(checkId);
+    if (pill) {
+      pill.classList.toggle('is-met', Boolean(isMet));
+      pill.classList.toggle('is-pending', !isMet);
+      pill.classList.toggle('is-active-hint', activeDepthCoachBeat === key);
+    }
+    if (check) {
+      check.textContent = isMet ? '✓' : '○';
+    }
+  };
+
+  setBeatPill('liveBeatMoment', 'liveBeatMomentCheck', depth.hasMoment, 'moment');
+  setBeatPill('liveBeatWhy', 'liveBeatWhyCheck', depth.hasWhyItMatters, 'why');
+  setBeatPill('liveBeatConviction', 'liveBeatConvictionCheck', depth.hasConviction, 'conviction');
+
+  const signalsPill = document.getElementById('slantDepthSignalsCountPill');
+  if (signalsPill) {
+    signalsPill.classList.toggle('is-met', depth.hasAllThreeBeats);
+    signalsPill.classList.toggle('is-pending', !depth.hasAllThreeBeats);
+    if (depth.hasAllThreeBeats) {
+      signalsPill.innerHTML = `✓ 3/3 signals`;
+    } else {
+      signalsPill.innerHTML = `${depth.beatsCount}/3 signals`;
+    }
+  }
+
+  const wordPill = document.getElementById('slantDepthWordPill');
+  const hasEnoughDepth = depth.depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
+  if (wordPill) {
+    wordPill.classList.toggle('is-met', hasEnoughDepth && depth.hasAllThreeBeats);
+    wordPill.classList.toggle('is-pending', !(hasEnoughDepth && depth.hasAllThreeBeats));
+    if (depth.wordCount === 0) {
+      wordPill.textContent = 'Depth 0%';
+    } else if (hasEnoughDepth && depth.hasAllThreeBeats) {
+      wordPill.textContent = `✓ Depth ${depth.depthScore}%`;
+    } else {
+      wordPill.textContent = `Depth ${depth.depthScore}%`;
+    }
+    wordPill.title = 'Live perspective depth (70%+ & 3/3 signals required)';
+  }
+
+  // Live depth progress bar fills dynamically as the creator types
+  const progressFill = document.getElementById('slantDepthProgressFill');
+  if (progressFill) {
+    progressFill.style.width = `${depth.depthScore}%`;
+    progressFill.classList.toggle('is-ready', Boolean(depth.hasAllThreeBeats && hasEnoughDepth));
+  }
+
+  const hintEl = document.getElementById('slantDepthCoachHint');
+  if (hintEl) {
+    if (activeDepthCoachBeat && DEPTH_BEAT_COACH_META[activeDepthCoachBeat]) {
+      const meta = DEPTH_BEAT_COACH_META[activeDepthCoachBeat];
+      hintEl.style.display = 'flex';
+      hintEl.innerHTML = `
+        <div class="depth-coach-text"><strong>${escapeHtml(meta.title)}:</strong> ${escapeHtml(meta.prompt)}</div>
+        <button type="button" class="depth-coach-insert-btn" onclick="insertDepthBeatStarter('${activeDepthCoachBeat}', event)">+ Add cue</button>
+      `;
+    } else if (depth.isVerifiedByPolish) {
+      hintEl.style.display = 'flex';
+      if (depth.isReady) {
+        hintEl.innerHTML = `<div class="depth-coach-text">✨ <strong>Depth ${depth.depthScore}% • 3/3 Signals:</strong> ${escapeHtml(depth.nudge)}</div>`;
+      } else {
+        const missingNote = depth.missingLabels.length > 0
+          ? `Missing: ${depth.missingLabels.join(', ')} • `
+          : '';
+        hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>${escapeHtml(missingNote)}Depth ${depth.depthScore}%:</strong> ${escapeHtml(depth.nudge)} <em>(Tap any ○ pill above for a friendly starter cue)</em></div>`;
+      }
+    } else if (highlightMissing && !depth.isReady) {
+      hintEl.style.display = 'flex';
+      if (depth.beatsCount < 3) {
+        hintEl.innerHTML = `<div class="depth-coach-text">💡 <strong>Almost there, my friend:</strong> Add a line for <strong>${escapeHtml(depth.missingLabels.join(' & '))}</strong> (tap any ○ pill above for a cue), then tap <strong>✨ Review &amp; Polish</strong> to measure your depth and unlock Synthesize!</div>`;
+      } else {
+        hintEl.innerHTML = `<div class="depth-coach-text">✨ <strong>All 3 signals spotted!</strong> Now tap <strong>✨ Review &amp; Polish</strong> right below to punctuate your thought, measure your Depth %, and unlock Synthesize.</div>`;
+      }
+    } else {
+      hintEl.style.display = 'none';
+      hintEl.innerHTML = '';
+    }
+  }
+  updateCreatorSubStageUI();
+}
+
+let creatorActiveSubStage = 1; // 1 = Story & Polish, 2 = Photo & Visual Selection
+
+function isCreatorVisualSelectionStageUnlocked() {
+  const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+  if (window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost)) {
+    return true;
+  }
+  if (isChronicle) {
+    const filledMoments = Array.isArray(dailyChronicleMoments)
+      ? dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length >= 3)
+      : [];
+    return filledMoments.length >= 2 && Boolean(verifiedPolishDepthState && verifiedPolishDepthState.confirmed);
+  }
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const rawText = slantInput ? slantInput.value : '';
+  const sparkText = sparkInput ? sparkInput.value : '';
+  const depth = evaluatePerspectiveDepth(rawText, sparkText);
+  return Boolean(depth.isReady && verifiedPolishDepthState && verifiedPolishDepthState.confirmed);
+}
+window.isCreatorVisualSelectionStageUnlocked = isCreatorVisualSelectionStageUnlocked;
+
+function updateCreatorSubStageUI() {
+  const stage1Wrap = document.getElementById('creatorStage1StoryWrap');
+  const stage2Wrap = document.getElementById('creatorStage2VisualsWrap');
+  const btn1 = document.getElementById('subStageBtn1');
+  const btn2 = document.getElementById('subStageBtn2');
+  const btn2Icon = document.getElementById('subStageBtn2Icon');
+  const nextBtn = document.getElementById('stage1NextToVisualsBtn');
+  const nextBtnIcon = document.getElementById('stage1NextBtnIcon');
+  const nextBtnText = document.getElementById('stage1NextBtnText');
+  const confirmedSummary = document.getElementById('stage2ConfirmedDepthSummary');
+
+  const unlocked = isCreatorVisualSelectionStageUnlocked();
+
+  // If currently on Stage 2 and user's text became unverified/locked, return to Stage 1
+  if (creatorActiveSubStage === 2 && !unlocked) {
+    creatorActiveSubStage = 1;
+  }
+
+  if (stage1Wrap && stage2Wrap) {
+    stage1Wrap.style.display = creatorActiveSubStage === 1 ? 'block' : 'none';
+    stage2Wrap.style.display = creatorActiveSubStage === 2 ? 'block' : 'none';
+  }
+
+  if (btn1) {
+    const isS1 = creatorActiveSubStage === 1;
+    btn1.style.background = isS1 ? '#253833' : 'transparent';
+    btn1.style.color = isS1 ? '#FFFFFF' : 'var(--text-primary)';
+  }
+  if (btn2) {
+    const isS2 = creatorActiveSubStage === 2;
+    btn2.style.background = isS2 ? '#253833' : (unlocked ? 'rgba(16, 185, 129, 0.12)' : 'transparent');
+    btn2.style.color = isS2 ? '#FFFFFF' : (unlocked ? '#047857' : 'var(--text-secondary)');
+    btn2.style.opacity = (unlocked || isS2) ? '1' : '0.6';
+  }
+  if (btn2Icon) {
+    btn2Icon.textContent = unlocked ? '✓' : '🔒';
+  }
+
+  if (nextBtn) {
+    nextBtn.style.opacity = unlocked ? '1' : '0.65';
+    nextBtn.classList.toggle('synthesize-ready', unlocked);
+  }
+  if (nextBtnIcon) {
+    nextBtnIcon.textContent = unlocked ? '✨' : '🔒';
+  }
+  if (nextBtnText) {
+    nextBtnText.textContent = unlocked
+      ? 'Next: Photo & Visual Selection →'
+      : 'Complete Story, 70%+ Depth & Confirm Polish →';
+  }
+
+  if (confirmedSummary) {
+    const isChronicle = (creatorSelectedSource === 'inner_voice' && typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode);
+    if (isChronicle) {
+      const filledCount = Array.isArray(dailyChronicleMoments)
+        ? dailyChronicleMoments.filter(m => m && String(m.text || '').trim().length >= 3).length
+        : 2;
+      confirmedSummary.textContent = `✓ ${filledCount} Moments Polished & Confirmed • Ready for Visuals`;
+    } else {
+      const slantInput = document.getElementById('creatorSlantTakeInput');
+      const sparkInput = document.getElementById('creatorSparkInput');
+      const depth = evaluatePerspectiveDepth(slantInput ? slantInput.value : '', sparkInput ? sparkInput.value : '');
+      confirmedSummary.textContent = `✓ 3/3 Story Elements • Conviction Depth ${depth.depthScore}%`;
+    }
+  }
+}
+window.updateCreatorSubStageUI = updateCreatorSubStageUI;
+
+function goToCreatorVisualSelectionStage() {
+  if (!validateCreatorStage1(true)) {
+    return false;
+  }
+  if (!verifiedPolishDepthState || !verifiedPolishDepthState.confirmed) {
+    const reviewCard = document.getElementById('slantPolishReviewCard');
+    if (reviewCard && reviewCard.style.display !== 'none') {
+      reviewCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showTemporaryToast('✨ Please confirm your polished take ("✓ Accept & Use" or "✕ Keep Original") to unlock Photo & Visual Selection!', 4000);
+    } else {
+      const polishBtn = document.getElementById('slantPolishActionBtn');
+      if (polishBtn) polishBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showTemporaryToast('✨ Tap "Review & Polish" and confirm your take to unlock Photo & Visual Selection!', 4000);
+    }
+    return false;
+  }
+
+  creatorActiveSubStage = 2;
+  updateCreatorSubStageUI();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
+  if (typeof renderPolishVisualSubjects === 'function') {
+    try { renderPolishVisualSubjects(); } catch (_) {}
+  }
+  const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+  if (modalCard) {
+    modalCard.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  return true;
+}
+window.goToCreatorVisualSelectionStage = goToCreatorVisualSelectionStage;
+
+function backToCreatorStoryStage() {
+  creatorActiveSubStage = 1;
+  updateCreatorSubStageUI();
+  const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+  if (modalCard) {
+    modalCard.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+window.backToCreatorStoryStage = backToCreatorStoryStage;
+
+window.showLiveDepthBeatHint = showLiveDepthBeatHint;
+window.insertDepthBeatStarter = insertDepthBeatStarter;
+window.updateLivePerspectiveDepthUI = updateLivePerspectiveDepthUI;
+
+function evaluateClientFallbackStructureBeats(rawText, spark) {
+  const depth = evaluatePerspectiveDepth(rawText, spark);
+  return {
+    hasMoment: depth.hasMoment,
+    hasWhyItMatters: depth.hasWhyItMatters,
+    hasConviction: depth.hasConviction,
+    depthScore: depth.depthScore,
+    nudge: depth.nudge
+  };
+}
+
+function renderPolishStructureBeatsUI(structureBeats, isChronicle = false, rawText = '', polishedText = '') {
+  // Hide the duplicate inner STRUCTURE box inside the Review card so the unified Depth Bar is the single source of truth
+  const bar = document.getElementById('polishStructureBeatsBar');
+  if (bar) {
+    bar.style.display = 'none';
+  }
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const currentRaw = String(rawText || (slantInput ? slantInput.value : '') || '').trim();
+  const currentPolished = String(polishedText || currentRaw).trim();
+
+  if (isChronicle) {
+    verifiedPolishDepthState = {
+      verified: true,
+      confirmed: false,
+      rawFingerprint: currentRaw,
+      polishedFingerprint: currentPolished,
+      hasMoment: true,
+      hasWhyItMatters: true,
+      hasConviction: true,
+      depthScore: 85,
+      nudge: ''
+    };
+    updateCreatorSubStageUI();
+    return;
+  }
+
+  const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, depthScore: 60, nudge: '' };
+
+  verifiedPolishDepthState = {
+    verified: true,
+    confirmed: false,
+    rawFingerprint: currentRaw,
+    polishedFingerprint: currentPolished,
+    hasMoment: beats.hasMoment !== false,
+    hasWhyItMatters: Boolean(beats.hasWhyItMatters),
+    hasConviction: Boolean(beats.hasConviction),
+    depthScore: Math.max(15, Math.min(98, Number(beats.depthScore) || 65)),
+    nudge: String(beats.nudge || '').trim()
+  };
+
+  // Sync verifiedPolishDepthState.depthScore with the unified 3-beat evaluated score so Review & Polish and Post-Synthesis always match
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const sparkVal = sparkInput ? sparkInput.value : '';
+  const unifiedEval = evaluatePerspectiveDepth(currentPolished || currentRaw, sparkVal);
+  if (unifiedEval && Number.isFinite(unifiedEval.depthScore)) {
+    verifiedPolishDepthState.depthScore = Math.max(verifiedPolishDepthState.depthScore, unifiedEval.depthScore);
+    window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+  }
+
+  activeDepthCoachBeat = null;
+  updateLivePerspectiveDepthUI(false);
 }
 
 function attachPolishMarkListeners(container) {
@@ -12586,6 +20260,17 @@ function buildCuratorAnalyticsDataset() {
     const topic = classifyBroadTopicForPost(post);
     const emotion = classifyEmotionForPost(post);
     const polish = deriveCorrectionsForPost(post, localHistory);
+    const convictionScore = resolvePostConvictionScore(post);
+    const convictionTier = getConvictionTierMeta(convictionScore);
+    const rawTakeText = String(
+      post.polishedCuratorTake
+      || post.userSlantTake
+      || post.generationInputs?.slantTake
+      || post.curatorTake
+      || post.creatorOpinion
+      || post.summary
+      || ''
+    ).trim();
     const dateObj = new Date(post.createdAt || post.timestamp || Date.now());
     const shortDate = isNaN(dateObj.getTime())
       ? `Post #${idx + 1}`
@@ -12598,18 +20283,26 @@ function buildCuratorAnalyticsDataset() {
       isDraft: Boolean(post.isDraft || post.status === 'draft'),
       topic,
       emotion,
-      polish
+      polish,
+      convictionScore,
+      convictionTier,
+      takeSnippet: rawTakeText
     };
   });
 
-  // Aggregate Graph 1: Corrections
+  // Aggregate Graph 1: Corrections & Conviction Medal Tiers
   const totalCorrections = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, grandTotal: 0 };
+  const convictionTierCounts = { tier3_piercing: 0, tier2_deep: 0, tier1_sharp: 0, totalScoreSum: 0 };
   analyzedPosts.forEach(item => {
     totalCorrections.spelling += item.polish.spelling;
     totalCorrections.grammar += item.polish.grammar;
     totalCorrections.punctuation += item.polish.punctuation;
     totalCorrections.phrasing += item.polish.phrasing;
     totalCorrections.grandTotal += item.polish.total;
+    convictionTierCounts.totalScoreSum += item.convictionScore;
+    if (item.convictionTier?.tierKey && convictionTierCounts[item.convictionTier.tierKey] !== undefined) {
+      convictionTierCounts[item.convictionTier.tierKey] += 1;
+    }
   });
 
   // Aggregate Graph 2: Topics
@@ -12638,6 +20331,7 @@ function buildCuratorAnalyticsDataset() {
     totalPosts: analyzedPosts.length,
     analyzedPosts,
     totalCorrections,
+    convictionTierCounts,
     topicsRanked: Object.values(topicCounts).sort((a, b) => b.count - a.count),
     emotionsRanked: Object.values(emotionCounts).sort((a, b) => b.count - a.count),
     emotionsInOrder: CURATOR_EMOTION_CATEGORIES.map(e => emotionCounts[e.id])
@@ -12659,6 +20353,864 @@ function closeCuratorStyleModal() {
   if (modal) modal.style.display = 'none';
   if (overlay) overlay.style.display = 'none';
 }
+
+// ============================================================
+// CURATOR PUBLIC PROFILE & WALL QUOTE STUDIO (FUTURE PREMIUM ARCHITECTURE)
+// ============================================================
+// Toggle to true when ready to gate Studio & AI Wall Quote Themes behind Premium
+const ENFORCE_STUDIO_WALL_PAYWALL = false;
+
+const CURATOR_WALL_THEMES = {
+  parchment_broadsheet: {
+    id: 'parchment_broadsheet',
+    name: 'Broadsheet Parchment',
+    tier: 'standard',
+    badgeLabel: 'Free Classic',
+    bgGradient: 'linear-gradient(145deg, #FAF7F0 0%, #F1ECE0 100%)',
+    textColor: '#0F172A',
+    kickerColor: '#92400E',
+    borderColor: 'rgba(146, 64, 14, 0.28)',
+    glowShadow: '0 8px 24px -6px rgba(15, 23, 42, 0.08)',
+    watermarkGlyph: '❝',
+    isLight: true
+  },
+  midnight_ink: {
+    id: 'midnight_ink',
+    name: 'Midnight Ink',
+    tier: 'standard',
+    badgeLabel: 'Free Classic',
+    bgGradient: 'linear-gradient(135deg, #0B1120 0%, #1E293B 100%)',
+    textColor: '#F8FAFC',
+    kickerColor: '#94A3B8',
+    borderColor: 'rgba(148, 163, 184, 0.32)',
+    glowShadow: '0 10px 26px -6px rgba(15, 23, 42, 0.35)',
+    watermarkGlyph: '✦',
+    isLight: false
+  },
+  obsidian_gold: {
+    id: 'obsidian_gold',
+    name: 'Obsidian & Gilded Foil',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 86% 18%, rgba(245, 158, 11, 0.25) 0%, transparent 54%), linear-gradient(135deg, #090C15 0%, #141927 55%, #1E1610 100%)',
+    textColor: '#FEF3C7',
+    kickerColor: '#FBBF24',
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    glowShadow: '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+    watermarkGlyph: '✦',
+    isLight: false
+  },
+  terracotta_atelier: {
+    id: 'terracotta_atelier',
+    name: 'Terracotta Atelier',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 82% 20%, rgba(251, 146, 60, 0.28) 0%, transparent 55%), linear-gradient(135deg, #27120B 0%, #431D13 55%, #1F1210 100%)',
+    textColor: '#FFEDD5',
+    kickerColor: '#FB923C',
+    borderColor: 'rgba(251, 146, 60, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(234, 88, 12, 0.24)',
+    watermarkGlyph: '❂',
+    isLight: false
+  },
+  emerald_conservatory: {
+    id: 'emerald_conservatory',
+    name: 'Botanical Conservatory',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 84% 22%, rgba(16, 185, 129, 0.25) 0%, transparent 55%), linear-gradient(135deg, #051B14 0%, #0A2E23 55%, #09191E 100%)',
+    textColor: '#ECFDF5',
+    kickerColor: '#34D399',
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(16, 185, 129, 0.22)',
+    watermarkGlyph: '◈',
+    isLight: false
+  },
+  cosmic_indigo: {
+    id: 'cosmic_indigo',
+    name: 'Astral Observatory',
+    tier: 'studio_curated',
+    badgeLabel: '✦ Studio Preview',
+    bgGradient: 'radial-gradient(circle at 85% 18%, rgba(139, 92, 246, 0.28) 0%, transparent 55%), linear-gradient(135deg, #090A1A 0%, #171430 55%, #0F172A 100%)',
+    textColor: '#EDE9FE',
+    kickerColor: '#A78BFA',
+    borderColor: 'rgba(139, 92, 246, 0.45)',
+    glowShadow: '0 12px 28px -8px rgba(139, 92, 246, 0.24)',
+    watermarkGlyph: '☾',
+    isLight: false
+  }
+};
+
+const CURATOR_DOMAIN_OPTIONS = [
+  'Tech & AI',
+  'Product & Design',
+  'Economics & Markets',
+  'Governance & Policy',
+  'Society & Culture',
+  'Philosophy & Mind',
+  'Science & Health',
+  'Culture & Cinema',
+  'Parenting & Life',
+  'History & Books'
+];
+
+const publicCuratorProfilesCache = new Map();
+const pendingCuratorProfileFetches = new Set();
+
+function normalizeCuratorProfileKey(rawHandle) {
+  return String(rawHandle || '').replace(/^@/, '').trim().toLowerCase();
+}
+
+function getLocalCuratorWallProfile(rawHandle) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (key && publicCuratorProfilesCache.has(key)) {
+    return publicCuratorProfilesCache.get(key);
+  }
+  try {
+    const mapRaw = localStorage.getItem('slant_public_curator_profiles_v1');
+    if (mapRaw) {
+      const parsed = JSON.parse(mapRaw);
+      if (parsed && key && parsed[key]) {
+        publicCuratorProfilesCache.set(key, parsed[key]);
+        return parsed[key];
+      }
+    }
+  } catch (_) {}
+  if (currentUser?.user_metadata?.slant_profile) {
+    const myHandleKey = normalizeCuratorProfileKey(getUserDisplayName());
+    if (!key || key === myHandleKey) {
+      return currentUser.user_metadata.slant_profile;
+    }
+  }
+  return null;
+}
+
+function saveLocalCuratorWallProfile(rawHandle, profileObj) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (!key || !profileObj) return;
+  publicCuratorProfilesCache.set(key, profileObj);
+  try {
+    const mapRaw = localStorage.getItem('slant_public_curator_profiles_v1');
+    const parsed = mapRaw ? (JSON.parse(mapRaw) || {}) : {};
+    parsed[key] = profileObj;
+    localStorage.setItem('slant_public_curator_profiles_v1', JSON.stringify(parsed));
+  } catch (_) {}
+}
+
+async function ensurePublicCuratorProfileLoaded(rawHandle) {
+  const key = normalizeCuratorProfileKey(rawHandle);
+  if (!key || pendingCuratorProfileFetches.has(key)) return;
+  pendingCuratorProfileFetches.add(key);
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'get_public_curator_profile',
+        handle: key
+      })
+    });
+    const data = await resp.json();
+    if (resp.ok && data && data.profile) {
+      saveLocalCuratorWallProfile(key, data.profile);
+      // If currently viewing this curator's profile in the feed, refresh the header wall in place
+      if (activeCuratorFilter && normalizeCuratorProfileKey(activeCuratorFilter) === key) {
+        const headerEl = document.querySelector('.curator-profile-feed-header .curator-wall-masthead-wrap');
+        if (headerEl && Array.isArray(allPosts)) {
+          const matched = allPosts.filter(p => p && !p.deleted && !p.isDeleted && !isPostPrivateOrDraft(p) && normalizeCuratorProfileKey(p.creatorHandle) === key);
+          const avatarInitial = (String(rawHandle).replace(/^@/, '').trim().charAt(0) || 'S').toUpperCase();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matched, []);
+          const newWall = tempDiv.querySelector('.curator-wall-masthead-wrap');
+          if (newWall) headerEl.replaceWith(newWall);
+        }
+      }
+    }
+  } catch (_) {
+  } finally {
+    pendingCuratorProfileFetches.delete(key);
+  }
+}
+
+function computeCuratorAutoVoiceAndDomains(posts = []) {
+  const validPosts = Array.isArray(posts)
+    ? posts.filter(p => p && !p.deleted && !p.isDeleted && !isPostChronicleDiary(p) && !isPostPrivateOrDraft(p))
+    : [];
+  if (validPosts.length === 0) {
+    return {
+      voiceLabel: 'First-Principles Thinker',
+      voiceIcon: '🧭',
+      voiceDesc: 'Synthesizing perspective from news & lived experience',
+      autoDomains: ['Tech & AI', 'Culture & Society'],
+      recentQuotes: []
+    };
+  }
+
+  const emoCounts = {};
+  const topicCounts = {};
+  const recentQuotes = [];
+
+  validPosts.forEach(post => {
+    const emo = classifyEmotionForPost(post);
+    if (emo && emo.id) {
+      emoCounts[emo.id] = (emoCounts[emo.id] || 0) + 1;
+    }
+    const top = classifyBroadTopicForPost(post);
+    if (top && top.id) {
+      topicCounts[top.id] = (topicCounts[top.id] || 0) + 1;
+    }
+    const rawTake = String(post.curatorTake || post.polishedCuratorTake || post.creatorOpinion || '').trim();
+    if (rawTake && rawTake.length >= 25 && rawTake.length <= 210 && recentQuotes.length < 4 && !recentQuotes.includes(rawTake)) {
+      recentQuotes.push(rawTake);
+    }
+  });
+
+  const VOICE_ARCHETYPES = {
+    pragmatic: { label: 'Analytical Realist', icon: '🧭', desc: 'Grounded, first-principles & solution-oriented synthesis' },
+    skeptical: { label: 'Contrarian Synthesizer', icon: '⚡', desc: 'Challenges mainstream hype & surfaces second-order truths' },
+    critique: { label: 'Incisive System Critic', icon: '🔥', desc: 'Dissects structural incentives & demands accountability' },
+    reflective: { label: 'Reflective Philosopher', icon: '🤔', desc: 'Connects fast-moving events to deeper human truths' },
+    hopeful: { label: 'Constructive Optimist', icon: '🌱', desc: 'Spots forward-looking builders & quiet progress' },
+    warmth: { label: 'Humanist Storyteller', icon: '💛', desc: 'Anchors ideas in lived warmth, family & human grace' }
+  };
+
+  const topEmoId = Object.keys(emoCounts).sort((a, b) => emoCounts[b] - emoCounts[a])[0] || 'pragmatic';
+  const voiceMeta = VOICE_ARCHETYPES[topEmoId] || VOICE_ARCHETYPES.pragmatic;
+
+  const TOPIC_LABEL_MAP = {
+    politics: 'Governance & Policy',
+    governance: 'Governance & Policy',
+    society: 'Society & Culture',
+    tech: 'Tech & AI',
+    culture: 'Culture & Cinema',
+    science: 'Science & Health',
+    family: 'Parenting & Life',
+    economy: 'Economics & Markets'
+  };
+  const topTopics = Array.from(new Set(
+    Object.keys(topicCounts)
+      .sort((a, b) => topicCounts[b] - topicCounts[a])
+      .map(id => TOPIC_LABEL_MAP[id] || 'Philosophy & Mind')
+  )).slice(0, 3);
+
+  return {
+    voiceLabel: voiceMeta.label,
+    voiceIcon: voiceMeta.icon,
+    voiceDesc: voiceMeta.desc,
+    autoDomains: topTopics.length > 0 ? topTopics : ['Perspective & Craft'],
+    recentQuotes
+  };
+}
+
+function isCuratorHandleCurrentUser(rawHandle) {
+  if (!currentUser) return false;
+  const targetKey = normalizeCuratorProfileKey(rawHandle);
+  const myDisplayKey = normalizeCuratorProfileKey(getUserDisplayName());
+  const myEmailPrefix = normalizeCuratorProfileKey((currentUser.email || '').split('@')[0]);
+  const isShridhar = (currentUser.email || '').toLowerCase().trim() === 'shridharoct16@gmail.com' && targetKey.includes('shridhar');
+  return Boolean(targetKey && (targetKey === myDisplayKey || targetKey === myEmailPrefix || isShridhar));
+}
+
+const WALL_AI_ART_STYLES = [
+  { id: 'ghibli_sky', label: '🌿 Studio Ghibli', desc: 'Hand-painted gouache clouds, warm lamplight & nostalgic horizon' },
+  { id: 'anime_nocturne', label: '🌌 Anime Starlight', desc: 'Makoto Shinkai luminous twilight sky & glowing reflections' },
+  { id: 'watercolor_wash', label: '🎨 Watercolor Wash', desc: 'Expressive cotton-paper pigment wash & poetic landscape' },
+  { id: 'ukiyo_woodblock', label: '🖋️ Ukiyo-e Woodblock', desc: 'Serene Japanese woodblock horizon & timeless stillness' }
+];
+
+function resolveCuratorWallThemeConfig(profileObj, aura) {
+  if (profileObj && profileObj.wallThemeId === 'ai_custom' && profileObj.customAiTheme && (profileObj.customAiTheme.bgGradient || profileObj.customAiTheme.bgImageDataUrl)) {
+    return {
+      id: 'ai_custom',
+      name: profileObj.customAiTheme.themeName || 'AI Painted Scene',
+      moodNote: profileObj.customAiTheme.moodNote || '',
+      artStyle: profileObj.customAiTheme.artStyle || 'ghibli_sky',
+      bgImageDataUrl: profileObj.customAiTheme.bgImageDataUrl || '',
+      tier: 'studio_ai',
+      badgeLabel: '✨ AI Scene • Studio',
+      bgGradient: profileObj.customAiTheme.bgGradient || 'linear-gradient(135deg, #090D16 0%, #131B2E 55%, #1F1712 100%)',
+      textColor: profileObj.customAiTheme.textColor || '#FEF3C7',
+      kickerColor: profileObj.customAiTheme.kickerColor || '#FBBF24',
+      borderColor: profileObj.customAiTheme.borderColor || 'rgba(245, 158, 11, 0.52)',
+      glowShadow: profileObj.customAiTheme.glowShadow || '0 12px 30px -8px rgba(245, 158, 11, 0.25)',
+      watermarkGlyph: profileObj.customAiTheme.watermarkGlyph || '✦',
+      isLight: false
+    };
+  }
+  if (profileObj && profileObj.wallThemeId && CURATOR_WALL_THEMES[profileObj.wallThemeId]) {
+    return CURATOR_WALL_THEMES[profileObj.wallThemeId];
+  }
+  // Default theme based on conviction tier so high-conviction writers immediately look regal
+  if (aura && aura.unlocked && aura.tierMeta?.tierKey === 'tier3_piercing') {
+    return CURATOR_WALL_THEMES.obsidian_gold;
+  }
+  if (aura && aura.unlocked && aura.tierMeta?.tierKey === 'tier2_deep') {
+    return CURATOR_WALL_THEMES.emerald_conservatory;
+  }
+  return CURATOR_WALL_THEMES.parchment_broadsheet;
+}
+
+function buildCuratorProfileWallHeaderHtml(rawHandle, avatarInitial, matchedPosts = [], sharedSeriesList = []) {
+  const displayHandle = String(rawHandle || '').replace(/^@/, '').trim();
+  const savedProfile = getLocalCuratorWallProfile(displayHandle);
+  const autoInsights = computeCuratorAutoVoiceAndDomains(matchedPosts);
+  const aura = typeof computeCuratorRollingConvictionProfile === 'function'
+    ? computeCuratorRollingConvictionProfile(matchedPosts)
+    : null;
+
+  const themeCfg = resolveCuratorWallThemeConfig(savedProfile, aura);
+  const wallQuote = (savedProfile && savedProfile.wallQuote && savedProfile.wallQuote.trim())
+    ? savedProfile.wallQuote.trim()
+    : (autoInsights.recentQuotes[0] || 'Every passing headline is just noise until you challenge it through your own lens.');
+
+  const lensBio = (savedProfile && savedProfile.lensBio && savedProfile.lensBio.trim())
+    ? savedProfile.lensBio.trim()
+    : '';
+
+  const rawDomains = (savedProfile && Array.isArray(savedProfile.domains) && savedProfile.domains.length > 0)
+    ? savedProfile.domains
+    : autoInsights.autoDomains;
+  const domains = Array.from(new Set(rawDomains));
+
+  const isOwnProfile = isCuratorHandleCurrentUser(displayHandle);
+  const profileAvatarAndHandleHtml = typeof buildCreatorAvatarAndHandleHtml === 'function'
+    ? buildCreatorAvatarAndHandleHtml('@' + displayHandle, escapeHtml(avatarInitial), false, matchedPosts)
+    : `<div class="creator-avatar"><div class="avatar-inner">${escapeHtml(avatarInitial)}</div></div><span class="creator-handle">@${escapeHtml(displayHandle)}</span>`;
+
+  const hasAiSceneBg = Boolean(themeCfg.bgImageDataUrl);
+  const styleLabelObj = WALL_AI_ART_STYLES.find(s => s.id === themeCfg.artStyle);
+
+  return `
+    <div class="curator-wall-masthead-wrap">
+      <!-- Wall Quote Poster ("State of Mind" Banner) -->
+      <div class="curator-wall-quote-poster ${themeCfg.isLight ? 'is-light-wall' : 'is-dark-wall'} ${hasAiSceneBg ? 'has-ai-scene-bg' : ''}"
+           style="background: ${escapeHtml(themeCfg.bgGradient)}; border-color: ${escapeHtml(themeCfg.borderColor)}; box-shadow: ${escapeHtml(themeCfg.glowShadow)}; color: ${escapeHtml(themeCfg.textColor)};">
+        ${hasAiSceneBg ? `
+          <img src="${escapeHtml(themeCfg.bgImageDataUrl)}" class="curator-wall-scene-bg-img" alt="" loading="eager">
+          <div class="curator-wall-scene-scrim"></div>
+        ` : `
+          <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(themeCfg.kickerColor)};">${escapeHtml(themeCfg.watermarkGlyph || '✦')}</span>
+        `}
+        <div class="curator-wall-top-row">
+          <span class="curator-wall-kicker" style="color: ${escapeHtml(themeCfg.kickerColor)};">
+            <span>✦</span>
+            <span>STATE OF MIND • @${escapeHtml(displayHandle.toUpperCase())}</span>
+          </span>
+          ${isOwnProfile ? `
+            <div class="curator-wall-top-actions">
+              <button type="button" class="curator-wall-edit-btn" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')" title="Customize your Wall Quote, AI Scene Backdrop & Profile Lens">
+                <span>✨ Edit Wall &amp; Profile</span>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+        <div class="curator-wall-quote-focus-frame ${hasAiSceneBg ? 'is-frosted-quote' : ''}">
+          <blockquote class="curator-wall-quote-text" style="color: ${escapeHtml(themeCfg.textColor)};">
+            &ldquo;${escapeHtml(wallQuote)}&rdquo;
+          </blockquote>
+        </div>
+      </div>
+
+      <!-- Curator Identity, Auto-Detected Voice Signature, Lens Bio & Domain Pills -->
+      <div class="curator-wall-identity-bar">
+        <div class="curator-wall-identity-main">
+          <div class="curator-profile-identity">
+            ${profileAvatarAndHandleHtml}
+            <div class="curator-profile-titles">
+              <div class="curator-profile-meta">${matchedPosts.length} ${matchedPosts.length === 1 ? 'Slant' : 'Slants'}${sharedSeriesList.length > 0 ? ` • ${sharedSeriesList.length} Series` : ''}</div>
+            </div>
+          </div>
+          <div class="curator-voice-signature-pill" title="Auto-detected by Slant from @${escapeHtml(displayHandle)}'s published perspectives (${escapeHtml(autoInsights.voiceDesc)})">
+            <span class="voice-sig-icon">${escapeHtml(autoInsights.voiceIcon)}</span>
+            <span class="voice-sig-label">${escapeHtml(autoInsights.voiceLabel)}</span>
+            <span class="voice-sig-tag">AUTO-VOICE</span>
+          </div>
+        </div>
+
+        ${lensBio ? `<p class="curator-wall-lens-bio">${escapeHtml(lensBio)}</p>` : (isOwnProfile ? `
+          <button type="button" class="curator-wall-add-lens-prompt" onclick="openCuratorWallProfileModal('${escapeHtml(displayHandle)}')">
+            + Add your 1-line "My Lens" bio &amp; paint a Ghibli/Anime Wall Quote scene →
+          </button>
+        ` : '')}
+
+        <div class="curator-wall-domains-row">
+          ${domains.map(d => `<span class="curator-domain-pill">${escapeHtml(d)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+let wallStudioDraftState = {
+  handle: '',
+  wallQuote: '',
+  lensBio: '',
+  domains: [],
+  wallThemeId: 'obsidian_gold',
+  artStyle: 'ghibli_sky',
+  customAiTheme: null,
+  aiGenerationsUsed: 0,
+  isGeneratingAi: false
+};
+
+function openCuratorWallProfileModal(targetHandle = '') {
+  if (!currentUser) {
+    openAuthModal();
+    return;
+  }
+  const resolvedHandle = (targetHandle || getUserDisplayName() || 'curator').replace(/^@/, '').trim();
+  const saved = getLocalCuratorWallProfile(resolvedHandle) || {};
+  const ownedPosts = Array.isArray(allPosts)
+    ? allPosts.filter(p => p && !p.deleted && !p.isDeleted && isPostOwnedByCurrentUser(p))
+    : [];
+  const autoInsights = computeCuratorAutoVoiceAndDomains(ownedPosts);
+  const aura = typeof computeCuratorRollingConvictionProfile === 'function'
+    ? computeCuratorRollingConvictionProfile(ownedPosts)
+    : null;
+  const defaultTheme = resolveCuratorWallThemeConfig(saved, aura);
+
+  const rawInitialDomains = Array.isArray(saved.domains) && saved.domains.length > 0
+    ? saved.domains
+    : autoInsights.autoDomains;
+  const sanitizedDomains = Array.from(new Set(
+    rawInitialDomains.filter(d => CURATOR_DOMAIN_OPTIONS.includes(d))
+  )).slice(0, 4);
+
+  wallStudioDraftState = {
+    handle: resolvedHandle,
+    wallQuote: saved.wallQuote || autoInsights.recentQuotes[0] || 'Every passing headline is just noise until you challenge it through your own lens.',
+    lensBio: saved.lensBio || '',
+    domains: sanitizedDomains,
+    wallThemeId: saved.wallThemeId || defaultTheme.id || 'obsidian_gold',
+    artStyle: saved.customAiTheme?.artStyle || 'ghibli_sky',
+    customAiTheme: saved.customAiTheme || null,
+    aiGenerationsUsed: Number(saved.aiGenerationsUsed) || 0,
+    isGeneratingAi: false,
+    recentQuotes: autoInsights.recentQuotes,
+    autoInsights
+  };
+
+  let overlay = document.getElementById('curatorWallProfileModalOverlay');
+  let modal = document.getElementById('curatorWallProfileModal');
+
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'curatorWallProfileModalOverlay';
+    overlay.className = 'curator-style-modal-overlay';
+    overlay.style.cssText = 'display:none; z-index: 1000010;';
+    overlay.onclick = closeCuratorWallProfileModal;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.className = 'curator-style-modal-overlay';
+  }
+
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'curatorWallProfileModal';
+    modal.className = 'curator-style-modal curator-wall-profile-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.style.cssText = 'display:none; z-index: 1000011;';
+    modal.innerHTML = `
+      <div class="curator-style-modal-header">
+        <div class="curator-style-title-wrap">
+          <span class="curator-style-sparkle">🏛️</span>
+          <div>
+            <div class="curator-style-title" id="curatorWallModalTitle">Profile &amp; Wall Quote Studio</div>
+            <div class="curator-style-subtitle">Your State of Mind banner &amp; intellectual lens when readers visit your @handle</div>
+          </div>
+        </div>
+        <button type="button" class="curator-style-close-btn" onclick="closeCuratorWallProfileModal()" aria-label="Close">&times;</button>
+      </div>
+      <div class="curator-style-modal-body" id="curatorWallProfileModalBody" style="padding: 16px 18px 20px; overflow-y: auto; max-height: 78vh;"></div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.className = 'curator-style-modal curator-wall-profile-modal';
+  }
+
+  overlay.style.display = 'block';
+  modal.style.display = 'flex';
+
+  renderCuratorWallProfileModalContent();
+}
+window.openCuratorWallProfileModal = openCuratorWallProfileModal;
+
+function closeCuratorWallProfileModal() {
+  const modal = document.getElementById('curatorWallProfileModal');
+  const overlay = document.getElementById('curatorWallProfileModalOverlay');
+  if (modal) modal.style.display = 'none';
+  if (overlay) overlay.style.display = 'none';
+}
+window.closeCuratorWallProfileModal = closeCuratorWallProfileModal;
+
+function renderCuratorWallProfileModalContent() {
+  const bodyEl = document.getElementById('curatorWallProfileModalBody');
+  if (!bodyEl) return;
+
+  const st = wallStudioDraftState;
+  const activeTheme = resolveCuratorWallThemeConfig(st, null);
+  const auto = st.autoInsights || { voiceIcon: '🧭', voiceLabel: 'Analytical Realist', voiceDesc: '' };
+  const hasAiSceneBg = Boolean(activeTheme.bgImageDataUrl);
+  const activeArtStyleObj = WALL_AI_ART_STYLES.find(s => s.id === (st.artStyle || 'ghibli_sky')) || WALL_AI_ART_STYLES[0];
+
+  const artStylePillsHtml = WALL_AI_ART_STYLES.map(styleItem => {
+    const isSel = (st.artStyle || 'ghibli_sky') === styleItem.id;
+    return `
+      <button type="button"
+              class="wall-studio-art-style-pill ${isSel ? 'active' : ''}"
+              onclick="selectWallStudioArtStyle('${escapeHtml(styleItem.id)}')"
+              title="${escapeHtml(styleItem.desc)}">
+        <span>${escapeHtml(styleItem.label)}</span>
+      </button>
+    `;
+  }).join('');
+
+  const themeCardsHtml = Object.values(CURATOR_WALL_THEMES).map(t => {
+    const isSelected = st.wallThemeId === t.id;
+    const isStudio = t.tier !== 'standard';
+    return `
+      <button type="button"
+              class="wall-studio-theme-chip ${isSelected ? 'active' : ''}"
+              onclick="selectWallStudioTheme('${escapeHtml(t.id)}')"
+              style="background: ${escapeHtml(t.bgGradient)}; border-color: ${isSelected ? escapeHtml(t.kickerColor) : escapeHtml(t.borderColor)}; color: ${escapeHtml(t.textColor)};">
+        <div class="wall-theme-chip-top">
+          <span class="wall-theme-chip-glyph" style="color: ${escapeHtml(t.kickerColor)};">${escapeHtml(t.watermarkGlyph)}</span>
+          <span class="wall-theme-chip-tier ${isStudio ? 'is-studio' : 'is-free'}">${escapeHtml(t.badgeLabel)}</span>
+        </div>
+        <div class="wall-theme-chip-name">${escapeHtml(t.name)}</div>
+      </button>
+    `;
+  }).join('');
+
+  const customAiChipHtml = st.customAiTheme ? `
+    <button type="button"
+            class="wall-studio-theme-chip is-ai-scene-chip ${st.wallThemeId === 'ai_custom' ? 'active' : ''}"
+            onclick="selectWallStudioTheme('ai_custom')"
+            style="background: ${st.customAiTheme.bgImageDataUrl ? `linear-gradient(rgba(9,13,22,0.55), rgba(9,13,22,0.75)), url('${escapeHtml(st.customAiTheme.bgImageDataUrl)}') center/cover no-repeat` : escapeHtml(st.customAiTheme.bgGradient)}; border-color: ${st.wallThemeId === 'ai_custom' ? escapeHtml(st.customAiTheme.kickerColor) : escapeHtml(st.customAiTheme.borderColor)}; color: ${escapeHtml(st.customAiTheme.textColor)};">
+      <div class="wall-theme-chip-top">
+        <span class="wall-theme-chip-glyph" style="color: ${escapeHtml(st.customAiTheme.kickerColor)};">${escapeHtml(st.customAiTheme.watermarkGlyph || '✦')}</span>
+        <span class="wall-theme-chip-tier is-studio">✨ AI Painted Scene</span>
+      </div>
+      <div class="wall-theme-chip-name">${escapeHtml(st.customAiTheme.themeName || 'AI Quote Scene')}</div>
+    </button>
+  ` : '';
+
+  const recentQuoteChipsHtml = (Array.isArray(st.recentQuotes) && st.recentQuotes.length > 0) ? `
+    <div class="wall-studio-recent-quotes">
+      <div class="wall-studio-sub-label">📌 Or tap to pin a line from your recent Slants:</div>
+      <div class="wall-studio-quote-pills">
+        ${st.recentQuotes.slice(0, 3).map((q, i) => `
+          <button type="button" class="wall-studio-quote-pill" onclick="pickWallStudioRecentQuote(${i})">
+            &ldquo;${escapeHtml(q.length > 95 ? q.slice(0, 95) + '…' : q)}&rdquo;
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const domainPillsHtml = CURATOR_DOMAIN_OPTIONS.map(dom => {
+    const isSel = st.domains.includes(dom);
+    return `
+      <button type="button"
+              class="wall-studio-domain-chip ${isSel ? 'active' : ''}"
+              onclick="toggleWallStudioDomain('${escapeHtml(dom)}')">
+        <span>${isSel ? '✓ ' : '+ '}${escapeHtml(dom)}</span>
+      </button>
+    `;
+  }).join('');
+
+  bodyEl.innerHTML = `
+    <div class="wall-studio-container">
+      <!-- Live Wall Quote Poster Preview -->
+      <div class="wall-studio-preview-label-row">
+        <span class="wall-studio-section-kicker">LIVE WALL POSTER PREVIEW</span>
+      </div>
+      <div id="wallStudioLivePreviewCard"
+           class="curator-wall-quote-poster is-studio-preview ${activeTheme.isLight ? 'is-light-wall' : 'is-dark-wall'} ${hasAiSceneBg ? 'has-ai-scene-bg' : ''}"
+           style="background: ${escapeHtml(activeTheme.bgGradient)}; border-color: ${escapeHtml(activeTheme.borderColor)}; box-shadow: ${escapeHtml(activeTheme.glowShadow)}; color: ${escapeHtml(activeTheme.textColor)};">
+        ${hasAiSceneBg ? `
+          <img src="${escapeHtml(activeTheme.bgImageDataUrl)}" class="curator-wall-scene-bg-img" alt="" loading="eager">
+          <div class="curator-wall-scene-scrim"></div>
+        ` : `
+          <span class="curator-wall-watermark" aria-hidden="true" style="color: ${escapeHtml(activeTheme.kickerColor)};">${escapeHtml(activeTheme.watermarkGlyph || '✦')}</span>
+        `}
+        <div class="curator-wall-top-row">
+          <span class="curator-wall-kicker" style="color: ${escapeHtml(activeTheme.kickerColor)};">
+            <span>✦</span>
+            <span>STATE OF MIND • @${escapeHtml(st.handle.toUpperCase())}</span>
+          </span>
+        </div>
+        <div class="curator-wall-quote-focus-frame ${hasAiSceneBg ? 'is-frosted-quote' : ''}">
+          <blockquote id="wallStudioLivePreviewQuote" class="curator-wall-quote-text" style="color: ${escapeHtml(activeTheme.textColor)};">
+            &ldquo;${escapeHtml(st.wallQuote || 'Write your State of Mind quote below...')}&rdquo;
+          </blockquote>
+        </div>
+      </div>
+
+      <!-- 1. Wall Quote Input -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label" for="wallStudioQuoteInput">1. Your Wall Quote ("Current State of Mind")</label>
+        <textarea id="wallStudioQuoteInput"
+                  class="creator-textarea wall-studio-quote-textarea"
+                  rows="3"
+                  maxlength="220"
+                  placeholder="Write a thought, aphorism, or question that represents your current state of mind..."
+                  oninput="handleWallStudioQuoteInput(this.value)">${escapeHtml(st.wallQuote)}</textarea>
+        ${recentQuoteChipsHtml}
+      </div>
+
+      <!-- 2. AI Painted Scene Backdrop (Ghibli / Anime / Watercolor) -->
+      <div class="wall-studio-field-group wall-studio-ai-box">
+        <div class="wall-studio-ai-header">
+          <label class="wall-studio-label">2. Paint AI Scene Backdrop from Your Quote <span class="studio-beta-tag">✦ Studio Feature</span></label>
+          <p class="wall-studio-ai-sub">Paints a character-free atmospheric landscape inspired by the meaning of your quote, softly blurred behind your highlighted words.</p>
+        </div>
+        <div class="wall-studio-art-style-row">
+          ${artStylePillsHtml}
+        </div>
+        <button type="button"
+                class="wall-studio-ai-gen-btn"
+                id="wallStudioAiGenBtn"
+                ${st.isGeneratingAi ? 'disabled' : ''}
+                onclick="generateAiWallQuoteTheme()">
+          <span>${st.isGeneratingAi ? `🎨 Painting ${activeArtStyleObj.label} Scene from Your Quote...` : `✨ Paint ${activeArtStyleObj.label} Backdrop for This Quote`}</span>
+        </button>
+      </div>
+
+      <!-- 3. Classic & Studio Solid Themes -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label">Or Choose a Classic / Studio Editorial Canvas</label>
+        <div class="wall-studio-themes-grid">
+          ${customAiChipHtml}
+          ${themeCardsHtml}
+        </div>
+      </div>
+
+      <!-- 4. My Lens (1-Line Perspective Bio) -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label" for="wallStudioLensInput">3. "My Lens" (1-Line Perspective Bio)</label>
+        <input type="text"
+               id="wallStudioLensInput"
+               class="creator-input"
+               maxlength="130"
+               placeholder="e.g., Builder exploring AI, product craft & second-order human habits."
+               value="${escapeHtml(st.lensBio)}"
+               oninput="wallStudioDraftState.lensBio = this.value">
+      </div>
+
+      <!-- 5. Core Interests / Domains & Auto-Detected Voice -->
+      <div class="wall-studio-field-group">
+        <label class="wall-studio-label">4. Core Obsessions / Domains <span class="studio-beta-tag">${st.domains.filter(d => CURATOR_DOMAIN_OPTIONS.includes(d)).length} / 4 Selected</span></label>
+        <div class="wall-studio-domains-wrap">
+          ${domainPillsHtml}
+        </div>
+        <div class="wall-studio-auto-voice-note">
+          <span class="voice-sig-icon">${escapeHtml(auto.voiceIcon)}</span>
+          <div>
+            <strong>Your Auto-Detected Voice: ${escapeHtml(auto.voiceLabel)}</strong>
+            <div style="font-size:11.5px; opacity:0.82;">Computed automatically from your published Slants — evolves naturally as you write.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save & View Actions -->
+      <div class="wall-studio-footer-actions">
+        <button type="button" class="wall-studio-cancel-btn" onclick="closeCuratorWallProfileModal()">Cancel</button>
+        <button type="button" class="wall-studio-save-btn" id="wallStudioSaveBtn" onclick="saveCuratorWallProfile()">
+          <span>✦ Save Wall &amp; View My Profile</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function selectWallStudioArtStyle(styleId) {
+  wallStudioDraftState.artStyle = styleId;
+  renderCuratorWallProfileModalContent();
+}
+window.selectWallStudioArtStyle = selectWallStudioArtStyle;
+
+function compressWallBackdropDataUrl(rawDataUrl) {
+  if (!rawDataUrl || !rawDataUrl.startsWith('data:image')) return Promise.resolve('');
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const targetW = 640;
+        const targetH = 340;
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(rawDataUrl);
+        const rImg = img.naturalWidth / img.naturalHeight;
+        const rBox = targetW / targetH;
+        let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+        if (rImg > rBox) {
+          sw = img.naturalHeight * rBox;
+          sx = (img.naturalWidth - sw) / 2;
+        } else if (rImg < rBox) {
+          sh = img.naturalWidth / rBox;
+          sy = (img.naturalHeight - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
+        resolve(canvas.toDataURL('image/jpeg', 0.80));
+      } catch (_) {
+        resolve(rawDataUrl);
+      }
+    };
+    img.onerror = () => resolve('');
+    img.src = rawDataUrl;
+  });
+}
+
+function handleWallStudioQuoteInput(val) {
+  wallStudioDraftState.wallQuote = String(val || '');
+  const qEl = document.getElementById('wallStudioLivePreviewQuote');
+  if (qEl) {
+    qEl.textContent = `“${wallStudioDraftState.wallQuote.trim() || 'Write your State of Mind quote below...'}”`;
+  }
+}
+window.handleWallStudioQuoteInput = handleWallStudioQuoteInput;
+
+function pickWallStudioRecentQuote(idx) {
+  const quote = wallStudioDraftState.recentQuotes?.[idx];
+  if (!quote) return;
+  wallStudioDraftState.wallQuote = quote;
+  const input = document.getElementById('wallStudioQuoteInput');
+  if (input) input.value = quote;
+  handleWallStudioQuoteInput(quote);
+}
+window.pickWallStudioRecentQuote = pickWallStudioRecentQuote;
+
+function selectWallStudioTheme(themeId) {
+  if (ENFORCE_STUDIO_WALL_PAYWALL) {
+    const t = CURATOR_WALL_THEMES[themeId];
+    if ((t && t.tier !== 'standard') || themeId === 'ai_custom') {
+      showTemporaryToast('✦ Studio & AI Wall Themes are part of Slant Studio.');
+      return;
+    }
+  }
+  wallStudioDraftState.wallThemeId = themeId;
+  renderCuratorWallProfileModalContent();
+}
+window.selectWallStudioTheme = selectWallStudioTheme;
+
+function toggleWallStudioDomain(domainName) {
+  const cur = (wallStudioDraftState.domains || []).filter(d => CURATOR_DOMAIN_OPTIONS.includes(d));
+  const idx = cur.indexOf(domainName);
+  if (idx >= 0) {
+    cur.splice(idx, 1);
+  } else {
+    if (cur.length >= 4) {
+      showTemporaryToast('You have 4 domains selected — tap a selected one to swap it.');
+      return;
+    }
+    cur.push(domainName);
+  }
+  wallStudioDraftState.domains = cur;
+  renderCuratorWallProfileModalContent();
+}
+window.toggleWallStudioDomain = toggleWallStudioDomain;
+
+async function generateAiWallQuoteTheme() {
+  const quote = (wallStudioDraftState.wallQuote || '').trim();
+  if (quote.length < 5) {
+    showTemporaryToast('Write or pick a Wall Quote first so AI can paint a scene around it.');
+    return;
+  }
+  wallStudioDraftState.isGeneratingAi = true;
+  renderCuratorWallProfileModalContent();
+
+  try {
+    const resp = await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'generate_wall_quote_theme',
+        quote,
+        lens: wallStudioDraftState.lensBio || '',
+        artStyle: wallStudioDraftState.artStyle || 'ghibli_sky'
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data || !data.aiTheme) {
+      throw new Error(data?.error || 'Could not generate AI scene backdrop');
+    }
+    if (data.aiTheme.bgImageDataUrl) {
+      data.aiTheme.bgImageDataUrl = await compressWallBackdropDataUrl(data.aiTheme.bgImageDataUrl);
+    }
+    wallStudioDraftState.customAiTheme = data.aiTheme;
+    wallStudioDraftState.wallThemeId = 'ai_custom';
+    wallStudioDraftState.aiGenerationsUsed = (Number(wallStudioDraftState.aiGenerationsUsed) || 0) + 1;
+    showTemporaryToast(`✨ Painted "${data.aiTheme.themeName}" from your quote!`);
+  } catch (err) {
+    showTemporaryToast('⚠️ ' + (err.message || 'Could not generate AI scene right now.'));
+  } finally {
+    wallStudioDraftState.isGeneratingAi = false;
+    renderCuratorWallProfileModalContent();
+  }
+}
+window.generateAiWallQuoteTheme = generateAiWallQuoteTheme;
+
+async function saveCuratorWallProfile() {
+  const st = wallStudioDraftState;
+  const selectedTheme = resolveCuratorWallThemeConfig(st, null);
+  const profilePayload = {
+    handle: st.handle,
+    email: getResolvedCreatorEmail(),
+    wallQuote: String(st.wallQuote || '').trim(),
+    lensBio: String(st.lensBio || '').trim(),
+    domains: Array.isArray(st.domains) ? st.domains.slice(0, 4) : [],
+    wallThemeId: st.wallThemeId || 'obsidian_gold',
+    wallThemeTier: selectedTheme.tier || 'standard',
+    customAiTheme: st.customAiTheme || null,
+    aiGenerationsUsed: Number(st.aiGenerationsUsed) || 0,
+    updatedAt: new Date().toISOString()
+  };
+
+  const saveBtn = document.getElementById('wallStudioSaveBtn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving Wall...';
+  }
+
+  // 1. Save locally immediately
+  saveLocalCuratorWallProfile(st.handle, profilePayload);
+
+  // 2. Sync to Supabase user_metadata
+  if (currentUser && supabaseClient && typeof supabaseClient.auth?.updateUser === 'function') {
+    try {
+      currentUser.user_metadata = {
+        ...(currentUser.user_metadata || {}),
+        slant_profile: profilePayload
+      };
+      supabaseClient.auth.updateUser({
+        data: { slant_profile: profilePayload }
+      }).catch(() => {});
+    } catch (_) {}
+  }
+
+  // 3. Persist to public curator profile registry in Supabase so all visitors see it
+  try {
+    await fetch('/api/synthesize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'save_public_curator_profile',
+        handle: st.handle,
+        email: getResolvedCreatorEmail(),
+        profile: profilePayload
+      })
+    });
+  } catch (_) {}
+
+  closeCuratorWallProfileModal();
+  showTemporaryToast('✨ Your Wall Quote & Profile are live!');
+  filterByCurator('@' + st.handle);
+}
+window.saveCuratorWallProfile = saveCuratorWallProfile;
 
 // ============================================================
 // PERSONAL DIARY — DAILY CHRONICLES CALENDAR MODAL
@@ -12876,7 +21428,7 @@ function computeDiaryDisciplineStage(dateMap) {
 function openChronicleStudioFromDiary() {
   closeDiaryCalendarModal();
   if (typeof openCreatorModal === 'function') {
-    openCreatorModal();
+    openCreatorModal('diary_chronicle');
     setTimeout(() => {
       if (typeof setAnchorMode === 'function') {
         setAnchorMode('diary_chronicle');
@@ -12886,11 +21438,11 @@ function openChronicleStudioFromDiary() {
       if (typeof setInnerVoiceSubmode === 'function') {
         setInnerVoiceSubmode('chronicle');
       }
-      const deckWrap = document.getElementById('dailyChronicleDeckWrap');
-      if (deckWrap) {
-        deckWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const modalCard = document.querySelector('#creatorModal .creator-modal-card');
+      if (modalCard) {
+        modalCard.scrollTop = 0;
       }
-      const firstMomentInput = document.querySelector('#chronicleMomentsCardsList .chronicle-moment-textarea');
+      const firstMomentInput = document.querySelector('#dailyChronicleCardsList .chronicle-moment-textarea, #chronicleMomentsCardsList .chronicle-moment-textarea');
       if (firstMomentInput) {
         firstMomentInput.focus({ preventScroll: true });
       }
@@ -12914,11 +21466,68 @@ function syncDrawerDiaryCounts() {
   }
 }
 
+function handleDiaryCalendarKeydown(e) {
+  if (e && e.key === 'Escape') {
+    closeDiaryCalendarModal();
+  }
+}
+
+function getDiaryWelcomeSeenStorageKey() {
+  const email = (typeof getResolvedCreatorEmail === 'function' ? getResolvedCreatorEmail() : '') || 'guest';
+  return `slant_diary_welcome_seen_v1_${email}`;
+}
+
+function hasSeenDiaryWelcomeBriefing() {
+  try {
+    return localStorage.getItem(getDiaryWelcomeSeenStorageKey()) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function markDiaryWelcomeBriefingSeen() {
+  try {
+    localStorage.setItem(getDiaryWelcomeSeenStorageKey(), '1');
+  } catch (_) {}
+}
+
+function openDiaryWelcomeBriefingModal(force = false) {
+  if (!force && hasSeenDiaryWelcomeBriefing()) return;
+  const overlay = document.getElementById('diaryWelcomeBriefingOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+  }
+  markDiaryWelcomeBriefingSeen();
+}
+
+function dismissDiaryWelcomeBriefing() {
+  markDiaryWelcomeBriefingSeen();
+  const overlay = document.getElementById('diaryWelcomeBriefingOverlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function openFamilyVaultFromDiaryWelcome() {
+  dismissDiaryWelcomeBriefing();
+  if (typeof openFamilyCastModal === 'function') {
+    openFamilyCastModal();
+  }
+}
+window.openDiaryWelcomeBriefingModal = openDiaryWelcomeBriefingModal;
+window.dismissDiaryWelcomeBriefing = dismissDiaryWelcomeBriefing;
+window.openFamilyVaultFromDiaryWelcome = openFamilyVaultFromDiaryWelcome;
+
 function openDiaryCalendarModal() {
   const modal = document.getElementById('diaryCalendarModal');
   const overlay = document.getElementById('diaryCalendarModalOverlay');
   if (modal) modal.style.display = 'flex';
   if (overlay) overlay.style.display = 'block';
+  document.addEventListener('keydown', handleDiaryCalendarKeydown);
+
+  if (!hasSeenDiaryWelcomeBriefing()) {
+    openDiaryWelcomeBriefingModal(true);
+  }
 
   const dateMap = getDiaryChroniclesByDateMap();
   if (!diaryCalendarState.initialized || !diaryCalendarState.selectedDateKey || !dateMap.has(diaryCalendarState.selectedDateKey)) {
@@ -12948,7 +21557,10 @@ function closeDiaryCalendarModal() {
   const overlay = document.getElementById('diaryCalendarModalOverlay');
   if (modal) modal.style.display = 'none';
   if (overlay) overlay.style.display = 'none';
+  document.removeEventListener('keydown', handleDiaryCalendarKeydown);
 }
+window.openDiaryCalendarModal = openDiaryCalendarModal;
+window.closeDiaryCalendarModal = closeDiaryCalendarModal;
 
 function changeDiaryCalendarMonth(delta) {
   let nextMonth = diaryCalendarState.month + delta;
@@ -12994,11 +21606,20 @@ let diaryTrainProgrammaticScrollUntil = 0;
 function buildDiarySelectedPosterCarouselHtml(p) {
   if (!p) return '';
   const isChronicle = isPostChronicleDiary(p);
-  const cardSlideCount = isChronicle ? 3 : 2;
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(p);
+  const cardSlideCount = isChronicle ? (isChronicleCardsOnly ? 2 : 3) : 2;
   return `
     <div class="diary-cal-poster-frame carousel-view" id="carousel-diary_preview" data-post-index="diary_preview" data-current-slide="0" data-slide-count="${cardSlideCount}">
       <div class="carousel-track" id="track-diary_preview">
-        <div class="carousel-slide slide-hook" style="cursor: default;">
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
+        </div>
+        ` : `
+        <div class="carousel-slide slide-hook" onclick="handleSlide1PosterTap(event, 'diary_preview')" style="cursor: default;">
           ${buildSlide1Html(p, 'diary_preview', cardSlideCount)}
         </div>
         <div class="carousel-slide slide-receipt" style="cursor: default;">
@@ -13009,6 +21630,7 @@ function buildDiarySelectedPosterCarouselHtml(p) {
           ${buildUnifiedEssayPosterHtml(p, 'diary_preview', 2)}
         </div>
         ` : ''}
+        `}
       </div>
 
       <!-- Navigation Buttons -->
@@ -13019,7 +21641,7 @@ function buildDiarySelectedPosterCarouselHtml(p) {
       <div class="carousel-dots" id="dots-diary_preview">
         <span class="carousel-dot active" onclick="goToSlide(event, 'diary_preview', 0)"></span>
         <span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 1)"></span>
-        ${isChronicle ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
+        ${(isChronicle && !isChronicleCardsOnly) ? `<span class="carousel-dot" onclick="goToSlide(event, 'diary_preview', 2)"></span>` : ''}
       </div>
     </div>
   `;
@@ -13366,6 +21988,13 @@ function renderDiaryCalendarModal() {
     </div>
 
     ${previewHtml}
+
+    <div style="display:flex; justify-content:center; padding-top:4px;">
+      <button type="button" onclick="closeDiaryCalendarModal()" style="padding:7px 18px; border-radius:99px; border:1px solid var(--border-subtle, rgba(148,163,184,0.35)); background:var(--bg-surface, #FFFFFF); color:var(--text-primary); font-size:12px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+        <span>✕</span>
+        <span>Close Diary</span>
+      </button>
+    </div>
   `;
 
   root.scrollTop = prevModalScrollTop;
@@ -13504,6 +22133,17 @@ function selectCuratorCorrectionPost(idx) {
   renderCuratorStyleProfile();
 }
 
+function scrollCuratorCorrectionBars(dir) {
+  const scroller = document.getElementById('curatorCorrBarsScroller');
+  if (!scroller) return;
+  const step = Math.max(160, Math.round(scroller.clientWidth * 0.65));
+  try {
+    scroller.scrollBy({ left: dir * step, behavior: 'smooth' });
+  } catch (_) {
+    scroller.scrollLeft += dir * step;
+  }
+}
+
 function selectCuratorTopicCategory(topicId) {
   curatorAnalyticsState.selectedTopicId = (curatorAnalyticsState.selectedTopicId === topicId) ? null : topicId;
   renderCuratorStyleProfile();
@@ -13581,14 +22221,17 @@ function renderCuratorStyleProfile() {
       <div class="curator-analytics-empty">
         <div style="font-size:32px; margin-bottom:8px;">📊</div>
         <div style="font-size:15px; font-weight:700; color:#F8FAFC;">No Slants Analyzed Yet</div>
-        <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">Write or publish your first Slant to unlock your 3 live graphs for Polish Corrections, Broad Topics, and Identified Emotions.</div>
+        <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">Write or publish your first Slant to unlock your 3 live graphs for Conviction Depth, Broad Topics, and Identified Emotions.</div>
       </div>
     `;
     return;
   }
 
-  // Recent posts slice for Graph 1 bars (up to 12 most recent posts, ordered oldest -> newest)
-  const recentPostsForBars = data.analyzedPosts.slice(-12);
+  const existingScroller = document.getElementById('curatorCorrBarsScroller');
+  const prevBarsScrollLeft = existingScroller ? existingScroller.scrollLeft : null;
+
+  // Full series of analyzed posts for Graph 1 slidable line chart (ordered oldest -> newest)
+  const recentPostsForBars = data.analyzedPosts;
   if (
     curatorAnalyticsState.selectedPostIndex < 0 ||
     curatorAnalyticsState.selectedPostIndex >= recentPostsForBars.length
@@ -13597,98 +22240,181 @@ function renderCuratorStyleProfile() {
   }
   const activeFilter = curatorAnalyticsState.correctionFilter || 'all';
 
-  // Calculate max bar height for Graph 1
-  const maxPostCorrections = Math.max(
-    4,
-    ...recentPostsForBars.map(p => (activeFilter === 'all' ? p.polish.total : (p.polish[activeFilter] || 0)))
-  );
-
   const selectedPostItem = recentPostsForBars[curatorAnalyticsState.selectedPostIndex] || recentPostsForBars[recentPostsForBars.length - 1];
-  const avgCorrectionsPerPost = (data.totalCorrections.grandTotal / totalPosts).toFixed(1);
+  const avgConvictionScore = Math.round((data.convictionTierCounts?.totalScoreSum || (totalPosts * 80)) / Math.max(1, totalPosts));
+  const avgTierMeta = getConvictionTierMeta(avgConvictionScore);
   const topTopic = data.topicsRanked[0];
   const topEmotion = data.emotionsRanked[0];
 
-  // Compare first half vs second half average corrections for trend badge
+  // Compare first half vs second half average conviction depth for trend badge
   const halfIdx = Math.max(1, Math.floor(recentPostsForBars.length / 2));
-  const firstHalfAvg = recentPostsForBars.slice(0, halfIdx).reduce((acc, p) => acc + p.polish.total, 0) / halfIdx;
+  const firstHalfDepth = recentPostsForBars.slice(0, halfIdx).reduce((acc, p) => acc + (p.convictionScore || 75), 0) / halfIdx;
   const secondHalfCount = Math.max(1, recentPostsForBars.length - halfIdx);
-  const secondHalfAvg = recentPostsForBars.slice(halfIdx).reduce((acc, p) => acc + p.polish.total, 0) / secondHalfCount;
-  const isImproving = secondHalfAvg <= firstHalfAvg;
+  const secondHalfDepth = recentPostsForBars.slice(halfIdx).reduce((acc, p) => acc + (p.convictionScore || 75), 0) / secondHalfCount;
+  const isDepthRising = secondHalfDepth >= firstHalfDepth - 0.5;
 
-  // Graph 1: Overall Proportion Bar segments
-  const grandTotalCorr = Math.max(1, data.totalCorrections.grandTotal);
-  const corrSegmentsHtml = CURATOR_CORRECTION_TYPES.map(t => {
-    const count = data.totalCorrections[t.id] || 0;
-    const pct = Math.round((count / grandTotalCorr) * 100);
+  const CONVICTION_TIER_DEFS = [
+    {
+      id: 'tier3_piercing',
+      icon: '🔥',
+      shortLabel: 'Piercing',
+      range: '90–100%',
+      color: '#D97706',
+      bg: 'rgba(245, 158, 11, 0.14)',
+      border: 'rgba(245, 158, 11, 0.42)'
+    },
+    {
+      id: 'tier2_deep',
+      icon: '✨',
+      shortLabel: 'Deep',
+      range: '80–89%',
+      color: '#10B981',
+      bg: 'rgba(16, 185, 129, 0.13)',
+      border: 'rgba(16, 185, 129, 0.38)'
+    },
+    {
+      id: 'tier1_sharp',
+      icon: '⚡',
+      shortLabel: 'Sharp',
+      range: '70–79%',
+      color: '#6366F1',
+      bg: 'rgba(99, 102, 241, 0.13)',
+      border: 'rgba(99, 102, 241, 0.38)'
+    }
+  ];
+
+  // Graph 1: Conviction Tier Proportion Bar segments
+  const tierCounts = data.convictionTierCounts || { tier3_piercing: 0, tier2_deep: 0, tier1_sharp: 0 };
+  const corrSegmentsHtml = CONVICTION_TIER_DEFS.map(t => {
+    const count = tierCounts[t.id] || 0;
+    const pct = Math.round((count / Math.max(1, totalPosts)) * 100);
     if (count <= 0) return '';
-    return `<div class="corr-prop-segment" style="width:${Math.max(5, pct)}%; background:${t.color};" title="${t.label}: ${count} (${pct}%)"></div>`;
+    return `<div class="corr-prop-segment" style="width:${Math.max(6, pct)}%; background:${t.color};" title="${t.icon} ${t.shortLabel} (${t.range}): ${count} posts (${pct}%)"></div>`;
   }).join('');
 
-  // Graph 1: 4 Color-Coded Category Cards
-  const corrCardsHtml = CURATOR_CORRECTION_TYPES.map(t => {
-    const count = data.totalCorrections[t.id] || 0;
-    const pct = Math.round((count / grandTotalCorr) * 100);
+  // Graph 1: 3 Medal Tier Filter Cards
+  const corrCardsHtml = CONVICTION_TIER_DEFS.map(t => {
+    const count = tierCounts[t.id] || 0;
+    const pct = Math.round((count / Math.max(1, totalPosts)) * 100);
     const isActive = activeFilter === t.id;
     return `
       <button type="button" class="corr-type-pill ${isActive ? 'active' : ''}"
         style="--pill-color:${t.color}; --pill-bg:${t.bg}; --pill-border:${t.border};"
         onclick="setCuratorCorrectionFilter('${t.id}')">
         <div class="corr-pill-top">
-          <span class="corr-pill-dot" style="background:${t.color};"></span>
-          <span class="corr-pill-name">${t.shortLabel}</span>
+          <span class="corr-pill-name">${t.icon} ${t.shortLabel}</span>
           <span class="corr-pill-pct">${pct}%</span>
         </div>
-        <div class="corr-pill-count" style="color:${t.color};">${count} <span class="corr-pill-unit">caught</span></div>
+        <div class="corr-pill-count" style="color:${t.color};">${count} <span class="corr-pill-unit">(${t.range})</span></div>
       </button>
     `;
   }).join('');
 
-  // Graph 1: Post-by-Post Stacked Bars
-  const postBarsHtml = recentPostsForBars.map((item, idx) => {
-    const isSelected = idx === curatorAnalyticsState.selectedPostIndex;
-    const typesToRender = activeFilter === 'all'
-      ? CURATOR_CORRECTION_TYPES
-      : CURATOR_CORRECTION_TYPES.filter(t => t.id === activeFilter);
+  // Graph 1: Post-by-Post Conviction Depth Line Graph + Medal Nodes
+  const colW = 66;
+  const svgH = 92;
+  const padTop = 20;
+  const padBottom = 14;
+  const usableH = svgH - padTop - padBottom;
+  const scoreToY = (s) => {
+    const clamped = Math.max(68, Math.min(100, Number(s) || 75));
+    const ratio = (clamped - 68) / (100 - 68);
+    return Math.round((padTop + usableH * (1 - ratio)) * 10) / 10;
+  };
 
-    const displayedTotal = typesToRender.reduce((sum, t) => sum + (item.polish[t.id] || 0), 0);
-    const stacksHtml = typesToRender.map(t => {
-      const val = item.polish[t.id] || 0;
-      if (val <= 0) return '';
-      const heightPct = Math.max(8, Math.round((val / maxPostCorrections) * 100));
-      return `<div class="corr-bar-segment" style="height:${heightPct}%; background:${t.color};" title="${t.shortLabel}: ${val}"></div>`;
-    }).join('');
+  const totalTrackWidth = Math.max(280, recentPostsForBars.length * colW);
+  const y90 = scoreToY(90);
+  const y80 = scoreToY(80);
+  const y70 = scoreToY(70);
+
+  const linePoints = recentPostsForBars.map((item, idx) => {
+    const cx = Math.round(idx * colW + colW / 2);
+    const cy = scoreToY(item.convictionScore);
+    return { cx, cy, item, idx };
+  });
+
+  const polylinePts = linePoints.map(p => `${p.cx},${p.cy}`).join(' ');
+  const areaPts = linePoints.length > 1
+    ? `${linePoints[0].cx},${svgH - 4} ${polylinePts} ${linePoints[linePoints.length - 1].cx},${svgH - 4}`
+    : '';
+
+  const nodesHtml = linePoints.map(({ cx, cy, item, idx }) => {
+    const isSelected = idx === curatorAnalyticsState.selectedPostIndex;
+    const tierKey = item.convictionTier?.tierKey || 'tier1_sharp';
+    const isDimmed = activeFilter !== 'all' && activeFilter !== tierKey;
+    const tierDef = CONVICTION_TIER_DEFS.find(t => t.id === tierKey) || CONVICTION_TIER_DEFS[2];
+    const shortTitleWords = String(item.headline || 'Slant')
+      .replace(/^🔒\s*/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' ');
 
     return `
-      <div class="corr-bar-col ${isSelected ? 'selected' : ''}" onclick="selectCuratorCorrectionPost(${idx})" title="${escapeHtml(item.headline)} (${displayedTotal} corrections)">
-        <div class="corr-bar-val">${displayedTotal}</div>
-        <div class="corr-bar-track">
-          ${stacksHtml || `<div class="corr-bar-zero"></div>`}
+      <div class="conviction-line-col ${isSelected ? 'selected' : ''} ${isDimmed ? 'is-dimmed' : ''}"
+        style="width:${colW}px; min-width:${colW}px;"
+        onclick="selectCuratorCorrectionPost(${idx})"
+        title="#${idx + 1} · ${escapeHtml(item.headline)} (${item.convictionScore}% · ${tierDef.icon} ${tierDef.shortLabel})">
+        <div class="conviction-node-stage" style="height:${svgH}px;">
+          <div class="conviction-node-pin" style="top:${cy}px; --node-color:${tierDef.color}; --node-bg:${tierDef.bg};">
+            <span class="conviction-node-pct" style="color:${tierDef.color};">${item.convictionScore}%</span>
+            <span class="conviction-node-medal">${tierDef.icon}</span>
+          </div>
         </div>
+        <div class="corr-bar-seq">#${idx + 1}</div>
         <div class="corr-bar-date">${escapeHtml(item.shortDate)}</div>
+        <div class="corr-bar-snippet">${escapeHtml(shortTitleWords)}</div>
       </div>
     `;
   }).join('');
 
-  // Graph 1: Selected Post Inspector
-  const selCorrBadges = CURATOR_CORRECTION_TYPES.map(t => {
-    const c = selectedPostItem ? (selectedPostItem.polish[t.id] || 0) : 0;
-    return `<span class="inspector-type-chip" style="background:${t.bg}; color:${t.color}; border:1px solid ${t.border};">
-      <span class="chip-dot" style="background:${t.color};"></span>${t.shortLabel}: <strong>${c}</strong>
-    </span>`;
-  }).join('');
+  const postBarsHtml = `
+    <div class="conviction-line-track" style="width:${totalTrackWidth}px; min-width:100%;">
+      <svg class="conviction-line-svg" width="${totalTrackWidth}" height="${svgH}" viewBox="0 0 ${totalTrackWidth} ${svgH}" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="convictionAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.26"/>
+            <stop offset="55%" stop-color="#10B981" stop-opacity="0.14"/>
+            <stop offset="100%" stop-color="#6366F1" stop-opacity="0.02"/>
+          </linearGradient>
+          <linearGradient id="convictionStrokeGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B"/>
+            <stop offset="50%" stop-color="#10B981"/>
+            <stop offset="100%" stop-color="#6366F1"/>
+          </linearGradient>
+        </defs>
+        <!-- Reference Threshold Lines (90% Piercing, 80% Deep, 70% Sharp) -->
+        <line x1="0" y1="${y90}" x2="${totalTrackWidth}" y2="${y90}" stroke="rgba(245,158,11,0.28)" stroke-dasharray="3 3" stroke-width="1"/>
+        <line x1="0" y1="${y80}" x2="${totalTrackWidth}" y2="${y80}" stroke="rgba(16,185,129,0.25)" stroke-dasharray="3 3" stroke-width="1"/>
+        <line x1="0" y1="${y70}" x2="${totalTrackWidth}" y2="${y70}" stroke="rgba(99,102,241,0.22)" stroke-dasharray="3 3" stroke-width="1"/>
+        ${areaPts ? `<polygon points="${areaPts}" fill="url(#convictionAreaGrad)"/>` : ''}
+        ${linePoints.length > 1 ? `<polyline points="${polylinePts}" fill="none" stroke="url(#convictionStrokeGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+      </svg>
+      <div class="conviction-line-cols-row">
+        ${nodesHtml}
+      </div>
+    </div>
+  `;
 
-  const selNotesHtml = (selectedPostItem && Array.isArray(selectedPostItem.polish.corrections) && selectedPostItem.polish.corrections.length > 0)
-    ? selectedPostItem.polish.corrections.slice(0, 3).map(note => {
-        const typeObj = CURATOR_CORRECTION_TYPES.find(t => t.id === note.type) || CURATOR_CORRECTION_TYPES[0];
-        return `
-          <div class="inspector-note-row">
-            <span class="inspector-note-tag" style="color:${typeObj.color}; border-color:${typeObj.border}; background:${typeObj.bg};">${typeObj.shortLabel}</span>
-            <span class="inspector-note-diff">
-              <del>${escapeHtml(note.original || '')}</del> &rarr; <strong>${escapeHtml(note.replacement || '')}</strong>
-            </span>
-          </div>
-        `;
-      }).join('')
+  // Graph 1: Selected Post Conviction Inspector
+  const selTier = selectedPostItem?.convictionTier || avgTierMeta;
+  const selCorrBadges = selectedPostItem ? `
+    <span class="inspector-type-chip" style="background:${selTier.bgTint}; color:${selTier.color}; border:1px solid ${selTier.borderTint};">
+      ${selTier.icon} <strong>${escapeHtml(selTier.badgeTitle)}</strong> (${selectedPostItem.convictionScore}% Depth)
+    </span>
+    <span class="inspector-type-chip" style="background:rgba(148,163,184,0.12); color:${selectedPostItem.topic.color}; border:1px solid rgba(148,163,184,0.24);">
+      ${selectedPostItem.topic.icon} ${escapeHtml(selectedPostItem.topic.label.split('&')[0].trim())}
+    </span>
+    <span class="inspector-type-chip" style="background:rgba(148,163,184,0.12); color:${selectedPostItem.emotion.color}; border:1px solid rgba(148,163,184,0.24);">
+      ${selectedPostItem.emotion.icon} ${escapeHtml(selectedPostItem.emotion.label.split('&')[0].trim())}
+    </span>
+  ` : '';
+
+  const selTakePreview = selectedPostItem?.takeSnippet
+    ? (selectedPostItem.takeSnippet.length > 150 ? `${selectedPostItem.takeSnippet.slice(0, 150).trim()}…` : selectedPostItem.takeSnippet)
+    : '';
+  const selNotesHtml = selTakePreview
+    ? `<div class="inspector-note-row" style="font-style:italic; line-height:1.38;">&ldquo;${escapeHtml(selTakePreview)}&rdquo;</div>`
     : '';
 
   // Graph 2: Broad Topic Bars + Drilldown
@@ -13798,8 +22524,8 @@ function renderCuratorStyleProfile() {
         <span class="kpi-value">${totalPosts} Posts</span>
       </div>
       <div class="curator-kpi-pill">
-        <span class="kpi-label">AVG POLISH CORRECTIONS</span>
-        <span class="kpi-value">${avgCorrectionsPerPost} / post <span class="kpi-trend ${isImproving ? 'good' : ''}">${isImproving ? '↓ Cleaner Flow' : 'Active Coaching'}</span></span>
+        <span class="kpi-label">AVG CONVICTION DEPTH</span>
+        <span class="kpi-value">${avgConvictionScore}% <span class="kpi-trend ${isDepthRising ? 'good' : ''}">${avgTierMeta.icon} ${escapeHtml(avgTierMeta.badgeTitle)}</span></span>
       </div>
       <div class="curator-kpi-pill">
         <span class="kpi-label">TOP FOCUS &amp; MOOD</span>
@@ -13807,30 +22533,45 @@ function renderCuratorStyleProfile() {
       </div>
     </div>
 
-    <!-- GRAPH 1: CORRECTIONS CAUGHT IN SLANT TAKE -->
+    <!-- GRAPH 1: CONVICTION DEPTH & MEDAL PROGRESSION -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
-          <div class="graph-step-badge" style="color:#C084FC; background:rgba(192,132,252,0.14);">GRAPH 1 · WRITING CRAFT</div>
-          <h3 class="graph-card-title">Corrections Caught When Writing &ldquo;Slant Take&rdquo;</h3>
-          <p class="graph-card-subtitle">Each color represents a specific correction type caught during ✨ Polish across your posts</p>
+        <div class="graph-header-top-row">
+          <div class="graph-step-badge" style="color:#F59E0B; background:rgba(245,158,11,0.14);">GRAPH 1 · CONVICTION DEPTH</div>
+          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Tiers</button>` : `<span class="graph-total-pill">Avg: ${avgConvictionScore}% &middot; ${avgTierMeta.icon} ${escapeHtml(String(avgTierMeta.badgeTitle || '').replace(/\s*(Voice|Conviction|Take)$/i, ''))}</span>`}
         </div>
-        ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Colors</button>` : `<span class="graph-total-pill">${data.totalCorrections.grandTotal} Total Notes</span>`}
+        <h3 class="graph-card-title">Conviction Depth &amp; Medal Progression</h3>
+        <p class="graph-card-subtitle">How your conviction depth (%) and medal tier evolved from post to post</p>
       </div>
 
       <!-- Multi-Color Proportion Strip -->
       <div class="corr-prop-bar">${corrSegmentsHtml}</div>
 
-      <!-- 4 Color-Coded Correction Type Buttons -->
-      <div class="corr-type-grid">
+      <!-- 3 Color-Coded Medal Tier Buttons -->
+      <div class="corr-type-grid conviction-tier-grid">
         ${corrCardsHtml}
       </div>
 
-      <!-- Post-by-Post Stacked Bar Chart -->
+      <!-- Post-by-Post Conviction Depth Line Graph (Slidable Window) -->
       <div class="corr-chart-stage">
-        <div class="corr-chart-caption">Post-by-Post Correction Breakdown (Oldest &rarr; Latest · Tap any bar to inspect)</div>
-        <div class="corr-bars-scroller">
-          ${postBarsHtml}
+        <div class="corr-chart-header-row">
+          <div class="corr-chart-caption">Post-by-Post Depth Curve (${recentPostsForBars.length} Posts &middot; Tap any medal point)</div>
+          <div class="corr-chart-slide-controls">
+            <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(-1)" title="Slide Earlier Posts">&#x2039;</button>
+            <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(1)" title="Slide Later Posts">&#x203A;</button>
+          </div>
+        </div>
+        <div class="corr-bars-window-frame">
+          <div class="corr-bars-scroller conviction-line-scroller" id="curatorCorrBarsScroller">
+            ${postBarsHtml}
+          </div>
+          ${recentPostsForBars.length > 5 ? `
+            <div class="corr-bars-slider-row">
+              <span class="corr-slider-edge-lbl">Oldest (#1)</span>
+              <input type="range" id="curatorCorrBarsRangeSlider" class="corr-bars-range-slider" min="0" max="100" value="100" aria-label="Slide through posts">
+              <span class="corr-slider-edge-lbl">Latest (#${recentPostsForBars.length})</span>
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -13842,7 +22583,7 @@ function renderCuratorStyleProfile() {
               <span class="inspector-date-badge">${escapeHtml(selectedPostItem.shortDate)}</span>
               <span class="inspector-post-headline">${escapeHtml(selectedPostItem.headline)}</span>
             </div>
-            <span class="inspector-total-tag">${selectedPostItem.polish.total} Corrections</span>
+            <span class="inspector-total-tag" style="color:${selTier.color};">${selTier.icon} ${selectedPostItem.convictionScore}% Depth</span>
           </div>
           <div class="inspector-chips-row">
             ${selCorrBadges}
@@ -13855,12 +22596,12 @@ function renderCuratorStyleProfile() {
     <!-- GRAPH 2: BROAD LEVEL TOPICS PICKED -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
+        <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#38BDF8; background:rgba(56,189,248,0.14);">GRAPH 2 · THEMATIC BREADTH</div>
-          <h3 class="graph-card-title">Broad Level Topics Picked</h3>
-          <p class="graph-card-subtitle">Each broad topic category is color-coded to show where your curiosity and commentary gravitate</p>
+          <span class="graph-total-pill">${data.topicsRanked.filter(t => t.count > 0).length} Active Categories</span>
         </div>
-        <span class="graph-total-pill">${data.topicsRanked.filter(t => t.count > 0).length} Active Categories</span>
+        <h3 class="graph-card-title">Broad Topics Picked</h3>
+        <p class="graph-card-subtitle">Color-coded categories showing where your curiosity gravitates</p>
       </div>
 
       <div class="topic-graph-layout">
@@ -13876,12 +22617,12 @@ function renderCuratorStyleProfile() {
     <!-- GRAPH 3: IDENTIFIED EMOTION IN POST -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
-        <div>
+        <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#FBBF24; background:rgba(251,191,36,0.14);">GRAPH 3 · EMOTIONAL SPECTRUM</div>
-          <h3 class="graph-card-title">Identified Emotion in Posts</h3>
-          <p class="graph-card-subtitle">Dominant emotional register and conviction tone detected across your Slants</p>
+          <span class="graph-total-pill">Top: ${topEmotion.icon} ${escapeHtml(topEmotion.label.split('&')[0].trim())}</span>
         </div>
-        <span class="graph-total-pill">Top: ${topEmotion.icon} ${escapeHtml(topEmotion.label)}</span>
+        <h3 class="graph-card-title">Identified Emotion in Posts</h3>
+        <p class="graph-card-subtitle">Dominant emotional register and conviction tone across your Slants</p>
       </div>
 
       <!-- Emotion Spectrum Proportion Strip -->
@@ -13895,6 +22636,60 @@ function renderCuratorStyleProfile() {
       ${emotionDrilldownHtml}
     </section>
   `;
+
+  const barsScroller = document.getElementById('curatorCorrBarsScroller');
+  const rangeSlider = document.getElementById('curatorCorrBarsRangeSlider');
+  if (barsScroller) {
+    const syncSliderFromScroll = () => {
+      if (!rangeSlider) return;
+      const maxScroll = Math.max(1, barsScroller.scrollWidth - barsScroller.clientWidth);
+      rangeSlider.value = String(Math.round((barsScroller.scrollLeft / maxScroll) * 100));
+    };
+
+    // Restore scroll position synchronously (with scroll-behavior: auto) so clicking a candle
+    // never animates/sweeps from candle #1 across all candles to the selected candle.
+    if (prevBarsScrollLeft !== null) {
+      barsScroller.scrollLeft = prevBarsScrollLeft;
+    } else {
+      barsScroller.scrollLeft = barsScroller.scrollWidth;
+    }
+    syncSliderFromScroll();
+
+    barsScroller.addEventListener('scroll', syncSliderFromScroll, { passive: true });
+    if (rangeSlider) {
+      rangeSlider.addEventListener('input', () => {
+        const maxScroll = Math.max(0, barsScroller.scrollWidth - barsScroller.clientWidth);
+        barsScroller.scrollLeft = (Number(rangeSlider.value) / 100) * maxScroll;
+      });
+    }
+
+    // Enable smooth mouse drag-to-slide on desktop/laptop in addition to touch/trackpad horizontal scroll
+    let isDraggingBars = false;
+    let barDragStartX = 0;
+    let barDragScrollLeft = 0;
+    barsScroller.addEventListener('mousedown', (e) => {
+      isDraggingBars = true;
+      barDragStartX = e.pageX - barsScroller.offsetLeft;
+      barDragScrollLeft = barsScroller.scrollLeft;
+    });
+    barsScroller.addEventListener('mouseleave', () => {
+      isDraggingBars = false;
+      barsScroller.classList.remove('is-dragging');
+    });
+    barsScroller.addEventListener('mouseup', () => {
+      isDraggingBars = false;
+      barsScroller.classList.remove('is-dragging');
+    });
+    barsScroller.addEventListener('mousemove', (e) => {
+      if (!isDraggingBars) return;
+      const x = e.pageX - barsScroller.offsetLeft;
+      if (Math.abs(x - barDragStartX) < 5) return;
+      e.preventDefault();
+      barsScroller.classList.add('is-dragging');
+      const walk = (x - barDragStartX) * 1.25;
+      barsScroller.scrollLeft = barDragScrollLeft - walk;
+    });
+  }
 }
 
 // ============================================================
@@ -16414,12 +25209,23 @@ function syncInnerVoiceSubmodeUI() {
   const triggerPanel = secVoice ? secVoice.closest('.creator-trigger-panel') : null;
   const guideBtn = document.getElementById('slantGuideToggleBtn');
   const guideCard = document.getElementById('slantStructureGuideCard');
+  const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
+  const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
+  if (allowCommentsRow1) allowCommentsRow1.style.display = 'none';
+  if (allowCommentsRow3) allowCommentsRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  const seriesRow1 = document.getElementById('creatorSeriesRow');
+  const seriesRow3 = document.getElementById('step3SeriesRow');
+  if (seriesRow1) seriesRow1.style.display = isDailyChronicleMode ? 'none' : 'flex';
+  if (seriesRow3) seriesRow3.style.display = isDailyChronicleMode ? 'none' : 'flex';
 
   if (!isVoice) {
     if (triggerPanel) triggerPanel.style.display = '';
     if (slantTextarea) slantTextarea.style.display = 'block';
     if (chronDeck) chronDeck.style.display = 'none';
     if (guideBtn) guideBtn.style.display = 'inline-flex';
+    if (typeof updateLivePerspectiveDepthUI === 'function') {
+      updateLivePerspectiveDepthUI(false);
+    }
     return;
   }
 
@@ -16452,10 +25258,12 @@ function syncInnerVoiceSubmodeUI() {
     syncChronicleMomentsToSlantInput();
   } else {
     if (triggerPanel) triggerPanel.style.display = '';
-    if (secVoice) secVoice.style.display = 'flex';
-    if (singleSparkWrap) singleSparkWrap.style.display = 'block';
+    if (secVoice) secVoice.style.display = 'none';
+    if (singleSparkWrap) singleSparkWrap.style.display = 'none';
     if (chronBanner) chronBanner.style.display = 'none';
-    if (slantTextarea) slantTextarea.style.display = 'block';
+    if (slantTextarea) {
+      slantTextarea.style.display = 'block';
+    }
     if (chronDeck) chronDeck.style.display = 'none';
     if (guideBtn) guideBtn.style.display = 'inline-flex';
     if (label) label.textContent = 'Your Perspective';
@@ -16465,6 +25273,9 @@ function syncInnerVoiceSubmodeUI() {
   }
   if (typeof syncStep3SaveButtonLabel === 'function') {
     syncStep3SaveButtonLabel();
+  }
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
   }
   if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
     autoIdentifyVisualProjectionsFromInput(true);
@@ -16480,7 +25291,7 @@ function renderDailyChronicleCards() {
   }
 
   const placeholders = [
-    { title: 'e.g. Morning Walk / Routine', text: 'Write 2-3 lines about your first key moment of the day...' },
+    { title: 'e.g. Morning Walk / Routine', text: 'Personal Diary Chronicle (strictly private to you, never goes to feed) — write 2-3 lines about your first key moment of the day...' },
     { title: 'e.g. Work / Midday Observation', text: 'Write 2-3 lines about the second moment or conversation...' },
     { title: 'e.g. Family / Evening Reflection', text: 'Write 2-3 lines about the third moment that stayed with you...' }
   ];
@@ -16706,6 +25517,9 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
   const valid = loadedImgs.filter(Boolean);
   if (valid.length === 0) return null;
 
+  // Sort so the ★ Starred moment photo is always at index 0 (Hero Prominence slot)
+  valid.sort((a, b) => (b.meta?.isStarred ? 1 : 0) - (a.meta?.isStarred ? 1 : 0));
+
   const drawCoverCell = (imgObj, x, y, w, h, badgeLabel) => {
     ctx.save();
     ctx.beginPath();
@@ -16722,11 +25536,12 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
 
     // Subtle dark gradient at top-left for moment number badge
     if (badgeLabel) {
+      const badgeW = badgeLabel.includes('★') ? 116 : 96;
       ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-      ctx.fillRect(x + 12, y + 12, 96, 30);
+      ctx.fillRect(x + 12, y + 12, badgeW, 30);
       ctx.fillStyle = '#F59E0B';
       ctx.font = '800 14px Inter, sans-serif';
-      ctx.fillText(badgeLabel, x + 22, y + 32);
+      ctx.fillText(badgeLabel, x + 20, y + 32);
     }
     ctx.restore();
 
@@ -16735,29 +25550,34 @@ async function buildClientExactChronicleCollage(momentsWithPhotos) {
     ctx.strokeRect(x, y, w, h);
   };
 
+  const formatMomentBadge = (v) => `${v.meta?.isStarred ? '★ ' : ''}MOMENT 0${v.meta?.index || 1}`;
+
   const pad = 18;
   const gap = 14;
   if (valid.length === 1) {
-    drawCoverCell(valid[0], pad, pad, W - pad * 2, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, W - pad * 2, H - pad * 2, formatMomentBadge(valid[0]));
   } else if (valid.length === 2) {
-    const cellW = (W - pad * 2 - gap) / 2;
+    // ★ Starred (valid[0]) gets 60% Hero Prominence width, 2nd photo gets 40%
+    const heroW = Math.round((W - pad * 2 - gap) * 0.60);
+    const subW = (W - pad * 2 - gap) - heroW;
     const cellH = H - pad * 2;
-    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, heroW, cellH, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + heroW + gap, pad, subW, cellH, formatMomentBadge(valid[1]));
   } else if (valid.length === 3) {
-    const leftW = Math.round((W - pad * 2 - gap) * 0.52);
+    // ★ Starred (valid[0]) gets 60% Hero Prominence on left, 2nd & 3rd stack on right
+    const leftW = Math.round((W - pad * 2 - gap) * 0.60);
     const rightW = (W - pad * 2 - gap) - leftW;
     const rightH = (H - pad * 2 - gap) / 2;
-    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, `MOMENT 0${valid[1].meta.index}`);
-    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, `MOMENT 0${valid[2].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, leftW, H - pad * 2, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + leftW + gap, pad, rightW, rightH, formatMomentBadge(valid[1]));
+    drawCoverCell(valid[2], pad + leftW + gap, pad + rightH + gap, rightW, rightH, formatMomentBadge(valid[2]));
   } else {
     const cellW = (W - pad * 2 - gap) / 2;
     const cellH = (H - pad * 2 - gap) / 2;
-    drawCoverCell(valid[0], pad, pad, cellW, cellH, `MOMENT 0${valid[0].meta.index}`);
-    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, `MOMENT 0${valid[1].meta.index}`);
-    drawCoverCell(valid[2], pad, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[2].meta.index}`);
-    drawCoverCell(valid[3], pad + cellW + gap, pad + cellH + gap, cellW, cellH, `MOMENT 0${valid[3].meta.index}`);
+    drawCoverCell(valid[0], pad, pad, cellW, cellH, formatMomentBadge(valid[0]));
+    drawCoverCell(valid[1], pad + cellW + gap, pad, cellW, cellH, formatMomentBadge(valid[1]));
+    drawCoverCell(valid[2], pad, pad + cellH + gap, cellW, cellH, formatMomentBadge(valid[2]));
+    drawCoverCell(valid[3], pad + cellW + gap, pad + cellH + gap, cellW, cellH, formatMomentBadge(valid[3]));
   }
 
   return canvas.toDataURL('image/jpeg', 0.88);
@@ -16800,8 +25620,21 @@ function acceptPolishedTake() {
     if (typeof computeVisualsSourceFingerprint === 'function') {
       lastAiVisualsSourceFingerprint = computeVisualsSourceFingerprint();
     }
+    if (verifiedPolishDepthState) {
+      verifiedPolishDepthState.polishedFingerprint = input.value.trim();
+      verifiedPolishDepthState.confirmed = true;
+      const sparkEl = document.getElementById('creatorSparkInput');
+      const evalD = evaluatePerspectiveDepth(input.value.trim(), sparkEl ? sparkEl.value : '');
+      if (evalD && Number.isFinite(evalD.depthScore)) {
+        verifiedPolishDepthState.depthScore = Math.max(Number(verifiedPolishDepthState.depthScore) || 0, evalD.depthScore);
+        window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+      }
+    }
     input.dispatchEvent(new Event('input', { bubbles: true }));
     renderPolishVisualSubjects();
+  } else if (verifiedPolishDepthState) {
+    verifiedPolishDepthState.confirmed = true;
+    window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
   }
   if (reviewCard) {
     reviewCard.style.display = 'none';
@@ -16809,7 +25642,13 @@ function acceptPolishedTake() {
   if (typeof recordVisualConfidenceApproval === 'function') {
     recordVisualConfidenceApproval('polish_accept');
   }
-  showTemporaryToast('✓ Polished take & visual selection applied to your slant!');
+  updateLivePerspectiveDepthUI(true);
+  if (isCreatorVisualSelectionStageUnlocked()) {
+    goToCreatorVisualSelectionStage();
+    showTemporaryToast('✓ Story & Conviction confirmed! Now select your Poster 1 visual or collage.');
+  } else {
+    showTemporaryToast('✓ Polished take applied! Complete all 3 story signals & 70%+ depth to unlock Photo Selection.');
+  }
 }
 
 function rejectPolishedTake() {
@@ -16817,7 +25656,23 @@ function rejectPolishedTake() {
   if (reviewCard) {
     reviewCard.style.display = 'none';
   }
-  showTemporaryToast('Original take kept.');
+  if (verifiedPolishDepthState) {
+    verifiedPolishDepthState.confirmed = true;
+    const input = document.getElementById('creatorSlantTakeInput');
+    const sparkEl = document.getElementById('creatorSparkInput');
+    const evalD = evaluatePerspectiveDepth(input ? input.value.trim() : '', sparkEl ? sparkEl.value : '');
+    if (evalD && Number.isFinite(evalD.depthScore)) {
+      verifiedPolishDepthState.depthScore = Math.max(Number(verifiedPolishDepthState.depthScore) || 0, evalD.depthScore);
+      window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+    }
+  }
+  updateLivePerspectiveDepthUI(true);
+  if (isCreatorVisualSelectionStageUnlocked()) {
+    goToCreatorVisualSelectionStage();
+    showTemporaryToast('✓ Original take & Conviction confirmed! Now select your Poster 1 visual or collage.');
+  } else {
+    showTemporaryToast('Original take kept — complete all 3 story signals & 70%+ depth to unlock Photo Selection.');
+  }
 }
 
 function toggleRefineCoreTake(val) {
@@ -17207,17 +26062,13 @@ const CUE_DIMENSION_PREVIEWS = [
   }
 ];
 
-function updateEqualizerSummary() {
+function updateEqualizerSummaryUI() {
   const summaryEl = document.getElementById('creatorEqualizerSummary');
   if (!summaryEl) return;
 
-  const focusName = (creatorPerspectiveMode === 'source')
-    ? 'Source Grounded'
-    : (creatorPerspectiveMode === 'curator' ? 'Curator Angle' : 'Hybrid Blend');
-
   const portrayalName = (creatorCharacterRepresentation === 'realistic')
-    ? 'AI Illustration'
-    : (creatorCharacterRepresentation === 'cinematic'
+    ? 'Editorial Realism (Default)'
+    : (creatorCharacterRepresentation === 'cinematic' || creatorCharacterRepresentation === 'likeness'
       ? 'Cinematic Photo'
       : (creatorCharacterRepresentation === 'painting'
         ? 'Painted Artwork'
@@ -17225,11 +26076,21 @@ function updateEqualizerSummary() {
           ? 'Watercolor Illustration'
           : (creatorCharacterRepresentation === 'silhouette'
             ? 'Silhouette'
-            : (creatorCharacterRepresentation === 'exact' ? 'Authentic Photo' : 'AI Illustration')))));
+            : (creatorCharacterRepresentation === 'exact'
+              ? (window._isWebCollageAttached ? '🖼️ Web Source (0⚡)' : 'Authentic Photo (0⚡)')
+              : 'Editorial Realism (Default)')))));
 
   const countryName = creatorCountryContext ? (creatorCountryContext.flag + ' ' + creatorCountryContext.name) : '🇮🇳 India';
 
-  summaryEl.textContent = `${focusName} • ${portrayalName} • ${countryName}`;
+  summaryEl.textContent = `${portrayalName} • ${countryName}`;
+}
+
+function updateEqualizerSummary() {
+  updateEqualizerSummaryUI();
+
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 
 function resetStage1ActionBtn() {
@@ -17320,6 +26181,17 @@ async function generateCreatorSettingsFromStage1() {
 
 function openCreatorEqualizer() {
   try {
+    const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+    if (zeroCredits) {
+      showTemporaryToast('🔒 Settings & AI Image Portrayals are disabled while you have 0 credits today. Use Web Source or Attached Photo, or get credits via request/subscription!');
+      return;
+    }
+
+    if (!creatorCharacterRepresentation) {
+      const isChron = typeof isDailyChronicleMode !== 'undefined' && Boolean(isDailyChronicleMode);
+      creatorCharacterRepresentation = isChron ? 'watercolor' : 'realistic';
+    }
+
     const modal = document.getElementById('creatorEqualizerModal');
     if (!modal) return;
 
@@ -17407,20 +26279,36 @@ function setEqualizerPerspectiveMode(mode, fromUser = true) {
 }
 
 function selectEqualizerPortrayal(style) {
+  if (style === 'exact') {
+    window._selectedPosterVisualMode = window._isWebCollageAttached ? 'web_collage' : 'original_photo';
+  } else {
+    window._selectedPosterVisualMode = 'ai_art';
+  }
   selectCharacterRepresentation(style);
   updateEqualizerPortrayalUI();
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+  }
 }
 
 function updateEqualizerPortrayalUI() {
-  const hasPhoto = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentScrapedArticle?.imageUrl);
-
-  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
-    creatorCharacterRepresentation = 'realistic';
-  }
+  const hasChroniclePhotos = typeof isDailyChronicleMode !== 'undefined' && isDailyChronicleMode && Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+  const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const urlEl = document.getElementById('creatorUrlInput');
+  const hasLinkInput = Boolean(urlEl && urlEl.value && urlEl.value.trim().length > 4);
+  const hasPhoto = Boolean(
+    creatorReferenceImageBase64 ||
+    (typeof innerVoicePhotoBase64 !== 'undefined' && innerVoicePhotoBase64) ||
+    hasChroniclePhotos ||
+    currentScrapedArticle?.imageBase64 ||
+    currentScrapedArticle?.imageUrl ||
+    hasLinkInput ||
+    zeroCredits
+  );
 
   const normalizedVal = (creatorCharacterRepresentation === 'likeness') ? 'cinematic' : creatorCharacterRepresentation;
 
-  // Toggle "Exact Original Photo" option in dropdowns
+  // Keep "Authentic Source Photo" option visible in dropdown whenever a photo or source link is present
   const eqSelectOptExact = document.getElementById('eqSelectOptExact');
   if (eqSelectOptExact) eqSelectOptExact.style.display = hasPhoto ? '' : 'none';
 
@@ -17651,6 +26539,7 @@ function autoSaveCreatorFormState(immediate = false) {
       spark,
       url: url ? url.trim() : '',
       perspectiveMode: typeof creatorPerspectiveMode !== 'undefined' ? creatorPerspectiveMode : 'hybrid',
+      seriesId: activeCreatorSeriesId || null,
       updatedAt: new Date().toISOString()
     };
 
@@ -17818,12 +26707,20 @@ function resumeCreatorFormDraft(draftId) {
   if (sparkInput) sparkInput.value = target.spark || '';
   if (urlInput) {
     urlInput.value = target.url || '';
-    if (target.url && typeof triggerUrlScrape === 'function') {
-      triggerUrlScrape(target.url);
+    if (target.url) {
+      if (typeof isVideoAudioUrl === 'function' && typeof updateWebLinkSubmode === 'function' && target.sourceType !== 'inner_voice') {
+        updateWebLinkSubmode(isVideoAudioUrl(target.url));
+      }
+      if (typeof handleUrlInput === 'function') {
+        handleUrlInput(target.url);
+      }
     }
   }
   if (target.perspectiveMode && typeof setPerspectiveMode === 'function') {
     setPerspectiveMode(target.perspectiveMode);
+  }
+  if (typeof setCreatorSeries === 'function') {
+    setCreatorSeries(target.seriesId || null);
   }
 
   const statusEl = document.getElementById('slantAutosaveStatus');
@@ -17834,6 +26731,9 @@ function resumeCreatorFormDraft(draftId) {
 
   isFormDraftsListExpanded = false;
   renderCreatorFormDraftsBar();
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   backToStep1();
 }
 
@@ -17991,6 +26891,10 @@ function openDraftInStudio(postId) {
   if (post.sourceLedger) {
     currentSourceLedger = post.sourceLedger;
   }
+  if (typeof setCreatorSeries === 'function') {
+    const draftSeries = getPostSeriesInfo(post);
+    setCreatorSeries(draftSeries ? draftSeries.id : null);
+  }
 
   modal.classList.add('open');
   modal.classList.add('active');
@@ -18035,7 +26939,7 @@ async function publishDraftPostFromFeed(postId, btnEl = null) {
 
   if (btnEl && btnEl.classList.contains('draft-rocket-publish-btn')) {
     btnEl.disabled = true;
-    btnEl.innerHTML = '<span class="draft-rocket-icon">⏳</span><span class="draft-rocket-text">Publishing...</span>';
+    btnEl.innerHTML = '<span class="polish-glow-spinner" aria-hidden="true"></span>';
   }
   if (typeof showTemporaryToast === 'function') {
     showTemporaryToast('🚀 Publishing your draft to the live feed...');
@@ -18141,12 +27045,12 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function openCreatorModalForSection(mode) {
+function openCreatorModalForSection(mode, options = {}) {
   closeSlantSpreadMenu();
-  openCreatorModal(null, mode);
+  openCreatorModal(null, mode, options);
 }
 
-function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
+function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options = {}) {
   closeSlantSpreadMenu();
   if (!currentUser || !isUserWhitelistAllowed) {
     if (typeof openAuthModal === 'function') {
@@ -18166,42 +27070,21 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   // Clean creator state first
   resetCreatorState();
 
-  // Sync anchor selection (default to forcedAnchorMode, digital_link, or active mode)
-  const initialMode = forcedAnchorMode || creatorSelectedSource || 'digital_link';
+  // Sync anchor selection (Main + Slant never opens in diary_chronicle unless explicitly forced from Diary corner)
+  const initialMode = (forcedAnchorMode === 'diary_chronicle')
+    ? 'diary_chronicle'
+    : (forcedAnchorMode || (creatorSelectedSource && !isDailyChronicleMode ? creatorSelectedSource : 'digital_link'));
   setAnchorMode(initialMode);
 
   // Reset to Step 1
   backToStep1();
 
-  // Restore requested draft OR most recent active draft so accidental close never loses flow
+  // Only restore a draft when the user explicitly clicks a saved draft from the Drafts menu (resumeDraftId)
+  // Tapping + Slant always opens a fresh, blank composer without any old draft data.
   const drafts = getSavedFormDrafts();
   let draftToRestore = null;
   if (resumeDraftId && typeof resumeDraftId === 'string') {
     draftToRestore = drafts.find(d => d.id === resumeDraftId) || null;
-  } else if (!forcedAnchorMode) {
-    try {
-      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
-      if (lastId) {
-        draftToRestore = drafts.find(d => d.id === lastId) || null;
-      }
-    } catch (_) {}
-  } else {
-    // When user explicitly selected a spread button (Web Link, Inner Voice, or Diary Chronicle),
-    // only restore the last active draft if its anchor mode matches the chosen section
-    try {
-      const lastId = localStorage.getItem('slant_last_active_form_draft_id');
-      if (lastId) {
-        const candidate = drafts.find(d => d.id === lastId) || null;
-        if (candidate) {
-          const candMode = candidate.isDailyChronicleMode
-            ? 'diary_chronicle'
-            : (candidate.selectedSource === 'inner_voice' ? 'inner_voice' : 'digital_link');
-          if (candMode === forcedAnchorMode) {
-            draftToRestore = candidate;
-          }
-        }
-      }
-    } catch (_) {}
   }
 
   if (draftToRestore) {
@@ -18211,10 +27094,21 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
     }
   } else {
     currentActiveFormDraftId = null;
+    try {
+      localStorage.removeItem('slant_last_active_form_draft_id');
+    } catch (_) {}
     renderCreatorFormDraftsBar();
     if (forcedAnchorMode) {
       setAnchorMode(forcedAnchorMode);
     }
+  }
+
+  if (options && options.targetSeriesId && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(options.targetSeriesId);
+  } else if (!draftToRestore && (currentFilter === 'series' || currentFilter === 'my_stories') && activeFeedSeriesFilter && activeFeedSeriesFilter !== 'all' && typeof setCreatorSeries === 'function') {
+    setCreatorSeries(activeFeedSeriesFilter);
+  } else if (typeof syncCreatorSeriesDropdowns === 'function') {
+    syncCreatorSeriesDropdowns();
   }
 
   // Show modal
@@ -18250,6 +27144,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   const slantInput = document.getElementById('creatorSlantTakeInput');
   if (slantInput && !slantInput.dataset.errorCleanAttached) {
     slantInput.dataset.errorCleanAttached = 'true';
+    attachAuthenticWritingGuard(slantInput);
     slantInput.addEventListener('input', () => {
       if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
       if ((slantInput.value || '').trim().length > 0 && typeof clearCreatorPromptReadyGlow === 'function') {
@@ -18260,6 +27155,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
       checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
       if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
@@ -18267,11 +27163,13 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
   const sparkInput = document.getElementById('creatorSparkInput');
   if (sparkInput && !sparkInput.dataset.castTriggerAttached) {
     sparkInput.dataset.castTriggerAttached = 'true';
+    attachAuthenticWritingGuard(sparkInput);
     sparkInput.addEventListener('input', () => {
       const sltInput = document.getElementById('creatorSlantTakeInput');
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
       checkAndTriggerFamilyCast(combined);
       autoSaveCreatorFormState(false);
+      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
       if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
@@ -18288,6 +27186,35 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null) {
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
+}
+
+let _lastBlockedPasteToastAt = 0;
+function handleBlockedPerspectivePaste(e) {
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+  const now = Date.now();
+  if (now - _lastBlockedPasteToastAt > 2200) {
+    _lastBlockedPasteToastAt = now;
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('✍️ Paste is disabled here — please write your perspective in your own words (voice typing works too!).');
+    }
+  }
+  return false;
+}
+window.handleBlockedPerspectivePaste = handleBlockedPerspectivePaste;
+
+function attachAuthenticWritingGuard(el) {
+  if (!el || el.dataset.authenticWriteGuardAttached === 'true') return;
+  el.dataset.authenticWriteGuardAttached = 'true';
+  el.addEventListener('paste', handleBlockedPerspectivePaste);
+  el.addEventListener('drop', handleBlockedPerspectivePaste);
+  el.addEventListener('beforeinput', (e) => {
+    const inputType = String(e.inputType || '');
+    if (inputType === 'insertFromPaste' || inputType === 'insertFromPasteAsQuotation' || inputType === 'insertFromDrop') {
+      handleBlockedPerspectivePaste(e);
+    }
+  });
 }
 
 function clearCreatorPromptReadyGlow() {
@@ -18348,32 +27275,14 @@ function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
     const momentTextareas = Array.from(step1.querySelectorAll('#dailyChronicleCardsList .chronicle-moment-textarea'));
     primaryInput = momentTextareas.find(ta => !(ta.value || '').trim()) || momentTextareas[0] || null;
     glowCard = (primaryInput && primaryInput.closest('.chronicle-moment-card')) || scrollTargetCard;
-    cueText = '✍️ Start writing your first moment of the day here ↓';
-  } else if (effectiveMode === 'inner_voice') {
-    scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
-    primaryInput = document.getElementById('creatorSlantTakeInput');
-    glowCard = scrollTargetCard;
-    cueText = '✍️ Start writing your observation or reflection here ↓';
+    cueText = '';
   } else {
-    const urlInput = document.getElementById('creatorUrlInput');
+    // Always open directly onto the Your Perspective prompt field at the top so the creator can write immediately
     const slantInput = document.getElementById('creatorSlantTakeInput');
-    const hasUrl = Boolean(urlInput && (urlInput.value || '').trim().length > 5);
-    if (!hasUrl && urlInput) {
-      scrollTargetCard = document.getElementById('triggerWebSection') || step1.querySelector('.creator-hero-slant-card');
-      primaryInput = urlInput;
-      glowCard = scrollTargetCard;
-      cueText = '✨ Paste your link here — then write your perspective below ↓';
-      if (slantInput && !(slantInput.value || '').trim()) {
-        slantInput.classList.add('creator-prompt-secondary-glow');
-        const heroCard = slantInput.closest('.creator-hero-slant-card');
-        if (heroCard) heroCard.classList.add('creator-card-prompt-glow');
-      }
-    } else {
-      scrollTargetCard = step1.querySelector('.creator-hero-slant-card');
-      primaryInput = slantInput;
-      glowCard = scrollTargetCard;
-      cueText = '✍️ Write your perspective or take on this link here ↓';
-    }
+    primaryInput = slantInput;
+    glowCard = step1.querySelector('.creator-hero-slant-card');
+    scrollTargetCard = glowCard;
+    cueText = '';
   }
 
   if (glowCard) {
@@ -18387,23 +27296,13 @@ function slideAndGlowCreatorPromptField(explicitMode = null, options = {}) {
   }
 
   if (scrollTargetCard) {
-    const modalRect = modalCard.getBoundingClientRect();
-    const targetRect = scrollTargetCard.getBoundingClientRect();
-    const desiredScrollTop = Math.max(0, Math.round(modalCard.scrollTop + (targetRect.top - modalRect.top) - 10));
-
-    // Guarantee sufficient bottom scroll cushion so the prompt section can always slide to the top of the modal
+    // Keep modal scrolled to top (0) so the modal header and its close (×) button always remain visible
     const spacer = step1.querySelector('.creator-scroll-spacer');
     if (spacer) {
-      spacer.style.height = '24px';
-      const maxScrollNow = Math.max(0, modalCard.scrollHeight - modalCard.clientHeight);
-      if (desiredScrollTop > maxScrollNow) {
-        const extraRunway = (desiredScrollTop - maxScrollNow) + 32;
-        spacer.style.height = `${24 + extraRunway}px`;
-      }
+      spacer.style.height = '16px';
     }
-
     modalCard.scrollTo({
-      top: desiredScrollTop,
+      top: 0,
       behavior: 'smooth'
     });
   }
@@ -18466,86 +27365,335 @@ function isVideoAudioUrl(url) {
   );
 }
 
-function updateWebLinkSubmode(isVideo) {
-  creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
+let activeSlantSparkType = 'web';
 
-  const mentalPill = document.getElementById('anchorMentalModelPill');
-  const mentalText = document.getElementById('anchorMentalModelText');
-  const mentalBadge = document.getElementById('anchorMentalModelBadge');
-  const mentalCard = document.getElementById('anchorMentalModelCard');
+function getSourceLinkPlatformIconSvg(platformKey, size = 18) {
+  switch (platformKey) {
+    case 'youtube':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2" y="4.5" width="20" height="15" rx="4.2" fill="#EF4444"/><polygon points="10,8.8 10,15.2 15.8,12" fill="#FFFFFF"/></svg>`;
+    case 'instagram':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><defs><linearGradient id="igGrad_${size}" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#F58529"/><stop offset="50%" stop-color="#DD2A7B"/><stop offset="100%" stop-color="#8134AF"/></linearGradient></defs><rect x="2.5" y="2.5" width="19" height="19" rx="5.2" fill="url(#igGrad_${size})"/><circle cx="12" cy="12" r="4.2" stroke="#FFFFFF" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.3" fill="#FFFFFF"/></svg>`;
+    case 'x':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="#0F172A"/><path d="M15.4 6.8h2.1l-4.6 5.2 5.4 5.2h-4.2l-3.3-3.4-3 3.4H5.7l4.9-5.6-5.1-4.8h4.3l3 3.1 2.6-3.1z" fill="#FFFFFF"/></svg>`;
+    case 'substack':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#FF6719"/><path d="M6.8 7.2h10.4v1.8H6.8V7.2zm0 3.2h10.4v1.8H6.8v-1.8zm0 3.2h10.4v4.6L12 15.6l-5.2 2.6v-4.6z" fill="#FFFFFF"/></svg>`;
+    case 'linkedin':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="#0A66C2"/><path d="M8.2 10.2v6.8H6V10.2h2.2zm-1.1-3.4c.75 0 1.3.55 1.3 1.25S7.85 9.3 7.1 9.3 5.8 8.75 5.8 8.05 6.35 6.8 7.1 6.8zm4.8 3.4v.95c.45-.7 1.25-1.15 2.3-1.15 1.9 0 2.8 1.2 2.8 3.2v3.8h-2.2v-3.4c0-1.1-.4-1.65-1.25-1.65-.9 0-1.45.6-1.45 1.65v3.4H9.9v-6.8h2z" fill="#FFFFFF"/></svg>`;
+    case 'reddit':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none"><circle cx="12" cy="12" r="9.5" fill="#FF4500"/><ellipse cx="12" cy="13.5" rx="5.5" ry="3.8" fill="#FFFFFF"/><circle cx="9.8" cy="13" r="1" fill="#FF4500"/><circle cx="14.2" cy="13" r="1" fill="#FF4500"/></svg>`;
+    case 'podcast':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3" fill="rgba(124,58,237,0.15)"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>`;
+    case 'web':
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5" fill="rgba(37,99,235,0.10)"/><line x1="2.5" y1="12" x2="21.5" y2="12"/><path d="M12 2.5a14.5 14.5 0 0 1 3.8 9.5 14.5 14.5 0 0 1-3.8 9.5 14.5 14.5 0 0 1-3.8-9.5 14.5 14.5 0 0 1 3.8-9.5z"/></svg>`;
+    case 'composite':
+    default:
+      return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="8.5" r="6"/><path d="M2.5 8.5h12"/><path d="M8.5 2.5a9.2 9.2 0 0 1 2.4 6 9.2 9.2 0 0 1-2.4 6 9.2 9.2 0 0 1-2.4-6 9.2 9.2 0 0 1 2.4-6z"/><rect x="11.5" y="13" width="10.5" height="7.5" rx="2.2" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.2"/><polygon points="15.5,15.1 15.5,18.4 18.6,16.75" fill="#FFFFFF" stroke="none"/><rect x="15" y="2.2" width="6.8" height="6.8" rx="2" fill="#E1306C" stroke="#FFFFFF" stroke-width="1"/><circle cx="18.4" cy="5.6" r="1.4" fill="none" stroke="#FFFFFF" stroke-width="1.2"/></svg>`;
+  }
+}
+
+function detectSourceLinkPlatform(url) {
+  const lower = String(url || '').toLowerCase().trim();
+  const defaultHint = 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.';
+  if (!lower) {
+    return {
+      platformKey: 'composite',
+      chipLabel: 'Web Link',
+      iconSvg: getSourceLinkPlatformIconSvg('composite', 18),
+      title: 'Web Link (Web, YouTube, Instagram, X, Substack)',
+      badgeLabel: 'Required',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
+    };
+  }
+  if (lower.includes('youtube.com') || lower.includes('youtu.be') || lower.includes('vimeo.com') || lower.includes('ted.com/talks')) {
+    return {
+      platformKey: 'youtube',
+      chipLabel: 'YouTube',
+      iconSvg: getSourceLinkPlatformIconSvg('youtube', 18),
+      title: 'YouTube / Video Source Detected',
+      badgeLabel: 'YouTube Video',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'Which moment or argument in this video stood out, why does it matter, and what is your takeaway?'
+    };
+  }
+  if (lower.includes('substack.com')) {
+    return {
+      platformKey: 'substack',
+      chipLabel: 'Substack',
+      iconSvg: getSourceLinkPlatformIconSvg('substack', 18),
+      title: 'Substack Essay Detected',
+      badgeLabel: 'Substack Essay',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
+    };
+  }
+  if (lower.includes('instagram.com') || lower.includes('instagr.am')) {
+    return {
+      platformKey: 'instagram',
+      chipLabel: 'Instagram',
+      iconSvg: getSourceLinkPlatformIconSvg('instagram', 18),
+      title: 'Instagram Post / Reel Detected',
+      badgeLabel: 'Instagram',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What moment, message, or event in this Instagram post caught your attention, and what is your perspective on it?'
+    };
+  }
+  if (lower.includes('x.com/') || lower.includes('twitter.com/')) {
+    return {
+      platformKey: 'x',
+      chipLabel: 'X Post',
+      iconSvg: getSourceLinkPlatformIconSvg('x', 18),
+      title: 'X / Social Post Detected',
+      badgeLabel: 'X Post',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What point or debate in this X post stood out to you, and where do you stand?'
+    };
+  }
+  if (lower.includes('linkedin.com')) {
+    return {
+      platformKey: 'linkedin',
+      chipLabel: 'LinkedIn',
+      iconSvg: getSourceLinkPlatformIconSvg('linkedin', 18),
+      title: 'LinkedIn Post / Article Detected',
+      badgeLabel: 'LinkedIn',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What insight or debate in this LinkedIn post stood out to you, and what is your conviction?'
+    };
+  }
+  if (lower.includes('reddit.com') || lower.includes('redd.it')) {
+    return {
+      platformKey: 'reddit',
+      chipLabel: 'Reddit',
+      iconSvg: getSourceLinkPlatformIconSvg('reddit', 18),
+      title: 'Reddit Thread Detected',
+      badgeLabel: 'Reddit',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'What observation in this thread caught your attention, and what is your perspective?'
+    };
+  }
+  if (lower.includes('spotify.com') || lower.includes('podcasts.apple.com') || lower.includes('soundcloud.com')) {
+    return {
+      platformKey: 'podcast',
+      chipLabel: 'Podcast',
+      iconSvg: getSourceLinkPlatformIconSvg('podcast', 18),
+      title: 'Podcast / Audio Source Detected',
+      badgeLabel: 'Podcast',
+      subtleHint: defaultHint,
+      perspectivePlaceholder: 'Which insight from this episode stood out, why does it matter, and what is your conviction?'
+    };
+  }
+  return {
+    platformKey: 'web',
+    chipLabel: 'Web Link',
+    iconSvg: getSourceLinkPlatformIconSvg('web', 18),
+    title: 'Web Article / Report Detected',
+    badgeLabel: 'Web Article',
+    subtleHint: defaultHint,
+    perspectivePlaceholder: 'What caught your attention in this article, why does it matter beneath the surface, and what is your conviction?'
+  };
+}
+
+const SLANT_SPARK_TYPES = {
+  web: {
+    id: 'web',
+    sourceMode: 'digital_link',
+    inputType: 'url',
+    required: true,
+    icon: '🌐',
+    title: 'Web Link (Web, YouTube, Instagram, X, Substack)',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
+    perspectivePlaceholder: 'What caught your attention in this source, why does it matter beneath the surface, and what is your conviction?'
+  },
+  youtube: {
+    id: 'web',
+    sourceMode: 'video_audio',
+    inputType: 'url',
+    required: true,
+    icon: '▶️',
+    title: 'YouTube / Video Source Detected',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
+    perspectivePlaceholder: 'Which moment or quote in this video stood out, why does it matter, and what is your takeaway?'
+  },
+  substack: {
+    id: 'web',
+    sourceMode: 'digital_link',
+    inputType: 'url',
+    required: true,
+    icon: '🧡',
+    title: 'Substack Essay Detected',
+    subtleHint: 'Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.',
+    inputPlaceholder: 'https://... (Paste article, YouTube, Substack, X, or Instagram link)',
+    perspectivePlaceholder: 'What idea from this Substack essay sparked your reaction, where do you agree or push back, and what is your conviction?'
+  },
+  book: {
+    id: 'book',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: true,
+    icon: '📖',
+    title: 'Which Book or Author?',
+    subtleHint: 'Mention the book title, author, or chapter that sparked your reflection.',
+    inputPlaceholder: 'e.g. The Almanack of Naval Ravikant — Chapter on Judgment',
+    perspectivePlaceholder: 'Which passage or idea from this book hit you, how does it connect to real life, and what conviction does it leave you with?'
+  },
+  moment: {
+    id: 'moment',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '👁️',
+    title: 'What Was the Observation?',
+    subtleHint: 'Briefly name what you observed or noticed — or leave blank if you already wrote it in your perspective above.',
+    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
+    perspectivePlaceholder: 'Paint what you observed, explain why it stayed with you, and share the deeper truth it revealed...'
+  },
+  experience: {
+    id: 'experience',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '🧭',
+    title: 'What Experience Sparked This?',
+    subtleHint: 'Give a short label for your experience — or leave blank if you already described it above.',
+    inputPlaceholder: 'e.g. Building apps late through the night, or a parent-teacher meeting...',
+    perspectivePlaceholder: 'Share what you lived through, what shifted inside you because of this experience, and the life or principle you stand by now...'
+  },
+  free_slant: {
+    id: 'moment',
+    sourceMode: 'inner_voice',
+    inputType: 'text',
+    required: false,
+    icon: '👁️',
+    title: 'What Was the Observation?',
+    subtleHint: 'Briefly name what you observed or noticed — or leave blank if you already wrote it in your perspective above.',
+    inputPlaceholder: 'e.g. Waiting at a traffic signal in Bengaluru, or a quiet evening conversation...',
+    perspectivePlaceholder: 'Paint what you observed, explain why it stayed with you, and share the deeper truth it revealed...'
+  }
+};
+
+function syncSlantSparkTypeUI(sparkId = activeSlantSparkType) {
+  if (typeof clearCreatorPromptReadyGlow === 'function') {
+    clearCreatorPromptReadyGlow();
+  }
+  const normalizedId = (sparkId === 'free_slant') ? 'moment' : sparkId;
+  const cfg = SLANT_SPARK_TYPES[normalizedId] || SLANT_SPARK_TYPES.web;
+  activeSlantSparkType = cfg.id;
+
+  document.querySelectorAll('.spark-icon-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-spark') === cfg.id);
+  });
+
+  const sparkIconsSec = document.getElementById('slantSparkIconsSection');
+  const secLink = document.getElementById('triggerWebSection');
+  if (isDailyChronicleMode) {
+    if (sparkIconsSec) sparkIconsSec.style.display = 'none';
+    if (secLink) secLink.style.display = 'none';
+    return;
+  }
+
+  if (sparkIconsSec) sparkIconsSec.style.display = 'flex';
+  if (secLink) secLink.style.display = 'flex';
 
   const linkIcon = document.getElementById('triggerLinkIcon');
   const linkTitle = document.getElementById('triggerLinkTitle');
-  const linkSub = document.getElementById('triggerLinkSub');
+  const linkBadge = document.getElementById('triggerLinkBadge');
+  const subtleHint = document.getElementById('sparkFieldSubtleHint');
   const urlInput = document.getElementById('creatorUrlInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const urlIndicator = document.getElementById('urlScrapeIndicator');
+  const ledgerCard = document.getElementById('sourceLedgerCard');
+  const webChipSvgWrap = document.getElementById('sparkWebChipSvgWrap');
+  const webChipText = document.getElementById('sparkWebChipText');
 
-  const label = document.getElementById('slantTakeLabel');
-  const badge = document.getElementById('slantTakeBadge');
-  const sub = document.getElementById('slantTakeSubtitle');
-  const input = document.getElementById('creatorSlantTakeInput');
-  const heroIcon = document.getElementById('slantHeroIcon');
-  const heroBox = document.getElementById('slantIconBox');
-  const webIconCircle = document.getElementById('anchorWebIconCircle');
-
-  if (badge) {
-    badge.textContent = 'Required';
-    badge.className = 'creator-tag-badge badge-required';
+  const currentUrlVal = urlInput ? (urlInput.value || '').trim() : '';
+  const detectedForChip = detectSourceLinkPlatform(currentUrlVal);
+  if (webChipSvgWrap && detectedForChip) {
+    webChipSvgWrap.innerHTML = detectedForChip.iconSvg;
+  }
+  if (webChipText && detectedForChip) {
+    webChipText.textContent = detectedForChip.chipLabel || 'Web Link';
   }
 
-  if (isVideo) {
-    if (webIconCircle) webIconCircle.textContent = '🎬';
-    if (mentalPill) {
-      mentalPill.textContent = 'Perspective • Video / Audio';
-      mentalPill.style.background = '#FFFFFF';
-      mentalPill.style.color = '#253833';
-    }
-    if (mentalText) mentalText.textContent = '"I watched or listened to something that sparked a reaction."';
-    if (mentalBadge) mentalBadge.style.color = '#37534C';
-    if (mentalCard) {
-      mentalCard.style.background = '#F2F6F4';
-      mentalCard.style.borderColor = '#C8D9D3';
-    }
+  const detectedPlatform = (cfg.inputType === 'url') ? detectedForChip : null;
 
-    if (linkIcon) linkIcon.textContent = '🎬';
-    if (linkTitle) linkTitle.textContent = 'Video / Audio Link';
-    if (linkSub) linkSub.textContent = 'YouTube, Podcast Timestamps';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste YouTube or podcast link (https://...)';
+  if (linkIcon) {
+    if (detectedPlatform && detectedPlatform.iconSvg) {
+      linkIcon.innerHTML = detectedPlatform.iconSvg;
+    } else {
+      linkIcon.textContent = cfg.icon;
+    }
+  }
+  if (linkTitle) linkTitle.textContent = detectedPlatform ? detectedPlatform.title : cfg.title;
+  if (subtleHint) subtleHint.textContent = detectedPlatform ? detectedPlatform.subtleHint : cfg.subtleHint;
 
-    if (label) label.textContent = 'Your Perspective';
-    if (sub) sub.textContent = 'Frame your angle, counter-slant, or reaction to what you watched or listened to.';
-    if (input && !input.value) input.placeholder = 'Write your perspective or reaction here...';
-    if (heroIcon) heroIcon.textContent = '🎬';
-    if (heroBox) heroBox.style.color = '#253833';
+  if (linkBadge) {
+    linkBadge.style.display = 'inline-block';
+    if (detectedPlatform && currentUrlVal) {
+      linkBadge.textContent = detectedPlatform.badgeLabel;
+      linkBadge.className = 'creator-tag-badge badge-required';
+    } else {
+      linkBadge.textContent = cfg.required ? 'Required' : 'Optional';
+      linkBadge.className = cfg.required ? 'creator-tag-badge badge-required' : 'creator-tag-badge badge-optional';
+    }
+  }
+
+  if (cfg.inputType === 'url') {
+    if (urlInput) {
+      urlInput.style.display = 'block';
+      urlInput.placeholder = cfg.inputPlaceholder;
+    }
+    if (!currentUrlVal) {
+      if (urlIndicator) {
+        urlIndicator.style.display = 'none';
+        urlIndicator.innerHTML = '';
+      }
+      if (ledgerCard) {
+        ledgerCard.style.display = 'none';
+        ledgerCard.innerHTML = '';
+      }
+    }
+    if (sparkInput) {
+      sparkInput.style.display = 'none';
+    }
   } else {
-    if (webIconCircle) webIconCircle.textContent = '🌐';
-    if (mentalPill) {
-      mentalPill.textContent = 'Perspective • Web Link';
-      mentalPill.style.background = '#FFFFFF';
-      mentalPill.style.color = '#253833';
+    if (urlInput) {
+      urlInput.style.display = 'none';
     }
-    if (mentalText) mentalText.textContent = '"I found an article, video, or podcast and have a perspective on it."';
-    if (mentalBadge) mentalBadge.style.color = '#37534C';
-    if (mentalCard) {
-      mentalCard.style.background = '#F2F6F4';
-      mentalCard.style.borderColor = '#C8D9D3';
+    if (urlIndicator) urlIndicator.style.display = 'none';
+    if (ledgerCard) ledgerCard.style.display = 'none';
+    if (sparkInput) {
+      sparkInput.style.display = 'block';
+      sparkInput.placeholder = cfg.inputPlaceholder;
     }
-
-    if (linkIcon) linkIcon.textContent = '🔗';
-    if (linkTitle) linkTitle.textContent = 'Source Link';
-    if (linkSub) linkSub.textContent = 'Articles, Videos, Podcasts, Newsletters';
-    if (urlInput && !urlInput.value) urlInput.placeholder = 'Paste article, YouTube, or podcast URL (https://...)';
-
-    if (label) label.textContent = 'Your Perspective';
-    if (sub) sub.textContent = 'A few sentences framing your angle, critique, or why this story matters.';
-    if (input && !input.value) input.placeholder = 'Write your perspective or take on this link...';
-    if (heroIcon) heroIcon.textContent = '📰';
-    if (heroBox) heroBox.style.color = '#253833';
   }
+
+  if (slantInput) {
+    slantInput.placeholder = detectedPlatform ? detectedPlatform.perspectivePlaceholder : cfg.perspectivePlaceholder;
+  }
+}
+
+function selectSlantSparkType(sparkId) {
+  const normalizedId = (sparkId === 'youtube' || sparkId === 'substack') ? 'web' : sparkId;
+  const cfg = SLANT_SPARK_TYPES[normalizedId] || SLANT_SPARK_TYPES.web;
+  activeSlantSparkType = cfg.id;
+  setAnchorMode(cfg.sourceMode, cfg.id);
+}
+window.selectSlantSparkType = selectSlantSparkType;
+window.syncSlantSparkTypeUI = syncSlantSparkTypeUI;
+
+function updateWebLinkSubmode(isVideo) {
+  if (isDailyChronicleMode) return;
+  activeSlantSparkType = 'web';
+  creatorSelectedSource = isVideo ? 'video_audio' : 'digital_link';
+  syncSlantSparkTypeUI('web');
 }
 
 window.lastPerspectiveSparkMode = 'digital_link';
 
-function setAnchorMode(mode) {
+function setAnchorMode(mode, explicitSparkType = null) {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
@@ -18557,6 +27705,19 @@ function setAnchorMode(mode) {
   if (!isDiaryCategory) {
     window.lastPerspectiveSparkMode = (normalizedSource === 'inner_voice') ? 'inner_voice' : 'digital_link';
   }
+
+  if (explicitSparkType && SLANT_SPARK_TYPES[explicitSparkType]) {
+    activeSlantSparkType = explicitSparkType;
+  } else if (!isDiaryCategory) {
+    if (normalizedSource === 'video_audio') {
+      activeSlantSparkType = 'youtube';
+    } else if (normalizedSource === 'digital_link' && !['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
+      activeSlantSparkType = 'web';
+    } else if (normalizedSource === 'inner_voice' && ['web', 'youtube', 'substack'].includes(activeSlantSparkType)) {
+      activeSlantSparkType = 'moment';
+    }
+  }
+
   const isSwitchingFamily = (creatorSelectedSource === 'inner_voice' && normalizedSource !== 'inner_voice') ||
                             (creatorSelectedSource !== 'inner_voice' && normalizedSource === 'inner_voice');
   if (isSwitchingFamily) {
@@ -18579,127 +27740,32 @@ function setAnchorMode(mode) {
   }
   creatorSelectedSource = normalizedSource;
   isDailyChronicleMode = isDiaryCategory;
+  if (isDiaryCategory && typeof hasSeenDiaryWelcomeBriefing === 'function' && !hasSeenDiaryWelcomeBriefing()) {
+    openDiaryWelcomeBriefingModal(true);
+  }
   if (typeof updateCreatorStudioCreditBadge === 'function') {
     updateCreatorStudioCreditBadge();
   }
 
-  // 1. Highlight selected top-level pillar card (Perspective vs Diary Chronicle)
-  document.querySelectorAll('.anchor-card').forEach(card => {
-    const cardMode = card.getAttribute('data-mode');
-    let isActive = false;
-    if (isDiaryCategory) {
-      isActive = (cardMode === 'diary_chronicle');
-    } else if (cardMode === 'perspective') {
-      isActive = true;
-    } else if (normalizedSource === 'inner_voice') {
-      isActive = (cardMode === 'inner_voice');
-    } else {
-      isActive = (cardMode === effectiveMode) || ((effectiveMode === 'video_audio' || effectiveMode === 'digital_link') && cardMode === 'digital_link');
-    }
-    card.classList.toggle('active', isActive);
-  });
-
-  // 1b. Sync Perspective Spark Source switcher (Web Link vs Inner Voice)
-  const sparkToggleBar = document.getElementById('perspectiveSparkToggleBar');
-  const sparkWebBtn = document.getElementById('perspectiveSparkWebBtn');
-  const sparkVoiceBtn = document.getElementById('perspectiveSparkVoiceBtn');
-  const webIconCircle = document.getElementById('anchorWebIconCircle');
-  const webSub = document.getElementById('anchorWebSub');
-
-  if (sparkToggleBar) {
-    sparkToggleBar.style.display = isDiaryCategory ? 'none' : 'flex';
-  }
-  if (!isDiaryCategory) {
-    const isVoiceSpark = (normalizedSource === 'inner_voice');
-    if (sparkWebBtn) sparkWebBtn.classList.toggle('active', !isVoiceSpark);
-    if (sparkVoiceBtn) sparkVoiceBtn.classList.toggle('active', isVoiceSpark);
-    if (webIconCircle) webIconCircle.textContent = isVoiceSpark ? '💭' : '🌐';
-    if (webSub) webSub.textContent = isVoiceSpark ? 'Spark: 💭 Inner Voice' : 'Spark: 🌐 Web Link';
-  } else {
-    if (webSub) webSub.textContent = 'Web Link • Inner Voice';
+  const modalTitle = document.getElementById('creatorModalTitle');
+  if (modalTitle) {
+    modalTitle.textContent = isDiaryCategory ? 'Pen Daily Chronicle' : 'Create New Slant';
   }
 
-  // 2. Toggle trigger sections
-  const secLink = document.getElementById('triggerWebSection');
-  const secVoice = document.getElementById('triggerVoiceSection');
-  const linkBadge = document.getElementById('triggerLinkBadge');
+  const allowCommentsRow1 = document.getElementById('creatorAllowCommentsRow');
+  const allowCommentsRow3 = document.getElementById('step3AllowCommentsRow');
+  if (allowCommentsRow1) allowCommentsRow1.style.display = 'none';
+  if (allowCommentsRow3) allowCommentsRow3.style.display = isDiaryCategory ? 'none' : 'flex';
+  const seriesRow1 = document.getElementById('creatorSeriesRow');
+  const seriesRow3 = document.getElementById('step3SeriesRow');
+  if (seriesRow1) seriesRow1.style.display = isDiaryCategory ? 'none' : 'flex';
+  if (seriesRow3) seriesRow3.style.display = isDiaryCategory ? 'none' : 'flex';
 
-  if (normalizedSource === 'inner_voice') {
-    renderSourceLedger(null);
-    if (secLink) secLink.style.display = 'none';
-    if (secVoice) secVoice.style.display = 'flex';
-    if (linkBadge) linkBadge.style.display = 'none';
+  syncInnerVoiceSubmodeUI();
+  syncSlantSparkTypeUI(activeSlantSparkType);
 
-    // Mental Model Banner
-    const mentalPill = document.getElementById('anchorMentalModelPill');
-    const mentalText = document.getElementById('anchorMentalModelText');
-    const mentalBadge = document.getElementById('anchorMentalModelBadge');
-    const mentalCard = document.getElementById('anchorMentalModelCard');
-    if (isDiaryCategory) {
-      if (mentalPill) {
-        mentalPill.textContent = 'Diary Chronicle';
-        mentalPill.style.background = '#FFFFFF';
-        mentalPill.style.color = '#253833';
-      }
-      if (mentalText) mentalText.textContent = '"Personal Diary Chronicle — strictly for you and will never go to people\'s feed."';
-      if (mentalBadge) mentalBadge.style.color = '#37534C';
-      if (mentalCard) {
-        mentalCard.style.background = '#F2F6F4';
-        mentalCard.style.borderColor = '#C8D9D3';
-      }
-    } else {
-      if (mentalPill) {
-        mentalPill.textContent = 'Perspective • Inner Voice';
-        mentalPill.style.background = '#FFFFFF';
-        mentalPill.style.color = '#253833';
-      }
-      if (mentalText) mentalText.textContent = '"This came from my own head/life; no link needed."';
-      if (mentalBadge) mentalBadge.style.color = '#37534C';
-      if (mentalCard) {
-        mentalCard.style.background = '#F2F6F4';
-        mentalCard.style.borderColor = '#C8D9D3';
-      }
-    }
-
-    // Hero Prompts
-    const label = document.getElementById('slantTakeLabel');
-    const badge = document.getElementById('slantTakeBadge');
-    const sub = document.getElementById('slantTakeSubtitle');
-    const input = document.getElementById('creatorSlantTakeInput');
-    const heroIcon = document.getElementById('slantHeroIcon');
-    const heroBox = document.getElementById('slantIconBox');
-    if (label) label.textContent = 'Your Perspective';
-    if (badge) {
-      badge.textContent = 'Required';
-      badge.className = 'creator-tag-badge badge-required';
-    }
-    if (sub) sub.textContent = 'Express your conviction or reflection freely. AI frames 100% of your voice into your 3-poster story.';
-    if (input) input.placeholder = 'Write your perspective or reflection here...';
-    if (heroIcon) heroIcon.textContent = '💭';
-    if (heroBox) heroBox.style.color = '#253833';
-    syncInnerVoiceSubmodeUI();
-  } else {
-    syncInnerVoiceSubmodeUI();
-    // Both video_audio and digital_link use Web Link input
-    if (secLink) secLink.style.display = 'flex';
-    if (secVoice) secVoice.style.display = 'none';
-    if (linkBadge) {
-      linkBadge.style.display = 'inline-block';
-      linkBadge.textContent = 'Required';
-      linkBadge.className = 'creator-tag-badge badge-required';
-    }
-
-    const urlInput = document.getElementById('creatorUrlInput');
-    const currentVal = urlInput ? urlInput.value.trim() : '';
-    const isVideo = (effectiveMode === 'video_audio') || isVideoAudioUrl(currentVal) || (currentScrapedArticle && currentScrapedArticle.isVideo);
-    updateWebLinkSubmode(isVideo);
-  }
-
-  const creatorModal = document.getElementById('creatorModal');
-  if (creatorModal && creatorModal.classList.contains('open') && typeof slideAndGlowCreatorPromptField === 'function') {
-    setTimeout(() => {
-      slideAndGlowCreatorPromptField(effectiveMode);
-    }, 40);
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
   }
 }
 
@@ -18785,48 +27851,500 @@ function removeSelectedImage(event) {
   if (previewBox) previewBox.style.display = 'none';
 }
 
+window._attachedScenePhotos = [];
+
+function getActiveCollageTotalPhotoCount() {
+  const isWebCollageOpen = Boolean(
+    window._selectedPosterVisualMode === 'web_collage' ||
+    (window._webCollageState && window._webCollageState.isOpen)
+  );
+  if (isWebCollageOpen && window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    return window._webCollageState.selectedItems.length;
+  }
+  return Array.isArray(window._attachedScenePhotos) ? window._attachedScenePhotos.length : 0;
+}
+
 function triggerInnerVoiceCamera() {
+  if (getActiveCollageTotalPhotoCount() >= 3) {
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+    return;
+  }
   const cam = document.getElementById('innerVoiceCameraInput');
   if (cam) cam.click();
 }
 
 function triggerInnerVoiceUpload() {
+  if (getActiveCollageTotalPhotoCount() >= 3) {
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+    return;
+  }
   const file = document.getElementById('innerVoiceFileInput');
   if (file) file.click();
 }
 
-function handleInnerVoicePhotoSelect(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) return;
+async function compositeStarredScenePhotosToDataUrl(photosList, commitExport = true) {
+  const validPhotos = (photosList || []).filter(p => p && p.base64);
+  const previewCanvas = document.getElementById('attachedScenePreviewCanvas');
+  if (previewCanvas) {
+    ensureInteractiveCollageCanvasBound(previewCanvas, 'attached');
+  }
+  if (validPhotos.length === 0) {
+    if (previewCanvas) {
+      previewCanvas._collageCellBoxes = [];
+      previewCanvas._collageDividers = [];
+    }
+    updateCollageCompositionToggleUI('attached');
+    return null;
+  }
 
-  compressImage(file, 1200, 0.82, function(base64Data, mimeType) {
-    innerVoicePhotoBase64 = base64Data;
-    innerVoicePhotoMimeType = mimeType || 'image/jpeg';
+  const isEqualAttached = Boolean(window._attachedNoHeroEqual);
+  validPhotos.forEach((p, idx) => {
+    p.isStarred = !isEqualAttached && (idx === 0);
+  });
+  const ordered = validPhotos.slice(0, 3);
 
-    if (!creatorReferenceImageBase64 || creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
-      creatorReferenceImageBase64 = base64Data;
-      creatorReferenceImageMimeType = mimeType || 'image/jpeg';
-      creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
-      creatorCharacterRepresentation = 'cinematic';
+  const canvas = previewCanvas || document.createElement('canvas');
+  const W = canvas.width || 800;
+  const H = canvas.height || 1000;
+  if (!previewCanvas) {
+    canvas.width = W;
+    canvas.height = H;
+  }
+  const ctx = canvas.getContext('2d');
+
+  const loadedImgs = await Promise.all(ordered.map(p => new Promise((resolve) => {
+    if (p._cachedImg && p._cachedImg.complete && p._cachedImg.naturalWidth > 0) {
+      resolve({ img: p._cachedImg, meta: p });
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      p._cachedImg = img;
+      resolve({ img, meta: p });
+    };
+    img.onerror = () => resolve(null);
+    img.src = p.base64;
+  })));
+  const valid = loadedImgs.filter(Boolean);
+  if (valid.length === 0) return null;
+
+  // Smart auto-detection for tall/portrait Hero #1 unless user manually clicked Wide / Tall toggle
+  if (valid.length >= 2 && !window._attachedCollageCompositionManual && valid[0].img) {
+    const heroImg = valid[0].img;
+    window._attachedCollageComposition = (heroImg.height > heroImg.width * 1.06) ? 'tall' : 'wide';
+  }
+  updateCollageCompositionToggleUI('attached');
+  const isTallHero = window._attachedCollageComposition === 'tall';
+  const isEqualSplit = Boolean(window._attachedNoHeroEqual);
+  const splits = window._collageCustomSplits || {};
+
+  ctx.clearRect(0, 0, W, H);
+  // Clean Edge-to-Edge Split Collage (Supports Wide Top Hero, Tall Left Hero, Equal Prominence & Slidable Borders)
+  ctx.fillStyle = '#18181B';
+  ctx.fillRect(0, 0, W, H);
+
+  const div = 6;
+  const cellBoxes = [];
+  const dividers = [];
+
+  if (valid.length === 1) {
+    cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, H, 0, valid[0].meta));
+  } else if (valid.length === 2) {
+    const defaultMain = isEqualSplit ? 0.50 : (isTallHero ? 0.58 : 0.60);
+    const mainRatio = typeof splits.main === 'number' ? splits.main : defaultMain;
+    if (isTallHero) {
+      const leftW = Math.round((W - div) * mainRatio);
+      const rightW = W - div - leftW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, H, 0, valid[1].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+    } else {
+      const topH = Math.round((H - div) * mainRatio);
+      const botH = H - div - topH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, W, botH, 0, valid[1].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+    }
+  } else {
+    if (isEqualSplit) {
+      const r1 = typeof splits.eq1 === 'number' ? splits.eq1 : (1 / 3);
+      const r2 = typeof splits.eq2 === 'number' ? splits.eq2 : (2 / 3);
+      if (isTallHero) {
+        const availW = W - div * 2;
+        const col1W = Math.round(availW * r1);
+        const col2W = Math.round(availW * (r2 - r1));
+        const col3W = availW - col1W - col2W;
+        const div1X = col1W;
+        const div2X = col1W + div + col2W;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, col1W, H, 0, valid[0].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, div1X + div, 0, col2W, H, 0, valid[1].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, div2X + div, 0, col3W, H, 0, valid[2].meta));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(div1X, 0, div, H);
+        ctx.fillRect(div2X, 0, div, H);
+        dividers.push({ id: 'eq1', orientation: 'v', pos: div1X + div / 2, start: 0, end: H });
+        dividers.push({ id: 'eq2', orientation: 'v', pos: div2X + div / 2, start: 0, end: H });
+      } else {
+        const availH = H - div * 2;
+        const band1H = Math.round(availH * r1);
+        const band2H = Math.round(availH * (r2 - r1));
+        const band3H = availH - band1H - band2H;
+        const div1Y = band1H;
+        const div2Y = band1H + div + band2H;
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, band1H, 0, valid[0].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, div1Y + div, W, band2H, 0, valid[1].meta));
+        cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, 0, div2Y + div, W, band3H, 0, valid[2].meta));
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, div1Y, W, div);
+        ctx.fillRect(0, div2Y, W, div);
+        dividers.push({ id: 'eq1', orientation: 'h', pos: div1Y + div / 2, start: 0, end: W });
+        dividers.push({ id: 'eq2', orientation: 'h', pos: div2Y + div / 2, start: 0, end: W });
+      }
+    } else if (isTallHero) {
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const leftW = Math.round((W - div) * mainRatio);
+      const rightW = W - div - leftW;
+      const topRightH = Math.round((H - div) * subRatio);
+      const botRightH = H - div - topRightH;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, leftW, H, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, leftW + div, 0, rightW, topRightH, 0, valid[1].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, leftW + div, topRightH + div, rightW, botRightH, 0, valid[2].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(leftW, 0, div, H);
+      ctx.fillRect(leftW + div, topRightH, rightW, div);
+      dividers.push({ id: 'main', orientation: 'v', pos: leftW + div / 2, start: 0, end: H });
+      dividers.push({ id: 'sub', orientation: 'h', pos: topRightH + div / 2, start: leftW + div, end: W });
+    } else {
+      const mainRatio = typeof splits.main === 'number' ? splits.main : 0.58;
+      const subRatio = typeof splits.sub === 'number' ? splits.sub : 0.50;
+      const topH = Math.round((H - div) * mainRatio);
+      const botH = H - div - topH;
+      const halfW = Math.round((W - div) * subRatio);
+      const rightW = W - div - halfW;
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[0].img, 0, 0, W, topH, 0, valid[0].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[1].img, 0, topH + div, halfW, botH, 0, valid[1].meta));
+      cellBoxes.push(drawCoverImageOnCanvas(ctx, valid[2].img, halfW + div, topH + div, rightW, botH, 0, valid[2].meta));
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, topH, W, div);
+      ctx.fillRect(halfW, topH + div, div, botH);
+      dividers.push({ id: 'main', orientation: 'h', pos: topH + div / 2, start: 0, end: W });
+      dividers.push({ id: 'sub', orientation: 'v', pos: halfW + div / 2, start: topH + div, end: H });
+    }
+  }
+
+  canvas._collageCellBoxes = cellBoxes.filter(Boolean);
+  canvas._collageDividers = dividers;
+
+  if (!commitExport && window._lastAttachedCollageDataUrl) {
+    drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
+    return window._lastAttachedCollageDataUrl;
+  }
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.90);
+  drawInteractiveCollageDividerHandles(ctx, dividers, canvas._activeDividerId);
+  window._lastAttachedCollageDataUrl = dataUrl;
+  return dataUrl;
+}
+
+function renderAttachedScenePhotosUI() {
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const photos = window._attachedScenePhotos;
+  const count = photos.length;
+
+  const countBadge = document.getElementById('attachedSceneCountBadge');
+  if (countBadge) {
+    countBadge.textContent = `${count} / 3 Photos`;
+  }
+
+  const snapBtn = document.getElementById('attachedSnapSceneBtn');
+  const uploadBtn = document.getElementById('attachedUploadPhotoBtn');
+  const snapLabel = document.getElementById('attachedSnapBtnLabel');
+  const uploadLabel = document.getElementById('attachedUploadBtnLabel');
+  const emptyBox = document.getElementById('innerVoicePhotoEmpty');
+  const previewBox = document.getElementById('innerVoicePhotoPreview');
+  const canvasWrap = document.getElementById('attachedSceneCanvasPreviewWrap');
+  const gridEl = document.getElementById('attachedScenePhotosGrid');
+
+  if (emptyBox) {
+    emptyBox.style.display = 'grid';
+  }
+  if (snapLabel) {
+    snapLabel.textContent = 'Snap Scene';
+  }
+  if (uploadLabel) {
+    uploadLabel.textContent = count > 0 ? `Upload (${count}/3)` : 'Upload Photos';
+  }
+  if (snapBtn) {
+    snapBtn.disabled = false;
+    snapBtn.style.opacity = count >= 3 ? '0.55' : '1';
+  }
+  if (uploadBtn) {
+    uploadBtn.disabled = false;
+    uploadBtn.style.opacity = count >= 3 ? '0.55' : '1';
+  }
+
+  if (previewBox) {
+    previewBox.style.display = count > 0 ? 'flex' : 'none';
+  }
+  if (canvasWrap) {
+    canvasWrap.style.display = count > 0 ? 'flex' : 'none';
+  }
+
+  if (gridEl) {
+    if (count === 0) {
+      gridEl.innerHTML = '';
+    } else {
+      const isEqualAttached = Boolean(window._attachedNoHeroEqual);
+      gridEl.innerHTML = photos.map((p, idx) => {
+        const isStar = !isEqualAttached && Boolean(p.isStarred);
+        const canLeft = idx > 0;
+        const canRight = idx < count - 1;
+        return `
+          <div style="position: relative; border-radius: 9px; overflow: hidden; border: ${isStar ? '2px solid #D97706' : '1.5px solid rgba(148,163,184,0.4)'}; background: #F8FAFC; aspect-ratio: 4 / 3; box-shadow: ${isStar ? '0 3px 10px rgba(217,119,6,0.2)' : 'none'};">
+            <img src="${p.base64}" alt="Photo ${idx + 1}" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Tap to mark as #1 Hero'}">
+            <button type="button" onclick="setStarredAttachedScenePhoto(${idx}, event)" style="position: absolute; top: 4px; left: 4px; padding: 2px 6px; border-radius: 99px; border: 1px solid ${isStar ? '#F59E0B' : 'rgba(255,255,255,0.65)'}; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.72)'}; color: ${isStar ? '#B45309' : '#FFFFFF'}; font-size: 9px; font-weight: 800; cursor: pointer; line-height: 1.2; box-shadow: 0 2px 5px rgba(0,0,0,0.2);" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
+              ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
+            </button>
+            <button type="button" onclick="removeAttachedScenePhotoAtIndex(${idx}, event)" style="position: absolute; top: 4px; right: 4px; width: 19px; height: 19px; border-radius: 50%; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; font-size: 10.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;" title="Remove photo">✕</button>
+            ${count > 1 ? `
+              <div style="position: absolute; bottom: 4px; left: 4px; right: 4px; display: flex; justify-content: space-between; pointer-events: none;">
+                <button type="button" onclick="moveAttachedScenePhoto(${idx}, -1, event)" ${!canLeft ? 'disabled' : ''} style="pointer-events: auto; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; width: 20px; height: 18px; border-radius: 5px; font-size: 9.5px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.25'}; line-height: 1;" title="Move slot left">◀</button>
+                <button type="button" onclick="moveAttachedScenePhoto(${idx}, 1, event)" ${!canRight ? 'disabled' : ''} style="pointer-events: auto; border: none; background: rgba(15,23,42,0.75); color: #FFFFFF; width: 20px; height: 18px; border-radius: 5px; font-size: 9.5px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.25'}; line-height: 1;" title="Move slot right">▶</button>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+window.renderAttachedScenePhotosUI = renderAttachedScenePhotosUI;
+
+async function syncAttachedScenePhotosCollage(silent = false, commitExport = true) {
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const photos = window._attachedScenePhotos;
+  const isEqualAttached = Boolean(window._attachedNoHeroEqual);
+  photos.forEach((p, idx) => {
+    p.isStarred = !isEqualAttached && (idx === 0);
+  });
+
+  if (photos.length === 0) {
+    innerVoicePhotoBase64 = null;
+    innerVoicePhotoMimeType = 'image/jpeg';
+    window._lastAttachedCollageDataUrl = null;
+    const thumb = document.getElementById('innerVoicePhotoThumb');
+    if (thumb) thumb.src = '';
+    if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
+      creatorReferenceImageBase64 = null;
+      creatorReferenceImageSourceLabel = null;
       updateReferencePhotoUI();
     }
+    renderAttachedScenePhotosUI();
+  } else {
+    if (!silent) {
+      renderAttachedScenePhotosUI();
+    }
+    const compositedDataUrl = await compositeStarredScenePhotosToDataUrl(photos, commitExport);
+    if (compositedDataUrl && commitExport) {
+      innerVoicePhotoBase64 = compositedDataUrl;
+      innerVoicePhotoMimeType = 'image/jpeg';
+      window._isWebCollageAttached = false;
+      window._selectedPosterVisualMode = 'original_photo';
+      creatorReferenceImageBase64 = compositedDataUrl;
+      creatorReferenceImageMimeType = 'image/jpeg';
+      creatorReferenceImageSourceLabel = 'Catalyst Scene Photo';
+      creatorCharacterRepresentation = 'exact';
+      updateReferencePhotoUI();
+      const thumb = document.getElementById('innerVoicePhotoThumb');
+      if (thumb) thumb.src = compositedDataUrl;
+    }
+    if (silent && commitExport) {
+      renderAttachedScenePhotosUI();
+    }
+  }
 
-    const thumb = document.getElementById('innerVoicePhotoThumb');
-    if (thumb) thumb.src = base64Data;
-    const preview = document.getElementById('innerVoicePhotoPreview');
-    if (preview) preview.style.display = 'flex';
-    const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-    if (emptyBox) emptyBox.style.display = 'none';
+  if (commitExport) {
     if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
       evaluateSmartRegenScopeAutoSwitch();
     }
+    if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+      updateUnifiedPosterVisualStripUI();
+    }
+  }
+}
+window.syncAttachedScenePhotosCollage = syncAttachedScenePhotosCollage;
+
+async function setStarredAttachedScenePhoto(idx, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos) || !window._attachedScenePhotos[idx]) return;
+  const target = window._attachedScenePhotos[idx];
+  if (target.isStarred && window._attachedScenePhotos.length > 1) {
+    // Tapping an already-starred ★ Hero removes the Hero mark -> Equal Prominence!
+    window._attachedNoHeroEqual = true;
+    if (window._webCollageState) window._webCollageState.noHeroEqual = true;
+    window._attachedScenePhotos.forEach((p) => {
+      p.isStarred = false;
+    });
+  } else {
+    window._attachedNoHeroEqual = false;
+    if (window._webCollageState) window._webCollageState.noHeroEqual = false;
+    if (idx > 0) {
+      const [picked] = window._attachedScenePhotos.splice(idx, 1);
+      window._attachedScenePhotos.unshift(picked);
+    }
+    window._attachedScenePhotos.forEach((p, i) => {
+      p.isStarred = (i === 0);
+    });
+    window._attachedActiveSlotIndex = 0;
+  }
+  resetCollageCustomSplits();
+  await syncAttachedScenePhotosCollage(false, true);
+}
+window.setStarredAttachedScenePhoto = setStarredAttachedScenePhoto;
+
+async function moveAttachedScenePhoto(idx, delta, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos)) return;
+  const targetIdx = idx + delta;
+  if (targetIdx < 0 || targetIdx >= window._attachedScenePhotos.length) return;
+  const isEqualAttached = Boolean(window._attachedNoHeroEqual);
+  const temp = window._attachedScenePhotos[idx];
+  window._attachedScenePhotos[idx] = window._attachedScenePhotos[targetIdx];
+  window._attachedScenePhotos[targetIdx] = temp;
+  window._attachedScenePhotos.forEach((p, i) => {
+    p.isStarred = !isEqualAttached && (i === 0);
+  });
+  window._attachedActiveSlotIndex = targetIdx;
+  await syncAttachedScenePhotosCollage(false, true);
+}
+window.moveAttachedScenePhoto = moveAttachedScenePhoto;
+
+async function removeAttachedScenePhotoAtIndex(idx, event) {
+  if (event) event.stopPropagation();
+  if (!Array.isArray(window._attachedScenePhotos)) return;
+  const [removed] = window._attachedScenePhotos.splice(idx, 1);
+  if (removed && window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    window._webCollageState.selectedItems = window._webCollageState.selectedItems.filter(
+      it => !it || (it.uploadedId !== removed.id && it.url !== removed.base64)
+    );
+  }
+  window._attachedScenePhotos.forEach((p, i) => {
+    p.isStarred = (i === 0);
+  });
+  await syncAttachedScenePhotosCollage(false, true);
+}
+window.removeAttachedScenePhotoAtIndex = removeAttachedScenePhotoAtIndex;
+
+function handleInnerVoicePhotoSelect(event) {
+  const rawFiles = event.target.files ? Array.from(event.target.files) : [];
+  if (rawFiles.length === 0) return;
+
+  if (!Array.isArray(window._attachedScenePhotos)) {
+    window._attachedScenePhotos = [];
+  }
+  const isWebCollageMode = Boolean(
+    window._selectedPosterVisualMode === 'web_collage' ||
+    (window._webCollageState && window._webCollageState.isOpen)
+  );
+  const currentTrayCount = isWebCollageMode
+    ? ((window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) ? window._webCollageState.selectedItems.length : 0)
+    : window._attachedScenePhotos.length;
+
+  const remainingSlots = Math.max(0, 3 - currentTrayCount);
+  if (remainingSlots <= 0) {
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+    event.target.value = '';
+    return;
+  }
+
+  const filesToProcess = rawFiles.slice(0, remainingSlots);
+  const attemptedOverLimit = rawFiles.length > remainingSlots;
+  if (attemptedOverLimit) {
+    showTemporaryToast('⚠️ Only maximum 3 photos are allowed.');
+  }
+
+  let processed = 0;
+  filesToProcess.forEach((file) => {
+    compressImage(file, 1200, 0.84, async function(base64Data, mimeType) {
+      const newSceneId = 'scene_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      const uploadedNum = window._attachedScenePhotos.length + 1;
+      if (window._attachedScenePhotos.length < 3) {
+        const hasAnyStarred = window._attachedScenePhotos.some(p => p.isStarred);
+        window._attachedScenePhotos.push({
+          id: newSceneId,
+          label: `My Photo ${uploadedNum}`,
+          base64: base64Data,
+          mimeType: mimeType || 'image/jpeg',
+          isStarred: !hasAnyStarred && window._attachedScenePhotos.length === 0,
+          panX: 0.5,
+          panY: 0.35,
+          zoom: 1.0
+        });
+      }
+      if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems) && window._webCollageState.selectedItems.length < 3) {
+        const alreadyInWeb = window._webCollageState.selectedItems.some(it => it && (it.uploadedId === newSceneId || it.url === base64Data));
+        if (!alreadyInWeb && (isWebCollageMode || window._webCollageState.selectedItems.length > 0)) {
+          window._webCollageState.selectedItems.push({
+            uploadedId: newSceneId,
+            url: base64Data,
+            thumbUrl: base64Data,
+            title: `My Photo ${uploadedNum}`,
+            source: 'Curator Photo',
+            tabIndex: -1,
+            isUploadedPhoto: true,
+            isStarred: window._webCollageState.selectedItems.length === 0,
+            panX: 0.5,
+            panY: 0.35,
+            zoom: 1.0
+          });
+          window._webCollageState.selectedItems.forEach((s, idx) => {
+            s.isStarred = (idx === 0);
+          });
+        }
+      }
+      processed += 1;
+      if (processed === filesToProcess.length) {
+        event.target.value = '';
+        if (isWebCollageMode) {
+          renderWebCollageSelectedSlotsUI();
+          await renderWebCollageCanvas(true);
+          if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+            try { updateUnifiedPosterVisualStripUI(); } catch (_) {}
+          }
+          if (!attemptedOverLimit) {
+            const total = window._webCollageState.selectedItems.length;
+            showTemporaryToast(`✓ Uploaded photo added to collage (${total}/3)!`);
+          }
+        } else {
+          await syncAttachedScenePhotosCollage();
+          if (!attemptedOverLimit) {
+            const total = window._attachedScenePhotos.length;
+            showTemporaryToast(total > 1 ? `✓ ${total}/3 photos attached` : '✓ Photo attached (1/3)');
+          }
+        }
+      }
+    });
   });
 }
 
 function removeInnerVoicePhoto(event) {
   if (event) event.stopPropagation();
+  window._attachedScenePhotos = [];
+  window._attachedCollageCompositionManual = false;
   innerVoicePhotoBase64 = null;
   innerVoicePhotoMimeType = 'image/jpeg';
+  if (window._webCollageState && Array.isArray(window._webCollageState.selectedItems)) {
+    window._webCollageState.selectedItems = window._webCollageState.selectedItems.filter(it => !it || !it.isUploadedPhoto);
+  }
 
   const cam = document.getElementById('innerVoiceCameraInput');
   if (cam) cam.value = '';
@@ -18835,18 +28353,18 @@ function removeInnerVoicePhoto(event) {
 
   const thumb = document.getElementById('innerVoicePhotoThumb');
   if (thumb) thumb.src = '';
-  const preview = document.getElementById('innerVoicePhotoPreview');
-  if (preview) preview.style.display = 'none';
-  const emptyBox = document.getElementById('innerVoicePhotoEmpty');
-  if (emptyBox) emptyBox.style.display = 'flex';
 
   if (creatorReferenceImageSourceLabel === 'Catalyst Scene Photo') {
     creatorReferenceImageBase64 = null;
     creatorReferenceImageSourceLabel = null;
     updateReferencePhotoUI();
   }
+  renderAttachedScenePhotosUI();
   if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') {
     evaluateSmartRegenScopeAutoSwitch();
+  }
+  if (typeof updateUnifiedPosterVisualStripUI === 'function') {
+    updateUnifiedPosterVisualStripUI();
   }
 }
 
@@ -19031,9 +28549,33 @@ function enableCreatorRegenMode(baselinePost, reasonLabel = '') {
   window._regenAutoSwitchReason = reasonLabel ? `${reasonLabel} • Slide left for Text Only or right for Visuals Only` : '';
   creatorRegenScope = 'both';
   window._regenBaselineInputs = getCreatorRegenInputsSnapshot();
+  const slantInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
+  const currentRaw = String(slantInput ? slantInput.value : '').trim();
+  const currentSpark = String(sparkInput ? sparkInput.value : '').trim();
+  if (currentRaw) {
+    const baselineScore = Number(baselinePost?.convictionScore || baselinePost?.generationInputs?.convictionScore) || 0;
+    verifiedPolishDepthState = {
+      verified: true,
+      confirmed: true,
+      rawFingerprint: currentRaw,
+      polishedFingerprint: currentRaw,
+      hasMoment: true,
+      hasWhyItMatters: true,
+      hasConviction: true,
+      depthScore: Math.max(78, Number(verifiedPolishDepthState?.depthScore) || 0, baselineScore || 82),
+      nudge: ''
+    };
+    const unifiedEval = evaluatePerspectiveDepth(currentRaw, currentSpark);
+    if (unifiedEval && Number.isFinite(unifiedEval.depthScore)) {
+      verifiedPolishDepthState.depthScore = Math.max(verifiedPolishDepthState.depthScore, unifiedEval.depthScore);
+      window._lastConfirmedCreatorDepthScore = verifiedPolishDepthState.depthScore;
+    }
+  }
   const bar = document.getElementById('creatorRegenScopeBar');
-  if (bar) bar.style.display = 'flex';
+  if (bar) bar.style.display = 'inline-flex';
   updateCreatorRegenScopeUI();
+  updateCreatorSubStageUI();
 }
 
 function resetCreatorRegenModeToFresh() {
@@ -19044,7 +28586,7 @@ function resetCreatorRegenModeToFresh() {
   window._regenAutoSwitchReason = '';
   creatorRegenScope = 'both';
   const bar = document.getElementById('creatorRegenScopeBar');
-  if (bar) bar.style.display = 'flex';
+  if (bar) bar.style.display = 'inline-flex';
   updateCreatorRegenScopeUI();
 }
 
@@ -19114,6 +28656,7 @@ function backToStep1() {
     enableCreatorRegenMode(currentSynthesizedPost, 'Editing generated deck');
   } else {
     updateCreatorRegenScopeUI();
+    updateCreatorSubStageUI();
   }
 
   if (d1) { d1.className = 'creator-step-dot active'; }
@@ -19447,10 +28990,30 @@ function resetCreatorState() {
   if (typeof clearMandatoryFieldPrompts === 'function') {
     clearMandatoryFieldPrompts();
   }
+  clearTimeout(scrapeDebounceTimer);
+  isScrapingUrl = false;
   activeScrapePromise = null;
   currentScrapedArticle = null;
   currentSourceLedger = null;
+  isSourceLedgerExpanded = false;
   renderSourceLedger(null);
+  const urlIndicatorEl = document.getElementById('urlScrapeIndicator');
+  if (urlIndicatorEl) {
+    urlIndicatorEl.style.display = 'none';
+    urlIndicatorEl.innerHTML = '';
+    urlIndicatorEl.onclick = null;
+  }
+  const ledgerCardEl = document.getElementById('sourceLedgerCard');
+  if (ledgerCardEl) {
+    ledgerCardEl.style.display = 'none';
+    ledgerCardEl.innerHTML = '';
+  }
+  if (window._webCollageState) {
+    window._webCollageState.sourceThumbExtracted = false;
+    window._webCollageState.isExtractingSourceThumb = false;
+    window._webCollageState.tabPageMap = {};
+    window._webCollageState.tabImagesMap = {};
+  }
   removeInnerVoicePhoto();
   currentSynthesizedPost = null;
   window._regeneratingExistingPostId = null;
@@ -19458,6 +29021,20 @@ function resetCreatorState() {
   creatorCuePills = [];
   currentPolishVisualSubjects = [];
   selectedPolishVisualSubjectIdx = 0;
+  verifiedPolishDepthState = {
+    verified: false,
+    confirmed: false,
+    rawFingerprint: '',
+    polishedFingerprint: '',
+    hasMoment: false,
+    hasWhyItMatters: false,
+    hasConviction: false,
+    depthScore: 0,
+    nudge: ''
+  };
+  creatorActiveSubStage = 1;
+  resetCollageCustomSplits();
+  updateCreatorSubStageUI();
   selectedPolishVisualSubject = null;
   currentChronicleMomentProjections = [];
   const polishVsPicker = document.getElementById('polishVisualSubjectPicker');
@@ -19476,10 +29053,14 @@ function resetCreatorState() {
   creatorCountryContext = null;
   currentPreviewSlide = 0;
   setPerspectiveMode('source');
-  creatorCharacterRepresentation = 'realistic';
+  window._selectedPosterVisualMode = 'original_photo';
+  creatorCharacterRepresentation = 'exact';
   creatorSettingsGenerated = false;
   resetCreatorRegenModeToFresh();
   resetStage1ActionBtn();
+  if (typeof setCreatorSeries === 'function') {
+    setCreatorSeries(null);
+  }
   const eqBadge = document.getElementById('creatorEqualizerBadge');
   if (eqBadge) {
     eqBadge.textContent = 'Tune ▾';
@@ -19531,10 +29112,18 @@ function resetCreatorState() {
   const reviewCard = document.getElementById('slantPolishReviewCard');
   if (reviewCard) reviewCard.style.display = 'none';
   lastPolishedTake = '';
+  activeDepthCoachBeat = null;
   const sparkInput = document.getElementById('creatorSparkInput');
   if (sparkInput) sparkInput.value = '';
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   const urlInput = document.getElementById('creatorUrlInput');
   if (urlInput) urlInput.value = '';
+  activeSlantSparkType = 'web';
+  if (typeof syncSlantSparkTypeUI === 'function') {
+    try { syncSlantSparkTypeUI('web'); } catch (_) {}
+  }
   const fileInput = document.getElementById('creatorFileInput');
   if (fileInput) fileInput.value = '';
   const cameraInput = document.getElementById('creatorCameraInput');
@@ -19564,6 +29153,13 @@ function resetCreatorState() {
   });
 
   // Reset to Step 1 UI
+  window._isWebCollageAttached = false;
+  if (typeof clearWebCollageSelection === 'function') {
+    try { clearWebCollageSelection(); } catch (_) {}
+  }
+  if (typeof closeWebCollageBuilder === 'function') {
+    try { closeWebCollageBuilder(); } catch (_) {}
+  }
   backToStep1();
 }
 
@@ -19686,17 +29282,45 @@ function toggleSourceLedgerDropdown(forceState) {
 function renderUrlScrapeSuccessIndicator(siteName, title, hasLedger, isFull = true) {
   const indicator = document.getElementById('urlScrapeIndicator');
   if (!indicator) return;
+  const urlInput = document.getElementById('creatorUrlInput');
+  const activeUrlVal = urlInput ? (urlInput.value || '').trim() : '';
+  if (!activeUrlVal) {
+    indicator.style.display = 'none';
+    indicator.innerHTML = '';
+    return;
+  }
+
+  const cleanSite = siteName || 'Web';
+  const cleanTitle = (title && title.toLowerCase() !== cleanSite.toLowerCase()) ? title : '';
+
+  if (!hasLedger) {
+    isSourceLedgerExpanded = false;
+    indicator.className = 'url-scrape-indicator success';
+    indicator.style.display = 'flex';
+    indicator.style.cursor = 'default';
+    indicator.title = 'Source link attached';
+    indicator.innerHTML = `
+      <span class="scrape-icon">✓</span>
+      <div class="scrape-text-wrap">
+        <span class="scrape-title">Source link attached (${escapeHtml(cleanSite)})</span>
+        <span class="scrape-sub">${escapeHtml(cleanTitle || 'Source context linked to your Slant')}</span>
+      </div>
+    `;
+    indicator.onclick = null;
+    return;
+  }
 
   const isExpanded = Boolean(isSourceLedgerExpanded);
   indicator.className = 'url-scrape-indicator success is-dropdown' + (isExpanded ? ' is-expanded' : '');
   indicator.style.display = 'flex';
+  indicator.style.cursor = 'pointer';
   indicator.title = 'Click to expand or collapse source summary';
 
   indicator.innerHTML = `
     <span class="scrape-icon">${isFull ? '✓' : 'ℹ'}</span>
     <div class="scrape-text-wrap">
-      <span class="scrape-title">${isFull ? 'Full article retrieved' : 'Headline extracted'} (${escapeHtml(siteName || 'Web')})</span>
-      <span class="scrape-sub">${escapeHtml(title || '')}</span>
+      <span class="scrape-title">${isFull ? 'Full source retrieved' : 'Source context extracted'} (${escapeHtml(cleanSite)})</span>
+      <span class="scrape-sub">${escapeHtml(cleanTitle || cleanSite)}</span>
     </div>
     <button type="button" class="scrape-dropdown-pill" aria-label="Toggle Source Summary">
       <span class="scrape-dropdown-label">${isExpanded ? 'Hide' : 'Summary'}</span>
@@ -19725,6 +29349,23 @@ async function handleUrlInput(val) {
     return;
   }
 
+  // Immediately attach YouTube thumbnail in 0ms before network scrape completes
+  const instantYtThumb = extractInstantYouTubeThumbnailUrl(clean);
+  if (instantYtThumb && !window._isWebCollageAttached) {
+    creatorReferenceImageBase64 = instantYtThumb;
+    creatorReferenceImageMimeType = 'image/jpeg';
+    creatorReferenceImageSourceLabel = 'Video Thumbnail (YouTube)';
+    if (!currentScrapedArticle) {
+      currentScrapedArticle = { url: clean, title: '', siteName: 'YouTube', content: '', imageUrl: instantYtThumb, isVideo: true };
+    } else if (!currentScrapedArticle.imageUrl) {
+      currentScrapedArticle.imageUrl = instantYtThumb;
+    }
+    if (creatorSelectedSource !== 'inner_voice') {
+      updateWebLinkSubmode(true);
+    }
+    updateReferencePhotoUI();
+  }
+
   isScrapingUrl = true;
   if (indicator) {
     indicator.className = 'url-scrape-indicator loading';
@@ -19745,9 +29386,25 @@ async function handleUrlInput(val) {
       if (!resp.ok) throw new Error('Scrape request failed');
       const data = await resp.json();
 
+      // Guard against stale scrape completing after modal reset or URL field cleared
+      const liveUrlInput = document.getElementById('creatorUrlInput');
+      const liveUrlVal = liveUrlInput ? (liveUrlInput.value || '').trim() : '';
+      if (!liveUrlVal || liveUrlVal !== clean) {
+        if (!liveUrlVal && indicator) {
+          indicator.style.display = 'none';
+          indicator.innerHTML = '';
+        }
+        return;
+      }
+
       if (data && data.success) {
+        if (window._webCollageState) {
+          window._webCollageState.sourceThumbExtracted = false;
+        }
         if (typeof data.imageUrl === 'string') {
           data.imageUrl = data.imageUrl.replace(/&amp;/g, '&');
+        } else if (instantYtThumb && !data.imageUrl) {
+          data.imageUrl = instantYtThumb;
         }
         currentScrapedArticle = data;
         const isVid = Boolean(data.isVideo || isVideoAudioUrl(clean));
@@ -19755,7 +29412,7 @@ async function handleUrlInput(val) {
           updateWebLinkSubmode(isVid);
         }
         let scrapedImg = data.imageBase64 || data.imageUrl;
-        if (scrapedImg) {
+        if (scrapedImg && !window._isWebCollageAttached) {
           if (typeof scrapedImg === 'string' && scrapedImg.startsWith('http')) {
             scrapedImg = scrapedImg.replace(/&amp;/g, '&');
           }
@@ -19766,14 +29423,20 @@ async function handleUrlInput(val) {
         }
         const isFull = (data.content && data.content.length > 200) || (!data.fallback);
         isSourceLedgerExpanded = false; // Start collapsed in dropdown per user request!
+        const validScrapedLedger = (data && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) ? data.ledger : null;
+        const canGenerateLedger = hasSubstantiveClientSourceText(data.title || '', data.content || '', data.siteName || '');
 
-        if (data && data.ledger) {
-          currentSourceLedger = data.ledger;
-          renderSourceLedger(data.ledger);
+        if (validScrapedLedger) {
+          currentSourceLedger = validScrapedLedger;
+          renderSourceLedger(validScrapedLedger);
           renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, true, isFull);
-        } else {
-          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, false, isFull);
+        } else if (canGenerateLedger) {
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || clean, true, isFull);
           triggerSourceLedgerGeneration(data);
+        } else {
+          currentSourceLedger = null;
+          renderSourceLedger(null);
+          renderUrlScrapeSuccessIndicator(data.siteName || 'Web', data.title || '', false, false);
         }
         if (typeof autoIdentifyVisualProjectionsFromInput === 'function') {
           autoIdentifyVisualProjectionsFromInput(false);
@@ -19781,22 +29444,43 @@ async function handleUrlInput(val) {
       }
     } catch (err) {
       console.warn('URL scrape error:', err.message);
+      const liveUrlInput = document.getElementById('creatorUrlInput');
+      const liveUrlVal = liveUrlInput ? (liveUrlInput.value || '').trim() : '';
+      if (!liveUrlVal || liveUrlVal !== clean) {
+        if (!liveUrlVal && indicator) {
+          indicator.style.display = 'none';
+          indicator.innerHTML = '';
+        }
+        return;
+      }
       const slugTitle = extractHeadlineFromUrl(clean);
-      currentScrapedArticle = { url: clean, title: slugTitle, siteName: getCleanDomain(clean), content: '' };
+      currentScrapedArticle = {
+        url: clean,
+        title: slugTitle,
+        siteName: getCleanDomain(clean),
+        content: '',
+        imageUrl: instantYtThumb || null,
+        isVideo: Boolean(instantYtThumb || isVideoAudioUrl(clean))
+      };
       if (indicator) {
         indicator.className = 'url-scrape-indicator info';
         indicator.onclick = null;
         indicator.style.cursor = 'default';
         indicator.innerHTML = `
-          <span class="scrape-icon">ℹ</span>
+          <span class="scrape-icon">✓</span>
           <div class="scrape-text-wrap">
-            <span class="scrape-title">Citation link saved (${escapeHtml(currentScrapedArticle.siteName)})</span>
-            <span class="scrape-sub">${escapeHtml(slugTitle || clean)}</span>
+            <span class="scrape-title">Source link attached (${escapeHtml(currentScrapedArticle.siteName)})</span>
+            <span class="scrape-sub">${escapeHtml(slugTitle || 'Source context linked to your Slant')}</span>
           </div>
         `;
         indicator.style.display = 'flex';
       }
-      triggerSourceLedgerGeneration(currentScrapedArticle);
+      if (hasSubstantiveClientSourceText(slugTitle, '', currentScrapedArticle.siteName)) {
+        triggerSourceLedgerGeneration(currentScrapedArticle);
+      } else {
+        currentSourceLedger = null;
+        renderSourceLedger(null);
+      }
     } finally {
       isScrapingUrl = false;
       activeScrapePromise = null;
@@ -19857,10 +29541,10 @@ function renderSourceLedgerLoading() {
   `;
 }
 
-function renderSourceLedger(ledger, activeTabOverride) {
+function renderSourceLedger(ledger) {
   const card = document.getElementById('sourceLedgerCard');
   if (!card) return;
-  if (!ledger) {
+  if (!ledger || isUnextractedOrBoilerplateLedger(ledger)) {
     card.style.display = 'none';
     card.innerHTML = '';
     currentLedgerActiveTab = 'thesis';
@@ -19870,8 +29554,6 @@ function renderSourceLedger(ledger, activeTabOverride) {
   }
 
   currentSourceLedger = ledger;
-  currentLedgerActiveTab = activeTabOverride || currentLedgerActiveTab || 'thesis';
-  const isDetailed = (currentLedgerViewMode === 'detailed');
   card.style.display = isSourceLedgerExpanded ? 'block' : 'none';
   card.className = 'source-ledger-card';
 
@@ -19890,28 +29572,7 @@ function renderSourceLedger(ledger, activeTabOverride) {
     scopeClean = scopeClean.slice(0, 18) + '…';
   }
 
-  // Detailed facts and claims extraction
-  const detailedData = ledger.detailed || null;
-  const keyFactsList = (detailedData && Array.isArray(detailedData.key_facts)) ? detailedData.key_facts : [];
-  const detailedClaimsList = (detailedData && Array.isArray(detailedData.detailed_claims)) ? detailedData.detailed_claims : [];
-
-  // Mode Switcher Bar HTML (⚡ Summary vs 🔍 Detailed Facts)
-  const switcherBarHtml = `
-    <div class="ledger-mode-switcher-bar">
-      <div class="ledger-mode-toggle-group" role="group" aria-label="Summary granularity">
-        <button type="button" class="ledger-mode-toggle-btn ${!isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('summary')">
-          <span>⚡ Summary</span>
-        </button>
-        <button type="button" class="ledger-mode-toggle-btn ${isDetailed ? 'active' : ''}" onclick="switchLedgerViewMode('detailed')">
-          <span>🔍 Detailed Facts</span>
-          ${keyFactsList.length > 0 ? `<span class="mode-btn-pill">${keyFactsList.length}</span>` : ''}
-        </button>
-      </div>
-      <span class="ledger-mode-hint">${isDetailed ? 'Deep-dive with spoken details, quotes & key arguments' : 'Calibrated fast read'}</span>
-    </div>
-  `;
-
-  // 1. Thesis extraction (support both object and legacy string)
+  // 1. Unified Summary & Key Facts (Combining Thesis + Claims/Facts into one cohesive short read)
   let contextText = '';
   let thesisText = '';
   if (ledger.subject_and_thesis && typeof ledger.subject_and_thesis === 'object') {
@@ -19921,134 +29582,65 @@ function renderSourceLedger(ledger, activeTabOverride) {
     thesisText = ledger.subject_and_thesis;
   }
 
-  // Key Facts HTML (shown in Detailed mode)
-  let keyFactsHtml = '';
-  if (isDetailed && keyFactsList.length > 0) {
-    keyFactsHtml = `
-      <div class="ledger-detailed-facts-box">
-        <div class="detailed-facts-header">
-          <span>📌</span>
-          <span>Key Facts, Entities & Spoken Disclosures</span>
-        </div>
-        <div class="detailed-facts-grid">
-          ${keyFactsList.map(fact => `
-            <div class="detailed-fact-item">
-              <span class="fact-bullet">▪</span>
-              <span>${escapeHtml(fact)}</span>
+  const detailedData = ledger.detailed || null;
+  const keyFactsList = (detailedData && Array.isArray(detailedData.key_facts))
+    ? detailedData.key_facts.filter(f => f && !isBoilerplateNoSubstanceText(f))
+    : [];
+  const claimsList = Array.isArray(ledger.core_claims_and_evidence) && ledger.core_claims_and_evidence.length > 0
+    ? ledger.core_claims_and_evidence
+    : ((detailedData && Array.isArray(detailedData.detailed_claims)) ? detailedData.detailed_claims : []);
+
+  const claimsBulletsHtml = claimsList.slice(0, 4).map((claim, idx) => {
+    let title = '';
+    let evidence = '';
+    let quote = '';
+    if (claim && typeof claim === 'object') {
+      title = claim.title || '';
+      evidence = claim.evidence || claim.text || '';
+      quote = claim.quote || '';
+    } else {
+      const str = String(claim || '');
+      const colonIdx = str.indexOf(':');
+      if (colonIdx > 0 && colonIdx < 60) {
+        title = str.slice(0, colonIdx).trim();
+        evidence = str.slice(colonIdx + 1).trim();
+      } else {
+        evidence = str;
+      }
+    }
+    if (isBoilerplateNoSubstanceText(evidence)) return '';
+    return `
+      <div class="ledger-claim-card" style="padding:10px 12px; margin-bottom:6px;">
+        <div class="ledger-claim-badge">${idx + 1}</div>
+        <div class="ledger-claim-content">
+          <p class="ledger-claim-text" style="margin:0;">
+            ${title ? `<strong style="color:var(--text-primary);">${escapeHtml(title)}:</strong> ` : ''}${escapeHtml(evidence)}
+          </p>
+          ${quote ? `
+            <div class="ledger-claim-quote" style="margin-top:5px;">
+              <span class="quote-mark">“</span>
+              <span>${escapeHtml(quote)}</span>
             </div>
-          `).join('')}
+          ` : ''}
         </div>
       </div>
     `;
-  }
+  }).filter(Boolean).join('');
 
-  // 2. Claims & Evidence extraction (switch between detailed deep-dive claims with quotes and summary claims)
-  const claimsList = Array.isArray(ledger.core_claims_and_evidence) ? ledger.core_claims_and_evidence : [];
-  const activeClaimsList = (isDetailed && detailedClaimsList.length > 0) ? detailedClaimsList : claimsList;
-  const claimsCount = activeClaimsList.length;
-
-  // Spoken Sections Index in Tab 1 when in detailed mode
-  let spokenIndexHtml = '';
-  if (isDetailed && activeClaimsList.length > 0) {
-    spokenIndexHtml = `
-      <div class="ledger-spoken-index-card">
-        <div class="ledger-spoken-index-header">
-          <span class="ledger-spoken-index-title">🎙️ Spoken Sections in this Talk (${claimsCount})</span>
-          <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-            <span>Read All Sections →</span>
-          </button>
-        </div>
-        <div class="ledger-spoken-pill-list">
-          ${activeClaimsList.map((c, idx) => `
-            <button type="button" class="ledger-spoken-pill-btn" onclick="switchLedgerTab('claims')">
-              <span><strong>Section ${idx + 1}:</strong> ${escapeHtml(c.title || `Discussion point ${idx + 1}`)}</span>
-              <span style="opacity:0.6; font-size:10px;">Read →</span>
-            </button>
-          `).join('')}
-        </div>
+  const compactFactsHtml = (!claimsBulletsHtml && keyFactsList.length > 0)
+    ? `
+      <div class="detailed-facts-grid" style="margin-top:8px;">
+        ${keyFactsList.slice(0, 5).map(fact => `
+          <div class="detailed-fact-item">
+            <span class="fact-bullet">▪</span>
+            <span>${escapeHtml(fact)}</span>
+          </div>
+        `).join('')}
       </div>
-    `;
-  }
+    `
+    : '';
 
-  let thesisHtml = '';
-  if (contextText || thesisText || keyFactsHtml) {
-    thesisHtml = `
-      <div class="ledger-thesis-unified">
-        ${contextText ? `
-          <div class="ledger-sub-card">
-            <div class="ledger-sub-card-header">
-              <span class="ledger-sub-card-icon">📌</span>
-              <span class="ledger-sub-card-title">Context</span>
-            </div>
-            <p class="ledger-sub-card-text">${escapeHtml(contextText)}</p>
-          </div>
-        ` : ''}
-        ${thesisText ? `
-          <div class="ledger-sub-card highlight">
-            <div class="ledger-sub-card-header">
-              <span class="ledger-sub-card-icon">🎯</span>
-              <span class="ledger-sub-card-title">Central Thesis</span>
-            </div>
-            <p class="ledger-sub-card-text">${escapeHtml(thesisText)}</p>
-          </div>
-        ` : ''}
-        ${keyFactsHtml}
-        ${spokenIndexHtml}
-      </div>
-    `;
-  } else {
-    thesisHtml = `
-      <div class="ledger-sub-card">
-        <p class="ledger-sub-card-text">No central thesis extracted from source.</p>
-      </div>
-    `;
-  }
-
-  const claimsCardsHtml = activeClaimsList.length > 0
-    ? activeClaimsList.map((claim, idx) => {
-        let title = '';
-        let evidence = '';
-        let quote = '';
-        if (claim && typeof claim === 'object') {
-          title = claim.title || '';
-          evidence = claim.evidence || claim.text || '';
-          quote = claim.quote || '';
-        } else {
-          const str = String(claim || '');
-          const colonIdx = str.indexOf(':');
-          if (colonIdx > 0 && colonIdx < 60) {
-            title = str.slice(0, colonIdx).trim();
-            evidence = str.slice(colonIdx + 1).trim();
-          } else {
-            evidence = str;
-          }
-        }
-        return `
-          <div class="ledger-claim-card ${isDetailed ? 'detailed-claim' : ''}">
-            <div class="ledger-claim-badge">${idx + 1}</div>
-            <div class="ledger-claim-content">
-              ${title ? `<div class="ledger-claim-title">${escapeHtml(title)}</div>` : `<div class="ledger-claim-title">Section ${idx + 1}</div>`}
-              <p class="ledger-claim-text">${escapeHtml(evidence)}</p>
-              ${quote ? `
-                <div class="ledger-claim-quote">
-                  <span class="quote-mark">“</span>
-                  <span>${escapeHtml(quote)}</span>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-        `;
-      }).join('')
-    : `
-        <div class="ledger-claim-card">
-          <div class="ledger-claim-badge">ℹ</div>
-          <div class="ledger-claim-content">
-            <p class="ledger-claim-text">Source does not provide detailed empirical evidence or cited data.</p>
-          </div>
-        </div>
-      `;
-
-  // 3. Tension & Tradeoffs extraction
+  // 2. Underlying Friction & Open Question (Preserved directly below)
   let primaryConflict = '';
   let tradeoffs = '';
   let counterQuestions = '';
@@ -20061,56 +29653,32 @@ function renderSourceLedger(ledger, activeTabOverride) {
     primaryConflict = ledger.underlying_tension_or_question;
   }
 
-  let tensionHtml = '';
-  if (primaryConflict || tradeoffs || counterQuestions) {
-    tensionHtml = `
-      <div class="ledger-tension-stack">
-        ${primaryConflict ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-conflict">⚡ Friction</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(primaryConflict)}</p>
-          </div>
-        ` : ''}
-        ${tradeoffs ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-tradeoffs">⚖️ Tradeoffs</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(tradeoffs)}</p>
-          </div>
-        ` : ''}
-        ${counterQuestions ? `
-          <div class="ledger-tension-card">
-            <div class="ledger-tension-card-header">
-              <span class="ledger-tension-badge badge-questions">❓ Counter-Perspective</span>
-            </div>
-            <p class="ledger-tension-text">${escapeHtml(counterQuestions)}</p>
-          </div>
-        ` : ''}
-      </div>
-    `;
-  } else {
-    tensionHtml = `
-      <div class="ledger-tension-card">
-        <p class="ledger-tension-text">No explicit tension or counter-perspective highlighted.</p>
-      </div>
-    `;
-  }
+  const combinedFriction = [primaryConflict, tradeoffs].filter(s => s && !isBoilerplateNoSubstanceText(s)).join(' ');
+  const cleanCounterQuestion = (!isBoilerplateNoSubstanceText(counterQuestions)) ? counterQuestions : '';
 
-  const activeTab = currentLedgerActiveTab || 'thesis';
+  const frictionSectionHtml = (combinedFriction || cleanCounterQuestion)
+    ? `
+      <div class="ledger-sub-card" style="margin-top:10px; border-left:3px solid #F59E0B; background:rgba(245, 158, 11, 0.06);">
+        <div class="ledger-sub-card-header" style="margin-bottom:4px;">
+          <span class="ledger-sub-card-icon">⚖️</span>
+          <span class="ledger-sub-card-title">Underlying Friction &amp; Open Question</span>
+        </div>
+        ${combinedFriction ? `<p class="ledger-sub-card-text" style="margin:0 0 6px 0;">${escapeHtml(combinedFriction)}</p>` : ''}
+        ${cleanCounterQuestion ? `<p class="ledger-sub-card-text" style="margin:0; font-style:italic; opacity:0.9;">❓ ${escapeHtml(cleanCounterQuestion)}</p>` : ''}
+      </div>
+    `
+    : '';
 
   card.innerHTML = `
     <div class="ledger-header">
       <div class="ledger-header-left">
-        <span class="ledger-header-icon">⚖️</span>
+        <span class="ledger-header-icon">📰</span>
         <div class="ledger-header-meta">
           <div class="ledger-title-line">
-            <span class="ledger-title">Source Summary</span>
+            <span class="ledger-title">Source Summary &amp; Key Facts</span>
             <span class="ledger-scope-pill">${escapeHtml(scopeClean)}</span>
           </div>
-          <span class="ledger-sub-meta">Neutral Editorial Ledger</span>
+          <span class="ledger-sub-meta">Quick 1-Minute Read • Neutral Source Breakdown</span>
         </div>
       </div>
       <div class="ledger-substance-badge" title="${escapeHtml(starsLabel)}">
@@ -20119,69 +29687,31 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </div>
     </div>
 
-    <!-- Mode Switcher (⚡ Summary vs 🔍 Detailed Facts) -->
-    ${switcherBarHtml}
-
-    <!-- 3-Category Tabs Bar -->
-    <div class="ledger-tabs-bar" role="tablist">
-      <button type="button" class="ledger-tab-btn ${activeTab === 'thesis' ? 'active' : ''}" data-ledger-tab="thesis" onclick="switchLedgerTab('thesis')">
-        <span class="ledger-tab-icon">${isDetailed ? '📌' : '🎯'}</span>
-        <span class="ledger-tab-label">${isDetailed ? 'Key Facts & Thesis' : 'Thesis'}</span>
-        ${(isDetailed && keyFactsList.length > 0) ? `<span class="ledger-tab-count">${keyFactsList.length}</span>` : ''}
-      </button>
-      <button type="button" class="ledger-tab-btn ${activeTab === 'claims' ? 'active' : ''}" data-ledger-tab="claims" onclick="switchLedgerTab('claims')">
-        <span class="ledger-tab-icon">${isDetailed ? '📖' : '📊'}</span>
-        <span class="ledger-tab-label">${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
-        <span class="ledger-tab-count">${claimsCount}</span>
-      </button>
-      <button type="button" class="ledger-tab-btn ${activeTab === 'tension' ? 'active' : ''}" data-ledger-tab="tension" onclick="switchLedgerTab('tension')">
-        <span class="ledger-tab-icon">⚖️</span>
-        <span class="ledger-tab-label">Tensions</span>
-      </button>
-    </div>
-
-    <!-- Tab 1: Subject & Thesis / Key Facts -->
-    <div class="ledger-tab-panel ${activeTab === 'thesis' ? 'active' : ''}" id="ledgerPanel_thesis" style="display:${activeTab === 'thesis' ? 'block' : 'none'};">
-      ${thesisHtml}
-      <div class="ledger-panel-nav">
-        <span></span>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>${isDetailed ? 'Spoken Sections' : 'Claims'} (${claimsCount}) →</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab 2: Core Claims / Spoken Sections -->
-    <div class="ledger-tab-panel ${activeTab === 'claims' ? 'active' : ''}" id="ledgerPanel_claims" style="display:${activeTab === 'claims' ? 'block' : 'none'};">
-      <div class="ledger-claims-container">
-        ${claimsCardsHtml}
-      </div>
-      <div class="ledger-panel-nav">
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>← ${isDetailed ? 'Key Facts' : 'Thesis'}</span>
-        </button>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('tension')">
-          <span>Tensions →</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Tab 3: Underlying Tension or Question -->
-    <div class="ledger-tab-panel ${activeTab === 'tension' ? 'active' : ''}" id="ledgerPanel_tension" style="display:${activeTab === 'tension' ? 'block' : 'none'};">
-      ${tensionHtml}
-      <div class="ledger-panel-nav">
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('claims')">
-          <span>← ${isDetailed ? 'Spoken Sections' : 'Claims'}</span>
-        </button>
-        <button type="button" class="ledger-tab-nav-btn" onclick="switchLedgerTab('thesis')">
-          <span>${isDetailed ? 'Key Facts' : 'Thesis'} ↺</span>
-        </button>
+    <div class="ledger-tab-panel active" style="display:block; padding-top:10px;">
+      <div class="ledger-thesis-unified">
+        ${(contextText || thesisText) ? `
+          <div class="ledger-sub-card highlight" style="margin-bottom:8px;">
+            <div class="ledger-sub-card-header">
+              <span class="ledger-sub-card-icon">🎯</span>
+              <span class="ledger-sub-card-title">Summary</span>
+            </div>
+            <p class="ledger-sub-card-text">
+              ${contextText ? `<strong>${escapeHtml(contextText)}</strong> ` : ''}${escapeHtml(thesisText)}
+            </p>
+          </div>
+        ` : ''}
+        ${claimsBulletsHtml ? `
+          <div class="ledger-claims-container" style="margin-top:6px;">
+            ${claimsBulletsHtml}
+          </div>
+        ` : compactFactsHtml}
+        ${frictionSectionHtml}
       </div>
     </div>
 
     <div class="ledger-footer-tip">
       <span class="tip-icon">💡</span>
-      <span class="tip-text">Ground your unique slant below using this factual breakdown ↓</span>
+      <span class="tip-text">Ground your unique slant below using this summary &amp; friction ↓</span>
     </div>
 
     <!-- Pullback button to collapse summary back up -->
@@ -20193,7 +29723,6 @@ function renderSourceLedger(ledger, activeTabOverride) {
       </button>
     </div>
   `;
-  switchLedgerTab(activeTab);
 }
 
 async function triggerSourceLedgerGeneration(articleData) {
@@ -20203,7 +29732,12 @@ async function triggerSourceLedgerGeneration(articleData) {
   const content = articleData.content || '';
   const siteName = articleData.siteName || '';
 
-  if (!url && !title && !content) return;
+  if (!hasSubstantiveClientSourceText(title, content, siteName)) {
+    currentSourceLedger = null;
+    renderSourceLedger(null);
+    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
+    return;
+  }
 
   renderSourceLedgerLoading();
   isGeneratingLedger = true;
@@ -20218,21 +29752,21 @@ async function triggerSourceLedgerGeneration(articleData) {
     if (!resp.ok) throw new Error('Ledger endpoint returned ' + resp.status);
     const data = await resp.json();
 
-    if (data && data.success && data.ledger) {
+    if (data && data.success && data.ledger && !isUnextractedOrBoilerplateLedger(data.ledger)) {
       currentSourceLedger = data.ledger;
       currentLedgerViewMode = 'summary';
-      renderSourceLedger(data.ledger, 'thesis');
+      renderSourceLedger(data.ledger);
       renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
     } else {
-      throw new Error('Ledger data invalid');
+      currentSourceLedger = null;
+      renderSourceLedger(null);
+      renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
     }
   } catch (err) {
-    console.warn('Objective ledger generation error, using fallback:', err.message);
-    const fallbackLedger = buildClientFallbackLedger(title, content, siteName);
-    currentSourceLedger = fallbackLedger;
-    currentLedgerViewMode = 'summary';
-    renderSourceLedger(fallbackLedger, 'thesis');
-    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', true, true);
+    console.warn('Objective ledger generation notice:', err.message);
+    currentSourceLedger = null;
+    renderSourceLedger(null);
+    renderUrlScrapeSuccessIndicator(siteName || 'Web', title || '', false, false);
   } finally {
     isGeneratingLedger = false;
   }
@@ -20313,11 +29847,13 @@ function isLikelyPersonSubject(name) {
   if (nonPersonKeywords.some(w => lower.includes(w))) return false;
   const personKeywords = [
     'trump', 'musk', 'altman', 'biden', 'modi', 'pichai', 'nadella', 'cook',
-    'huang', 'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
+    'huang', 'tata', 'kalam', 'kohli', 'dhoni', 'tendulkar', 'murthy', 'vivekananda',
+    'ambani', 'adani', 'jobs', 'bezos', 'zuckerberg', 'macron', 'meloni',
+    'minister', 'president', 'judge', 'justice', 'officer', 'sweeper',
     'curator', 'citizen', 'woman', 'man', 'girl', 'boy', 'leader', 'doctor',
     'worker', 'protagonist', 'figure', 'person', 'individual', 'portrait', 'lookalike',
     'founder', 'engineer', 'entrepreneur', 'student', 'youth', 'author', 'critic',
-    'analyst', 'politician', 'actor', 'young'
+    'analyst', 'politician', 'actor', 'cricketer', 'athlete', 'scientist', 'industrialist', 'young'
   ];
   return personKeywords.some(w => lower.includes(w));
 }
@@ -20326,6 +29862,15 @@ function detectPersonNameInContext(title, slant, content) {
   const combined = `${title || ''} ${slant || ''} ${content ? content.slice(0, 500) : ''}`;
   const lower = combined.toLowerCase();
 
+  if (/\bratan\s+tata\b/i.test(combined)) return 'Ratan Tata';
+  if (/\b(?:apj\s+)?abdul\s+kalam\b/i.test(combined)) return 'Dr. A.P.J. Abdul Kalam';
+  if (/\bvirat\s+kohli\b|\bkohli\b/i.test(combined)) return 'Virat Kohli';
+  if (/\b(?:ms\s+|mahendra\s+singh\s+)?dhoni\b/i.test(combined)) return 'MS Dhoni';
+  if (/\bsachin\s+tendulkar\b|\btendulkar\b/i.test(combined)) return 'Sachin Tendulkar';
+  if (/\brohit\s+sharma\b/i.test(combined)) return 'Rohit Sharma';
+  if (/\bnarayana\s+murthy\b/i.test(combined)) return 'Narayana Murthy';
+  if (/\bswami\s+vivekananda\b|\bvivekananda\b/i.test(combined)) return 'Swami Vivekananda';
+  if (/\bsteve\s+jobs\b/i.test(combined)) return 'Steve Jobs';
   if (lower.includes('trump')) return 'Donald Trump';
   if (lower.includes('musk')) return 'Elon Musk';
   if (lower.includes('altman')) return 'Sam Altman';
@@ -20339,10 +29884,11 @@ function detectPersonNameInContext(title, slant, content) {
   if (lower.includes('bezos')) return 'Jeff Bezos';
   if (lower.includes('modi')) return 'Narendra Modi';
 
-  // Capitalized full name in title e.g. "John Smith"
-  if (title) {
-    const match = title.match(/\b([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\b/);
-    if (match && !/^(The New|United States|White House|Wall Street|Silicon Valley|New York|Los Angeles|San Francisco)/i.test(match[1])) {
+  // Capitalized full name in title or slant e.g. "John Smith"
+  const scanText = `${title || ''} ${slant || ''}`.trim();
+  if (scanText) {
+    const match = scanText.match(/\b([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\b/);
+    if (match && !/^(The New|United States|White House|Wall Street|Silicon Valley|New York|Los Angeles|San Francisco|New Delhi|Tamil Nadu|Uttar Pradesh|Andhra Pradesh|Madhya Pradesh|West Bengal|South India|North India|Parent Teacher|Inner Voice|Daily Chronicle|World Cup|Supreme Court|High Court|Prime Minister|Chief Minister)/i.test(match[1])) {
       return match[1];
     }
   }
@@ -20726,8 +30272,11 @@ function promptMandatoryField(el, message) {
   callout.className = 'field-mandatory-prompt-callout';
   callout.innerHTML = `<span class="prompt-icon">⚠️</span><span>${escapeHtml(message)}</span>`;
 
-  if (el.nextSibling) {
-    el.parentNode.insertBefore(callout, el.nextSibling);
+  const depthBar = (el.id === 'creatorSlantTakeInput') ? document.getElementById('slantLiveDepthBar') : null;
+  const anchorEl = (depthBar && depthBar.parentNode === el.parentNode) ? depthBar : el;
+
+  if (anchorEl.nextSibling) {
+    el.parentNode.insertBefore(callout, anchorEl.nextSibling);
   } else {
     el.parentNode.appendChild(callout);
   }
@@ -20787,8 +30336,10 @@ function toggleSlantStructureGuide(e) {
 function validateCreatorStage1(showPrompt = true) {
   const urlInput = document.getElementById('creatorUrlInput');
   const slantTakeInput = document.getElementById('creatorSlantTakeInput');
+  const sparkInput = document.getElementById('creatorSparkInput');
   const url = urlInput ? urlInput.value.trim() : '';
   const slantTake = slantTakeInput ? slantTakeInput.value.trim() : '';
+  const sparkTake = sparkInput ? sparkInput.value.trim() : '';
 
   if (creatorSelectedSource === 'inner_voice') {
     if (isDailyChronicleMode) {
@@ -20802,11 +30353,21 @@ function validateCreatorStage1(showPrompt = true) {
         }
         return false;
       }
-    } else if (!slantTake) {
-      if (showPrompt) {
-        promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
+    } else {
+      const activeCfg = SLANT_SPARK_TYPES[activeSlantSparkType];
+      if (activeCfg && activeCfg.inputType === 'text' && activeCfg.required && !sparkTake) {
+        if (showPrompt) {
+          promptMandatoryField(sparkInput, 'Please mention the book title or author that sparked this Slant.');
+        }
+        return false;
       }
-      return false;
+      if (!slantTake) {
+        if (showPrompt) {
+          if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
+          promptMandatoryField(slantTakeInput, 'Please share your slant or perspective to continue.');
+        }
+        return false;
+      }
     }
   } else {
     // Web link (digital_link or video_audio)
@@ -20824,12 +30385,44 @@ function validateCreatorStage1(showPrompt = true) {
     }
     if (!slantTake) {
       if (showPrompt) {
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(true);
         promptMandatoryField(slantTakeInput, 'Please write your slant or take so Slant can represent your authentic voice.');
       }
       return false;
     }
   }
 
+  // Enforce Perspective Depth Gate for all non-Chronicle posts (Requires Review & Polish + 3/3 signals + >= 70% Depth)
+  if (!(creatorSelectedSource === 'inner_voice' && isDailyChronicleMode)) {
+    const depth = evaluatePerspectiveDepth(slantTake, sparkTake);
+    if (!depth.isReady) {
+      if (showPrompt) {
+        if (typeof updateLivePerspectiveDepthUI === 'function') {
+          updateLivePerspectiveDepthUI(true);
+        }
+        let depthMsg = '';
+        if (!depth.isVerifiedByPolish) {
+          depthMsg = '✨ Please tap "Review & Polish" first so we can punctuate your thought and measure its depth (requires 3/3 signals & 70%+ depth to synthesize).';
+          const polishBtn = document.getElementById('slantPolishActionBtn');
+          if (polishBtn) {
+            polishBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          showTemporaryToast(depthMsg, 4500);
+        } else if (!depth.hasAllThreeBeats) {
+          depthMsg = `Almost there, my friend! Add a line for ${depth.missingLabels.join(' & ')} (3/3 signals required) and tap "Review & Polish" to unlock Synthesize.`;
+          promptMandatoryField(slantTakeInput, depthMsg);
+        } else {
+          depthMsg = `Your 3 signals are present (${depth.depthScore}% depth) — expand your thought by 1–2 sentences so your depth reaches 70%+ and tap "Review & Polish".`;
+          promptMandatoryField(slantTakeInput, depthMsg);
+        }
+      }
+      return false;
+    }
+  }
+
+  if (typeof updateLivePerspectiveDepthUI === 'function') {
+    updateLivePerspectiveDepthUI(false);
+  }
   clearMandatoryFieldPrompts();
   return true;
 }
@@ -21671,7 +31264,7 @@ function updateReferencePhotoUI() {
     optExact.style.display = hasPhoto ? 'flex' : 'none';
   }
 
-  if (!hasPhoto && creatorCharacterRepresentation === 'exact') {
+  if (!hasPhoto && creatorCharacterRepresentation === 'exact' && window._selectedPosterVisualMode === 'ai_art') {
     creatorCharacterRepresentation = 'painting';
   }
 
@@ -21764,6 +31357,45 @@ async function startAiSynthesis() {
       await handleUrlInput(url);
     } else if (isScrapingUrl && activeScrapePromise) {
       try { await activeScrapePromise; } catch (_) {}
+    }
+  }
+
+  // If user selected 0⚡ Free mode (Original Photo or Web Source) OR has 0 AI credits, enforce exact photo portrayal (0⚡ Free)
+  const isRegenWithBaselineCheck = Boolean(window._isCreatorRegenMode && (currentSynthesizedPost || window._regenBaselinePost));
+  const activeRegenScopeCheck = isRegenWithBaselineCheck ? (creatorRegenScope || 'both') : 'both';
+  let forceChronicleNoWatercolor = false;
+  const isZeroCreditsNow = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
+  const isFreePhotoModeSelected = (window._selectedPosterVisualMode && window._selectedPosterVisualMode !== 'ai_art') || isZeroCreditsNow;
+  if (activeRegenScopeCheck !== 'text_only' && isFreePhotoModeSelected) {
+    const isChronicleCheck = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
+    const hasAnyAttachedOrScrapedPhoto = Boolean(
+      innerVoicePhotoBase64 ||
+      creatorReferenceImageBase64 ||
+      currentScrapedArticle?.imageBase64 ||
+      currentScrapedArticle?.imageUrl ||
+      (isLink && extractInstantYouTubeThumbnailUrl(url))
+    );
+    if (isChronicleCheck) {
+      const hasAnyMomentPhoto = Array.isArray(dailyChronicleMoments) && dailyChronicleMoments.some(m => Boolean(m && m.imageBase64));
+      if (!hasAnyMomentPhoto && !window._isWebCollageAttached) {
+        forceChronicleNoWatercolor = true;
+      } else {
+        creatorCharacterRepresentation = 'exact';
+      }
+    } else if (!hasAnyAttachedOrScrapedPhoto) {
+      if (typeof openWebCollageBuilderFromContext === 'function') {
+        openWebCollageBuilderFromContext();
+      }
+      showTemporaryToast(isZeroCreditsNow
+        ? '🖼️ 0 AI credits left — pick 1–3 web photos above OR attach your own photo (0⚡ Free)!'
+        : '🖼️ Pick 1–3 web photos above, attach a photo (0⚡ Free), or select 🎨 AI Concept Art (1⚡)!');
+      return;
+    } else {
+      creatorPerspectiveMode = 'source';
+      creatorCharacterRepresentation = 'exact';
+    }
+    if (typeof updateEqualizerSummary === 'function') {
+      try { updateEqualizerSummary(); } catch (_) {}
     }
   }
 
@@ -21871,10 +31503,12 @@ async function startAiSynthesis() {
     }, 4200));
   }
 
-  // Author handle
+  // Author handle (Enforce uniqueness against existing curators from other accounts)
   let userHandle = '@curator';
   if (currentUser) {
-    userHandle = '@' + (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]);
+    const myEmail = String(currentUser.email || '').trim().toLowerCase();
+    const rawName = (currentUser.user_metadata?.user_name || currentUser.user_metadata?.name || currentUser.email.split('@')[0]).trim();
+    userHandle = resolveUniqueClientCuratorHandle('@' + rawName, myEmail);
   }
 
   // If URL scrape is in flight, await it so lead image and title are ready
@@ -21888,7 +31522,9 @@ async function startAiSynthesis() {
   const effectiveImageBase64 = shouldSendImage ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || null) : null;
   const effectiveImageMime = shouldSendImage ? (creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || 'image/jpeg') : 'image/jpeg';
 
-  const rawSourceImgUrl = (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null);
+  const rawSourceImgUrl = window._isWebCollageAttached
+    ? null
+    : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageUrl || null) : (creatorReferenceImageBase64?.startsWith('http') ? creatorReferenceImageBase64 : null));
   const cleanSourceImgUrl = (rawSourceImgUrl && typeof rawSourceImgUrl === 'string') ? rawSourceImgUrl.replace(/&amp;/g, '&') : null;
 
   const isChronicleActive = (creatorSelectedSource === 'inner_voice' && isDailyChronicleMode);
@@ -21923,7 +31559,13 @@ async function startAiSynthesis() {
       if (spark) currentSynthesizedPost.spark = spark;
       if (cleanSourceImgUrl) currentSynthesizedPost.sourceImageUrl = cleanSourceImgUrl;
       if (effectiveImageBase64) currentSynthesizedPost.sourceImageBase64 = effectiveImageBase64;
-      if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+      if (window._isWebCollageAttached) {
+        currentSynthesizedPost.isWebCollage = true;
+        currentSynthesizedPost.hasPaperCut = false;
+        delete currentSynthesizedPost.originalPhotoBase64;
+        delete currentSynthesizedPost.catalystPhoto;
+        delete currentSynthesizedPost.catalystPhotoBase64;
+      } else if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
         currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
         currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
         currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
@@ -21969,6 +31611,7 @@ async function startAiSynthesis() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'artwork_only',
+            simulateZeroCredits: Boolean(window._masterSimulateZeroCredits),
             isManualRegenerate: true,
             rebuildPromptFromSettings: true,
             creatorEmail: userEmail,
@@ -21998,8 +31641,10 @@ async function startAiSynthesis() {
               preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
-            imageBase64: (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
-              ? innerVoicePhotoBase64
+            imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+              ? ((creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64 && shouldSendImage)
+                  ? innerVoicePhotoBase64
+                  : (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null))
               : null,
             imageMimeType: innerVoicePhotoMimeType || effectiveImageMime || 'image/jpeg'
           }),
@@ -22011,6 +31656,13 @@ async function startAiSynthesis() {
           const artData = await artResp.json();
           if (artData && artData.credits) {
             updateCreatorStudioCreditBadge(artData.credits);
+          }
+          if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+            currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+            currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+          }
+          if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+            currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
           }
           if (artData && artData.success && artData.illustrationBase64) {
             const isDataUri = artData.illustrationBase64.startsWith('data:');
@@ -22092,6 +31744,8 @@ async function startAiSynthesis() {
   const payload = {
     sourceType: creatorSelectedSource,
     chronicleMode: isChronicleActive,
+    noWatercolorPoster: Boolean(forceChronicleNoWatercolor),
+    simulateZeroCredits: Boolean(window._masterSimulateZeroCredits),
     regenScope: activeRegenScope,
     reflectionFeedbackHistory: isChronicleActive ? getReflectionFeedbackHistory() : null,
     chronicleMoments: activeChronicleMoments.map(m => ({
@@ -22109,11 +31763,15 @@ async function startAiSynthesis() {
     slantTake: slantTake,
     perspectiveMode: creatorPerspectiveMode || 'hybrid',
     sourceImageUrl: cleanSourceImgUrl,
-    sourceImageBase64: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null),
-    sourceImageMimeType: (isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg'),
-    imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null),
+    sourceImageBase64: (window._isWebCollageAttached && creatorReferenceImageBase64?.startsWith('data:'))
+      ? creatorReferenceImageBase64
+      : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageBase64 || null) : (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null)),
+    sourceImageMimeType: (window._isWebCollageAttached && creatorReferenceImageBase64?.startsWith('data:'))
+      ? (creatorReferenceImageMimeType || 'image/jpeg')
+      : ((isLink && currentScrapedArticle) ? (currentScrapedArticle.imageMimeType || 'image/jpeg') : (creatorReferenceImageMimeType || 'image/jpeg')),
+    imageBase64: effectiveImageBase64 || (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached ? innerVoicePhotoBase64 : null),
     imageMimeType: effectiveImageMime || innerVoicePhotoMimeType || 'image/jpeg',
-    innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice') ? innerVoicePhotoBase64 : null,
+    innerVoiceImageBase64: (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached) ? innerVoicePhotoBase64 : null,
     innerVoiceImageMimeType: innerVoicePhotoMimeType || 'image/jpeg',
     targetAudience: 'General Public',
     slantTone: (creatorSelectedSource === 'inner_voice' || /\b(family|child|love|heart|trip|vacation|weekend|pack|burnout|unplug|memoir|personal)\b/i.test(`${slantTake} ${spark}`)) ? 'heart' : 'mind',
@@ -22193,6 +31851,19 @@ async function startAiSynthesis() {
     }
 
     currentSynthesizedPost = data.post;
+    if (data.usedFreeChronicleCardsOnly || forceChronicleNoWatercolor || currentSynthesizedPost.noWatercolorPoster) {
+      currentSynthesizedPost.noWatercolorPoster = true;
+      currentSynthesizedPost.artworkPending = false;
+      currentSynthesizedPost.illustrationPrompt = '';
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.noWatercolorPoster = true;
+      }
+      showTemporaryToast('📔 Created your Moments & Reflection cards (0⚡ Free • No watercolor poster)!');
+    } else if (data.usedFreeExactPhotoFallback) {
+      creatorCharacterRepresentation = 'exact';
+      currentSynthesizedPost.characterRepresentation = 'exact';
+      showTemporaryToast('✨ Generated your 3-poster Slant for FREE using your Original / Attached Photo (Text generation is always free)!');
+    }
     currentSynthesizedPost.perspectiveMode = creatorPerspectiveMode || 'hybrid';
     if (Array.isArray(currentSynthesizedPost.cues) && currentSynthesizedPost.cues.length > 0) {
       creatorCuePills = currentSynthesizedPost.cues;
@@ -22203,8 +31874,18 @@ async function startAiSynthesis() {
       currentSynthesizedPost.sourceImageUrl = (candidateUrl && typeof candidateUrl === 'string') ? candidateUrl.replace(/&amp;/g, '&') : null;
       currentSynthesizedPost.sourceImageBase64 = currentSynthesizedPost.sourceImageBase64 || currentScrapedArticle?.imageBase64 || (creatorReferenceImageBase64?.startsWith('data:') ? creatorReferenceImageBase64 : null) || null;
       currentSynthesizedPost.sourceImageMimeType = currentSynthesizedPost.sourceImageMimeType || currentScrapedArticle?.imageMimeType || creatorReferenceImageMimeType || 'image/jpeg';
+      currentSynthesizedPost.sourceLogoUrl = currentSynthesizedPost.sourceLogoUrl || currentScrapedArticle?.sourceLogoUrl || null;
+      if (url && currentSynthesizedPost.sourceLogoUrl && /(?:youtube\.com|youtu\.be)/i.test(url)) {
+        setCachedYouTubeChannelLogo(url, currentSynthesizedPost.sourceLogoUrl);
+      }
     }
-    if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
+    if (window._isWebCollageAttached) {
+      currentSynthesizedPost.isWebCollage = true;
+      currentSynthesizedPost.hasPaperCut = false;
+      delete currentSynthesizedPost.originalPhotoBase64;
+      delete currentSynthesizedPost.catalystPhoto;
+      delete currentSynthesizedPost.catalystPhotoBase64;
+    } else if (creatorSelectedSource === 'inner_voice' && innerVoicePhotoBase64) {
       currentSynthesizedPost.catalystPhoto = innerVoicePhotoBase64;
       currentSynthesizedPost.catalystPhotoBase64 = innerVoicePhotoBase64;
       currentSynthesizedPost.originalPhotoBase64 = innerVoicePhotoBase64;
@@ -22213,6 +31894,8 @@ async function startAiSynthesis() {
     let refPhotoCandidate = currentSynthesizedPost.referencePhotoUrl
       || currentSynthesizedPost.sourceImageUrl
       || (currentSynthesizedPost.sourceImageBase64 ? (currentSynthesizedPost.sourceImageBase64.startsWith('data:') ? currentSynthesizedPost.sourceImageBase64 : `data:${currentSynthesizedPost.sourceImageMimeType || 'image/jpeg'};base64,${currentSynthesizedPost.sourceImageBase64}`) : null)
+      || (window._isWebCollageAttached && creatorReferenceImageBase64 ? creatorReferenceImageBase64 : null)
+      || (creatorSelectedSource === 'inner_voice' && !window._isWebCollageAttached && innerVoicePhotoBase64 ? (innerVoicePhotoBase64.startsWith('data:') ? innerVoicePhotoBase64 : `data:${innerVoicePhotoMimeType || 'image/jpeg'};base64,${innerVoicePhotoBase64}`) : null)
       || null;
     if (refPhotoCandidate && typeof refPhotoCandidate === 'string' && refPhotoCandidate.startsWith('http')) {
       refPhotoCandidate = refPhotoCandidate.replace(/&amp;/g, '&');
@@ -22221,6 +31904,12 @@ async function startAiSynthesis() {
 
     if (creatorCharacterRepresentation === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
       currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+      const exactFallbackSource = (window._isWebCollageAttached && creatorReferenceImageBase64) ? creatorReferenceImageBase64 : (creatorSelectedSource === 'inner_voice' ? innerVoicePhotoBase64 : null);
+      if (exactFallbackSource && !currentSynthesizedPost.illustrationBase64) {
+        currentSynthesizedPost.illustrationBase64 = exactFallbackSource.startsWith('data:')
+          ? exactFallbackSource.split(',')[1]
+          : exactFallbackSource;
+      }
       currentSynthesizedPost.artworkPending = false;
     }
     const effectiveSlantTake = currentSynthesizedPost.polishedCuratorTake || slantTake || '';
@@ -22233,6 +31922,7 @@ async function startAiSynthesis() {
         perspectiveMode: creatorPerspectiveMode || 'hybrid',
         sourceImageUrl: currentSynthesizedPost.sourceImageUrl || null,
         sourceImageBase64: currentSynthesizedPost.sourceImageBase64 || null,
+        sourceLogoUrl: currentSynthesizedPost.sourceLogoUrl || null,
         referencePhotoUrl: currentSynthesizedPost.referencePhotoUrl || null,
         spark: spark || '',
         cues: [...creatorCuePills],
@@ -22269,9 +31959,38 @@ async function startAiSynthesis() {
     currentSynthesizedPost.userSlantTake = effectiveSlantTake;
     currentSynthesizedPost.polishedCuratorTake = effectiveSlantTake;
     currentSynthesizedPost.sourceContext = (isLink && url) ? (currentScrapedArticle?.content || '').slice(0, 3000) : '';
+    if (activeCreatorSeriesId && Array.isArray(creatorSeriesList)) {
+      const matchedSeries = creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId);
+      if (matchedSeries) {
+        currentSynthesizedPost.seriesId = matchedSeries.id;
+        currentSynthesizedPost.seriesTitle = matchedSeries.title;
+        if (currentSynthesizedPost.generationInputs) {
+          currentSynthesizedPost.generationInputs.seriesId = matchedSeries.id;
+          currentSynthesizedPost.generationInputs.seriesTitle = matchedSeries.title;
+        }
+      }
+    }
     if (lastPolishCounts && typeof lastPolishCounts === 'object') {
       currentSynthesizedPost.polishCounts = { ...lastPolishCounts };
       currentSynthesizedPost.polishCorrections = Array.isArray(lastCorrectionsList) ? lastCorrectionsList.slice(0, 15) : [];
+    }
+    if (!isChronicleActive) {
+      const evalInputDepth = typeof evaluatePerspectiveDepth === 'function'
+        ? (evaluatePerspectiveDepth(slantTake || effectiveSlantTake, spark)?.depthScore || 75)
+        : 75;
+      const evalEffectiveDepth = typeof evaluatePerspectiveDepth === 'function'
+        ? (evaluatePerspectiveDepth(effectiveSlantTake, spark)?.depthScore || 75)
+        : 75;
+      const verifiedDepth = Math.max(
+        Number(verifiedPolishDepthState?.depthScore) || 0,
+        Number(window._lastConfirmedCreatorDepthScore) || 0
+      );
+      const resolvedConviction = Math.max(70, Math.min(99, Math.round(Math.max(verifiedDepth, evalInputDepth, evalEffectiveDepth))));
+      currentSynthesizedPost.convictionScore = resolvedConviction;
+      if (currentSynthesizedPost.generationInputs) {
+        currentSynthesizedPost.generationInputs.convictionScore = resolvedConviction;
+      }
+      window._pendingSynthesisConvictionScore = resolvedConviction;
     }
 
     // Immediately synchronize edit modal fields with this fresh post to ensure zero stale DOM values
@@ -22363,8 +32082,8 @@ async function startAiSynthesis() {
               preferredVisualProjection: m.preferredVisualProjection || null
             })),
             chronicleMomentImages: chronicleMomentImages,
-            imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact')
-              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+            imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+              ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null)
               : null,
             imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
           }),
@@ -22374,6 +32093,13 @@ async function startAiSynthesis() {
 
         if (artResp.ok) {
           const artData = await artResp.json();
+          if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+            currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+            currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+          }
+          if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+            currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
+          }
           if (artData && artData.success && artData.illustrationBase64) {
             const isDataUri = artData.illustrationBase64.startsWith('data:');
             const formatted = isDataUri ? artData.illustrationBase64 : `data:image/png;base64,${artData.illustrationBase64}`;
@@ -22514,8 +32240,8 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
           hasPhoto: Boolean(m.imageBase64)
         })),
         chronicleMomentImages: (currentSynthesizedPost.chronicleMoments || getActiveChronicleMomentsPayload() || []).filter(m => m && m.imageBase64),
-        imageBase64: ((creatorPerspectiveMode === 'source' && creatorCharacterRepresentation !== 'silhouette') || creatorCharacterRepresentation === 'exact' || creatorCharacterRepresentation === 'watercolor' || creatorCharacterRepresentation === 'painting' || creatorCharacterRepresentation === 'cinematic')
-          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || null)
+        imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || currentSynthesizedPost?.sourceImageBase64 || currentSynthesizedPost?.referencePhotoUrl || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || currentSynthesizedPost?.sourceImageMimeType || 'image/jpeg'
       }),
@@ -22527,6 +32253,13 @@ async function retryStep3ArtworkGeneration(event, options = {}) {
       const artData = await artResp.json();
       if (artData && artData.credits) {
         updateCreatorStudioCreditBadge(artData.credits);
+      }
+      if (artData && artData.referencePhotoUrl && !currentSynthesizedPost.referencePhotoUrl) {
+        currentSynthesizedPost.referencePhotoUrl = artData.referencePhotoUrl;
+        currentSynthesizedPost.sourceImageUrl = artData.referencePhotoUrl;
+      }
+      if (artData && artData.sourceImageBase64 && !currentSynthesizedPost.sourceImageBase64) {
+        currentSynthesizedPost.sourceImageBase64 = artData.sourceImageBase64;
       }
       if (artData && artData.illustrationPrompt) {
         currentSynthesizedPost.illustrationPrompt = artData.illustrationPrompt;
@@ -22592,8 +32325,8 @@ async function enhancePosterArtworkInBackground(post) {
         countryContext: post.countryContext || creatorCountryContext?.name || 'India',
         familyCast: getSanitizedCastPayload(familyCastProfileCache),
         activeCast: getSanitizedActiveCastPayload(),
-        imageBase64: (creatorPerspectiveMode === 'source' || creatorCharacterRepresentation === 'exact')
-          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || null)
+        imageBase64: (creatorCharacterRepresentation !== 'silhouette')
+          ? (creatorReferenceImageBase64 || currentScrapedArticle?.imageBase64 || post?.sourceImageBase64 || post?.referencePhotoUrl || null)
           : null,
         imageMimeType: creatorReferenceImageMimeType || currentScrapedArticle?.imageMimeType || post?.sourceImageMimeType || 'image/jpeg'
       })
@@ -22678,6 +32411,17 @@ function showStep3Preview() {
   // Render preview
   renderCreatorPreview();
 
+  // Trigger sparkling conviction tier flash celebration right as synthesis completes
+  if (window._pendingSynthesisConvictionScore && currentSynthesizedPost && !isChronicleModePost(currentSynthesizedPost)) {
+    const celebScore = window._pendingSynthesisConvictionScore;
+    window._pendingSynthesisConvictionScore = null;
+    setTimeout(() => {
+      if (typeof showSynthesisConvictionFlashOverlay === 'function') {
+        showSynthesisConvictionFlashOverlay(celebScore, currentSynthesizedPost);
+      }
+    }, 120);
+  }
+
   // If AI artwork was not included in first phase, upgrade in background without blocking user
   if (currentSynthesizedPost && !currentSynthesizedPost.illustrationBase64 && !currentSynthesizedPost.illustrationUrl && !currentSynthesizedPost._preserveExistingVisuals && currentSynthesizedPost.illustrationPrompt) {
     enhancePosterArtworkInBackground(currentSynthesizedPost);
@@ -22700,6 +32444,9 @@ function isChronicleModePost(post) {
 
 function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   const isChronicle = isChronicleModePost(post);
+  const matchedSeries = (!isChronicle && activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : (!isChronicle && post ? getPostSeriesInfo(post) : null);
   const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
   const publishBtn = document.getElementById('publishBtn');
   const saveBtn = document.getElementById('step3SaveBtn');
@@ -22709,7 +32456,9 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
       : '<span>🔖 Save Draft</span>';
     bottomSaveBtn.title = isChronicle
       ? 'Save to your strictly personal Diary Calendar (never goes to people\'s feed)'
-      : 'Save privately to your feed & drafts without publishing';
+      : (matchedSeries
+        ? `Save as draft inside Series "${matchedSeries.title}"`
+        : 'Save privately to your feed & drafts without publishing');
     bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
     bottomSaveBtn.classList.toggle('single-diary-cta', isChronicle);
   }
@@ -22718,32 +32467,45 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
     publishBtn.style.display = isChronicle ? 'none' : '';
     publishBtn.classList.remove('creator-publish-deemphasized');
     publishBtn.innerHTML = '<span>Publish 🚀</span>';
-    publishBtn.title = 'Publish to the live public feed';
+    publishBtn.title = matchedSeries
+      ? `Publish to live public feed and include in Series "${matchedSeries.title}"`
+      : 'Publish to the live public feed';
   }
   if (saveBtn) {
     saveBtn.classList.remove('diary-save-highlight');
     saveBtn.title = isChronicle
       ? 'Save to your Drafts so you can keep editing later without pushing to your Diary Calendar'
-      : 'Save to your Drafts & Feed (Private • Only visible to you)';
+      : (matchedSeries
+        ? `Save as draft in Series "${matchedSeries.title}"`
+        : 'Save to your Drafts & Feed (Private • Only visible to you)');
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {
     saveLbl.textContent = 'Save';
   }
+  const prevTab0 = document.getElementById('prevTab0');
   const prevTab1 = document.getElementById('prevTab1');
   const prevTab2 = document.getElementById('prevTab2');
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(post);
   const momentCount = (Array.isArray(post?.chronicleMoments) && post.chronicleMoments.length > 0)
     ? post.chronicleMoments.length
     : ((Array.isArray(post?.generationInputs?.chronicleMoments) && post.generationInputs.chronicleMoments.length > 0)
       ? post.generationInputs.chronicleMoments.length
       : 3);
+  if (prevTab0) {
+    prevTab0.innerHTML = isChronicleCardsOnly
+      ? `<span>📓</span> Card 1: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
+      : (isChronicle ? '<span>🎨</span> Poster 1: Moments Art' : '<span>🎨</span> Poster 1: The Hook');
+  }
   if (prevTab1) {
-    prevTab1.innerHTML = isChronicle
-      ? `<span>📓</span> Poster 2: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
-      : '<span>📜</span> Poster 2: The Essay';
+    prevTab1.innerHTML = isChronicleCardsOnly
+      ? '<span>✨</span> Card 2: Reflection'
+      : (isChronicle
+          ? `<span>📓</span> Poster 2: ${momentCount} Moment${momentCount === 1 ? '' : 's'}`
+          : '<span>📜</span> Poster 2: The Essay');
   }
   if (prevTab2) {
-    if (isChronicle) {
+    if (isChronicle && !isChronicleCardsOnly) {
       prevTab2.style.display = 'inline-flex';
       prevTab2.innerHTML = '<span>✨</span> Poster 3: Reflection';
     } else {
@@ -22784,19 +32546,39 @@ function setPreviewArtworkSource(source) {
   const pillExact = document.getElementById('editArtPillExact');
   const pillLik = document.getElementById('editArtPillLikeness');
   const pillMet = document.getElementById('editArtPillMetaphor');
+  const exactPhotoUrl = currentSynthesizedPost.referencePhotoUrl || currentSynthesizedPost.sourceImageUrl || '';
 
-  if (source === 'exact' && currentSynthesizedPost.referencePhotoUrl) {
-    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.referencePhotoUrl;
+  if (source === 'exact' && exactPhotoUrl) {
+    if (currentSynthesizedPost.illustrationBase64) {
+      currentSynthesizedPost._aiIllustrationBase64Backup = currentSynthesizedPost.illustrationBase64;
+    }
+    currentSynthesizedPost.illustrationBase64 = null;
+    currentSynthesizedPost.posterBase64 = null;
+    currentSynthesizedPost.illustrationUrl = exactPhotoUrl;
+    currentSynthesizedPost.characterRepresentation = 'exact';
+    if (currentSynthesizedPost.generationInputs) {
+      currentSynthesizedPost.generationInputs.characterRepresentation = 'exact';
+    }
     if (pillExact) pillExact.classList.add('active');
     if (pillLik) pillLik.classList.remove('active');
     if (pillMet) pillMet.classList.remove('active');
   } else if (source === 'likeness') {
+    if (currentSynthesizedPost._aiIllustrationBase64Backup) {
+      currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+      currentSynthesizedPost.posterBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+    }
     currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost.illustrationUrl;
+    currentSynthesizedPost.characterRepresentation = 'likeness';
     if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.add('active');
     if (pillMet) pillMet.classList.remove('active');
-  } else if (source === 'metaphor' && currentSynthesizedPost.aiIllustrationUrl) {
-    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl;
+  } else if (source === 'metaphor' && (currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost._aiIllustrationBase64Backup)) {
+    if (currentSynthesizedPost._aiIllustrationBase64Backup) {
+      currentSynthesizedPost.illustrationBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+      currentSynthesizedPost.posterBase64 = currentSynthesizedPost._aiIllustrationBase64Backup;
+    }
+    currentSynthesizedPost.illustrationUrl = currentSynthesizedPost.aiIllustrationUrl || currentSynthesizedPost.illustrationUrl;
+    currentSynthesizedPost.characterRepresentation = 'realistic';
     if (pillExact) pillExact.classList.remove('active');
     if (pillLik) pillLik.classList.remove('active');
     if (pillMet) pillMet.classList.add('active');
@@ -22805,16 +32587,19 @@ function setPreviewArtworkSource(source) {
   // Update image in preview card DOM
   const bgImgs = document.querySelectorAll('#carousel-preview img.slide-hook-bg');
   bgImgs.forEach(bgImg => {
-    if (currentSynthesizedPost.illustrationUrl) {
+    const targetSrc = currentSynthesizedPost.illustrationBase64 || currentSynthesizedPost.illustrationUrl;
+    if (targetSrc) {
       bgImg.style.display = 'block';
       bgImg.style.opacity = '1';
-      bgImg.src = currentSynthesizedPost.illustrationUrl;
+      bgImg.src = targetSrc;
     }
   });
 }
 
 function switchPreviewSlide(slideIdx) {
-  const maxIdx = isChronicleModePost(currentSynthesizedPost) ? 2 : 1;
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const maxIdx = (isChronicle && !isChronicleCardsOnly) ? 2 : 1;
   currentPreviewSlide = Math.max(0, Math.min(maxIdx, slideIdx));
   goToSlide(null, 'preview', currentPreviewSlide);
 
@@ -22891,12 +32676,21 @@ function openWholePosterModal(slideIdx) {
 
   isWholePosterClean = false;
   const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
-  const wholeSlideCount = isChronicleWhole ? 3 : 2;
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const wholeSlideCount = (isChronicleWhole && !isChronicleCardsOnly) ? 3 : 2;
 
   // Build the complete carousel inside the whole poster frame
   frame.innerHTML = `
     <div class="carousel-view ${isWholePosterClean ? 'clean-view' : ''}" id="carousel-whole" data-post-index="whole" data-current-slide="${currentWholePosterSlide}" data-slide-count="${wholeSlideCount}">
       <div class="carousel-track" id="track-whole">
+        ${isChronicleCardsOnly ? `
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 1)}
+        </div>
+        <div class="carousel-slide slide-receipt" style="cursor: default;">
+          ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 2)}
+        </div>
+        ` : `
         <div class="carousel-slide slide-hook">
           ${buildSlide1Html(currentSynthesizedPost, 'whole', wholeSlideCount)}
         </div>
@@ -22908,6 +32702,7 @@ function openWholePosterModal(slideIdx) {
           ${buildUnifiedEssayPosterHtml(currentSynthesizedPost, 'whole', 2)}
         </div>
         ` : ''}
+        `}
       </div>
     </div>
   `;
@@ -22960,7 +32755,8 @@ function handleWholePosterKeydown(e) {
 
 function switchWholePosterSlide(slideIdx) {
   const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
-  const maxIdx = isChronicleWhole ? 2 : 1;
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const maxIdx = (isChronicleWhole && !isChronicleCardsOnly) ? 2 : 1;
   currentWholePosterSlide = Math.max(0, Math.min(maxIdx, slideIdx));
 
   goToSlide(null, 'whole', currentWholePosterSlide);
@@ -22971,28 +32767,35 @@ function switchWholePosterSlide(slideIdx) {
   if (p0) p0.classList.toggle('active', currentWholePosterSlide === 0);
   if (p1) p1.classList.toggle('active', currentWholePosterSlide === 1);
   if (p2) {
-    p2.style.display = isChronicleWhole ? 'inline-flex' : 'none';
+    p2.style.display = (isChronicleWhole && !isChronicleCardsOnly) ? 'inline-flex' : 'none';
     p2.classList.toggle('active', currentWholePosterSlide === 2);
   }
 
   const titleEl = document.getElementById('wholePosterSlideTitle');
   if (titleEl) {
-    const titles = isChronicleWhole
+    const titles = isChronicleCardsOnly
       ? [
-          'Poster 1: Daily Moments Montage',
-          'Poster 2: The 3 Moments',
-          'Poster 3: Reflection of the Day'
+          'Card 1: Moments of the Day',
+          'Card 2: Reflection of the Day'
         ]
-      : [
-          'Poster 1: The Visual Hook',
-          'Poster 2: Unified Essay & Slant'
-        ];
+      : (isChronicleWhole
+          ? [
+              'Poster 1: Daily Moments Montage',
+              'Poster 2: The 3 Moments',
+              'Poster 3: Reflection of the Day'
+            ]
+          : [
+              'Poster 1: The Visual Hook',
+              'Poster 2: Unified Essay & Slant'
+            ]);
     titleEl.textContent = titles[currentWholePosterSlide] || 'Whole Poster';
   }
 }
 
 function changeWholePosterSlide(delta) {
-  const count = isChronicleModePost(currentSynthesizedPost) ? 3 : 2;
+  const isChronicleWhole = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicleWhole && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const count = (isChronicleWhole && !isChronicleCardsOnly) ? 3 : 2;
   const nextSlide = (currentWholePosterSlide + delta + count) % count;
   switchWholePosterSlide(nextSlide);
 }
@@ -23137,7 +32940,38 @@ function getEditedProseFields(filterTab = null) {
 function openEditPosterModal(initialTab = null) {
   if (!currentSynthesizedPost) return;
 
-  const tabToOpen = (typeof initialTab === 'number') ? initialTab : (currentPreviewSlide || 0);
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  const editTab0 = document.getElementById('editTab0');
+  const editTab1 = document.getElementById('editTab1');
+  const editTab2 = document.getElementById('editTab2');
+  if (editTab0) {
+    editTab0.textContent = isChronicleCardsOnly ? 'Title & Header' : (isChronicle ? 'Poster 1: Cover' : 'Slide 1: Hook');
+  }
+  if (editTab1) {
+    editTab1.textContent = isChronicleCardsOnly ? 'Card 2: Reflection' : (isChronicle ? 'Poster 3: Reflection' : 'Slide 2: Take');
+  }
+  if (editTab2) {
+    editTab2.textContent = isChronicleCardsOnly ? 'Card 1: Moments ✏️' : (isChronicle ? 'Poster 2: Moments ✏️' : 'Slide 3: Broadsheet & Essay ✏️');
+  }
+
+  let tabToOpen = 0;
+  if (typeof initialTab === 'number') {
+    tabToOpen = initialTab;
+  } else {
+    const curSlide = currentPreviewSlide || 0;
+    if (isChronicleCardsOnly) {
+      tabToOpen = (curSlide === 0) ? 2 : 1;
+    } else if (curSlide === 0) {
+      tabToOpen = 0;
+    } else if (curSlide === 1) {
+      // Poster 2 in both Daily Chronicle (Moments) and Regular Slant (The Essay) lives in editTabPane2
+      tabToOpen = 2;
+    } else if (curSlide === 2) {
+      // Poster 3 in Daily Chronicle (Reflection) lives in editTabPane1
+      tabToOpen = isChronicle ? 1 : 2;
+    }
+  }
   switchEditModalTab(tabToOpen);
 
   const catInput = document.getElementById('editModalCategory');
@@ -23178,12 +33012,6 @@ function openEditPosterModal(initialTab = null) {
     if (pillMet) pillMet.classList.toggle('active', !isUsingExact && currentSynthesizedPost.characterRepresentation !== 'likeness');
   }
 
-  // Slide 3 is fully editable for all sources
-  const editTab2 = document.getElementById('editTab2');
-  if (editTab2) {
-    editTab2.textContent = 'Slide 3: Broadsheet & Essay ✏️';
-  }
-
   if (s3Head) {
     s3Head.value = currentSynthesizedPost.broadsheetHeadline || currentSynthesizedPost.originalHeadline || currentSynthesizedPost.adaptedHeadline || '';
   }
@@ -23191,7 +33019,13 @@ function openEditPosterModal(initialTab = null) {
     s3Quote.value = currentSynthesizedPost.receiptHighlightQuote || currentSynthesizedPost.broadsheetHighlight || currentSynthesizedPost.pullQuote || '';
   }
   if (s3Obs) {
-    s3Obs.value = currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts.join('\n\n') : '') || '';
+    const rawSum = String(currentSynthesizedPost.summary || currentSynthesizedPost.broadsheetObservation || '').trim();
+    const sumParas = splitEditorialParagraphsOrMoments(rawSum);
+    const exArrRaw = Array.isArray(currentSynthesizedPost.resolvedArticleExcerpts) && currentSynthesizedPost.resolvedArticleExcerpts.length > 0
+      ? currentSynthesizedPost.resolvedArticleExcerpts
+      : (Array.isArray(currentSynthesizedPost.articleExcerpts) ? currentSynthesizedPost.articleExcerpts : []);
+    const exArr = splitEditorialParagraphsOrMoments(exArrRaw);
+    s3Obs.value = (exArr.length >= sumParas.length && exArr.length > 0) ? exArr.join('\n\n') : (sumParas.length > 0 ? sumParas.join('\n\n') : rawSum);
   }
   if (s3Ref) {
     s3Ref.value = currentSynthesizedPost.broadsheetReflection || currentSynthesizedPost.whyItMatters || '';
@@ -23219,7 +33053,17 @@ function closeEditPosterModal() {
 }
 
 function switchEditModalTab(tabIdx) {
-  currentPreviewSlide = tabIdx;
+  const isChronicle = isChronicleModePost(currentSynthesizedPost);
+  const isChronicleCardsOnly = isChronicle && isChronicleWithoutWatercolorPoster(currentSynthesizedPost);
+  if (isChronicleCardsOnly) {
+    currentPreviewSlide = (tabIdx === 1) ? 1 : 0;
+  } else if (tabIdx === 0) {
+    currentPreviewSlide = 0;
+  } else if (tabIdx === 2) {
+    currentPreviewSlide = 1;
+  } else if (tabIdx === 1) {
+    currentPreviewSlide = isChronicle ? 2 : 1;
+  }
   for (let i = 0; i < 3; i++) {
     const tabBtn = document.getElementById(`editTab${i}`);
     const tabPane = document.getElementById(`editTabPane${i}`);
@@ -23295,6 +33139,8 @@ async function runEditModalReview(fieldsToReview, fromTab = null) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action: 'polish_take',
+            includeVisualOptions: false,
+            skipStructureBeats: true,
             text: field.newVal
           })
         });
@@ -23562,7 +33408,16 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.newsprintExcerpt = val;
     currentSynthesizedPost.hook = val;
   }
-  if (handleInput && handleInput.value.trim()) currentSynthesizedPost.creatorHandle = handleInput.value.trim();
+  if (handleInput && handleInput.value.trim()) {
+    const myEmail = currentUser?.email ? String(currentUser.email).trim().toLowerCase() : (currentSynthesizedPost.userEmail || '');
+    const requestedHandle = handleInput.value.trim();
+    const uniqueHandle = resolveUniqueClientCuratorHandle(requestedHandle, myEmail);
+    if (uniqueHandle.toLowerCase() !== (requestedHandle.startsWith('@') ? requestedHandle : '@' + requestedHandle).toLowerCase()) {
+      showTemporaryToast(`ℹ️ Curator name "${requestedHandle}" is already taken — updated to "${uniqueHandle}" to keep your profile unique.`);
+      handleInput.value = uniqueHandle;
+    }
+    currentSynthesizedPost.creatorHandle = uniqueHandle;
+  }
 
   // Slide 2
   if (s2TitleInput && s2TitleInput.value.trim()) {
@@ -23571,13 +33426,20 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.keyTakeaways[0] = s2TitleInput.value.trim();
   }
   if (opinionInput && opinionInput.value.trim()) {
-    currentSynthesizedPost.creatorOpinion = opinionInput.value.trim();
-    currentSynthesizedPost.curatorTake = opinionInput.value.trim();
+    const cleanOpinion = opinionInput.value.trim();
+    currentSynthesizedPost.creatorOpinion = cleanOpinion;
+    currentSynthesizedPost.curatorTake = cleanOpinion;
+    if (Array.isArray(currentSynthesizedPost.chronicleReflections) && currentSynthesizedPost.chronicleReflections.length > 0) {
+      currentSynthesizedPost.chronicleReflections[0].quote = cleanOpinion;
+    }
+    if (Array.isArray(currentSynthesizedPost.generationInputs?.chronicleReflections) && currentSynthesizedPost.generationInputs.chronicleReflections.length > 0) {
+      currentSynthesizedPost.generationInputs.chronicleReflections[0].quote = cleanOpinion;
+    }
   }
   if (whyInput && whyInput.value.trim()) currentSynthesizedPost.whyItMatters = whyInput.value.trim();
   if (metricInput && metricInput.value.trim()) currentSynthesizedPost.keyMetric = metricInput.value.trim();
 
-  // Slide 3: All content editable for all sources
+  // Slide 3 (or Poster 2 Moments in Daily Chronicle): All content editable for all sources
   if (s3Head) {
     const headVal = s3Head.value.trim();
     currentSynthesizedPost.broadsheetHeadline = headVal;
@@ -23589,12 +33451,32 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.pullQuote = quoteVal;
   }
   if (s3Obs) {
-    const cleanObs = s3Obs.value.trim();
-    const obsParas = cleanObs ? cleanObs.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean) : [];
+    const rawObs = s3Obs.value.trim();
+    const obsParas = splitEditorialParagraphsOrMoments(rawObs);
+    const cleanObs = obsParas.length > 0 ? obsParas.join('\n\n') : rawObs;
     currentSynthesizedPost.summary = cleanObs;
     currentSynthesizedPost.broadsheetObservation = cleanObs;
     currentSynthesizedPost.articleExcerpts = obsParas;
     currentSynthesizedPost.resolvedArticleExcerpts = obsParas;
+    if (isChronicleModePost(currentSynthesizedPost) && obsParas.length > 0) {
+      const existingMoments = Array.isArray(currentSynthesizedPost.chronicleMoments)
+        ? currentSynthesizedPost.chronicleMoments
+        : (Array.isArray(currentSynthesizedPost.generationInputs?.chronicleMoments) ? currentSynthesizedPost.generationInputs.chronicleMoments : []);
+      const updatedMoments = obsParas.map((pText, idx) => {
+        const prev = existingMoments[idx] || {};
+        const strippedText = String(pText || '').replace(/^(?:0?[1-9]\s*[·•.-]\s*)?Moment\s+\d+(?:\s*[·•.-]\s*[^:]{1,38})?:\s*/i, '').trim();
+        return {
+          ...prev,
+          index: idx + 1,
+          title: prev.title || `Moment ${String(idx + 1).padStart(2, '0')}`,
+          text: strippedText || pText
+        };
+      });
+      currentSynthesizedPost.chronicleMoments = updatedMoments;
+      if (currentSynthesizedPost.generationInputs && typeof currentSynthesizedPost.generationInputs === 'object') {
+        currentSynthesizedPost.generationInputs.chronicleMoments = updatedMoments;
+      }
+    }
   }
   if (s3Ref) {
     const refVal = s3Ref.value.trim();
@@ -23602,7 +33484,9 @@ function applyEditModalFormValues() {
     currentSynthesizedPost.whyItMatters = refVal;
   }
 
-  // Clear poster file caches so fresh edits render immediately
+  // Clear cached bifurcation and poster file caches so fresh edits render immediately
+  delete currentSynthesizedPost._cachedBifurcation;
+  delete currentSynthesizedPost._calibratedBifurcation;
   if (typeof posterFilesCache !== 'undefined' && posterFilesCache) {
     if (currentSynthesizedPost.id) posterFilesCache.delete(currentSynthesizedPost.id);
     posterFilesCache.delete('preview');
@@ -23861,14 +33745,36 @@ async function saveSynthesizedPost(options = {}) {
   currentSynthesizedPost.isDraft = true;
   currentSynthesizedPost.isPrivate = true;
   currentSynthesizedPost.isPubliclyPublished = false;
+  currentSynthesizedPost.allowComments = Boolean(creatorAllowComments);
   if (isChronicle) {
     currentSynthesizedPost.isDiaryDraftOnly = asDraftOnly;
     currentSynthesizedPost.isDiary = !asDraftOnly;
   }
   currentSynthesizedPost.status = 'draft';
 
+  const savedSeriesObj = (!isChronicle && activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : (!isChronicle ? getPostSeriesInfo(currentSynthesizedPost) : null);
+  if (savedSeriesObj) {
+    currentSynthesizedPost.seriesId = savedSeriesObj.id;
+    currentSynthesizedPost.seriesTitle = savedSeriesObj.title;
+    if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+    currentSynthesizedPost.generationInputs.seriesId = savedSeriesObj.id;
+    currentSynthesizedPost.generationInputs.seriesTitle = savedSeriesObj.title;
+    if (savedSeriesObj.description) {
+      currentSynthesizedPost.generationInputs.seriesDescription = savedSeriesObj.description;
+    }
+    if (savedSeriesObj.customCoverImage && savedSeriesObj.customCoverImage.startsWith('http')) {
+      currentSynthesizedPost.generationInputs.seriesCoverImage = savedSeriesObj.customCoverImage;
+    }
+  }
+
   // 1. Clean & compress payload: store lightweight CDN pointer so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  if (savedSeriesObj) {
+    postToSave.seriesId = savedSeriesObj.id;
+    postToSave.seriesTitle = savedSeriesObj.title;
+  }
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
     postToSave.polishedCuratorTake = savedSlantTake;
@@ -23937,6 +33843,29 @@ async function saveSynthesizedPost(options = {}) {
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.referencePhotoUrl === 'string' && postToSave.referencePhotoUrl.startsWith('data:image/')) {
+    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http')) {
+      postToSave.referencePhotoUrl = postToSave.illustrationUrl;
+    } else {
+      try {
+        const refCompressed = await compressImageForCloud(postToSave.referencePhotoUrl, 960, 0.85);
+        const refPublicUrl = await uploadArtworkToSupabaseStorage(`${postToSave.id}_ref`, refCompressed);
+        if (refPublicUrl) {
+          postToSave.referencePhotoUrl = refPublicUrl;
+        } else {
+          delete postToSave.referencePhotoUrl;
+        }
+      } catch (_) {
+        delete postToSave.referencePhotoUrl;
+      }
+    }
+    currentSynthesizedPost.referencePhotoUrl = postToSave.referencePhotoUrl || null;
+  }
+  if (typeof postToSave.sourceImageUrl === 'string' && postToSave.sourceImageUrl.startsWith('data:image/')) {
+    postToSave.sourceImageUrl = (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http'))
+      ? postToSave.referencePhotoUrl
+      : (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http') ? postToSave.illustrationUrl : undefined);
+  }
   if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
     delete postToSave.catalystPhoto;
   }
@@ -23948,7 +33877,11 @@ async function saveSynthesizedPost(options = {}) {
       delete postToSave.generationInputs.catalystPhoto;
     }
     if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-      delete postToSave.generationInputs.referencePhotoUrl;
+      if (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http')) {
+        postToSave.generationInputs.referencePhotoUrl = postToSave.referencePhotoUrl;
+      } else {
+        delete postToSave.generationInputs.referencePhotoUrl;
+      }
     }
   }
 
@@ -24057,7 +33990,9 @@ async function saveSynthesizedPost(options = {}) {
     ? (asDraftOnly
       ? '🔖 Saved to My Drafts! You can keep editing it anytime before saving to your Diary Calendar.'
       : '📔 Saved to My Diary! AES-256 Encrypted & added to your Diary Calendar.')
-    : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.');
+    : (savedSeriesObj
+      ? `🔒 Saved privately to Series "${savedSeriesObj.title}"! Visible only to you (tap Publish anytime).`
+      : '🔒 Saved as private draft! Visible only to you in your Feed & Drafts.'));
 }
 
 async function publishSynthesizedPost() {
@@ -24086,9 +34021,31 @@ async function publishSynthesizedPost() {
   currentSynthesizedPost.isPrivate = false;
   currentSynthesizedPost.isPubliclyPublished = true;
   currentSynthesizedPost.status = 'published';
+  currentSynthesizedPost.allowComments = Boolean(creatorAllowComments);
+
+  const publishedSeriesObj = (activeCreatorSeriesId && Array.isArray(creatorSeriesList))
+    ? creatorSeriesList.find(s => s && s.id === activeCreatorSeriesId)
+    : getPostSeriesInfo(currentSynthesizedPost);
+  if (publishedSeriesObj) {
+    currentSynthesizedPost.seriesId = publishedSeriesObj.id;
+    currentSynthesizedPost.seriesTitle = publishedSeriesObj.title;
+    if (!currentSynthesizedPost.generationInputs) currentSynthesizedPost.generationInputs = {};
+    currentSynthesizedPost.generationInputs.seriesId = publishedSeriesObj.id;
+    currentSynthesizedPost.generationInputs.seriesTitle = publishedSeriesObj.title;
+    if (publishedSeriesObj.description) {
+      currentSynthesizedPost.generationInputs.seriesDescription = publishedSeriesObj.description;
+    }
+    if (publishedSeriesObj.customCoverImage && publishedSeriesObj.customCoverImage.startsWith('http')) {
+      currentSynthesizedPost.generationInputs.seriesCoverImage = publishedSeriesObj.customCoverImage;
+    }
+  }
 
   // 1. Clean & compress payload: store crisp ~60KB WebP so Supabase rows never trigger timeout
   const postToSave = { ...currentSynthesizedPost };
+  if (publishedSeriesObj) {
+    postToSave.seriesId = publishedSeriesObj.id;
+    postToSave.seriesTitle = publishedSeriesObj.title;
+  }
   const savedSlantTake = currentSynthesizedPost.polishedCuratorTake || currentSynthesizedPost.generationInputs?.slantTake || currentSynthesizedPost.userSlantTake || '';
   if (savedSlantTake) {
     postToSave.polishedCuratorTake = savedSlantTake;
@@ -24153,6 +34110,29 @@ async function publishSynthesizedPost() {
   delete postToSave.originalPhotoBase64;
   delete postToSave.sourceImageBase64;
   delete postToSave.catalystPhotoBase64;
+  if (typeof postToSave.referencePhotoUrl === 'string' && postToSave.referencePhotoUrl.startsWith('data:image/')) {
+    if (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http')) {
+      postToSave.referencePhotoUrl = postToSave.illustrationUrl;
+    } else {
+      try {
+        const refCompressed = await compressImageForCloud(postToSave.referencePhotoUrl, 960, 0.85);
+        const refPublicUrl = await uploadArtworkToSupabaseStorage(`${postToSave.id}_ref`, refCompressed);
+        if (refPublicUrl) {
+          postToSave.referencePhotoUrl = refPublicUrl;
+        } else {
+          delete postToSave.referencePhotoUrl;
+        }
+      } catch (_) {
+        delete postToSave.referencePhotoUrl;
+      }
+    }
+    currentSynthesizedPost.referencePhotoUrl = postToSave.referencePhotoUrl || null;
+  }
+  if (typeof postToSave.sourceImageUrl === 'string' && postToSave.sourceImageUrl.startsWith('data:image/')) {
+    postToSave.sourceImageUrl = (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http'))
+      ? postToSave.referencePhotoUrl
+      : (postToSave.illustrationUrl && postToSave.illustrationUrl.startsWith('http') ? postToSave.illustrationUrl : undefined);
+  }
   if (typeof postToSave.catalystPhoto === 'string' && postToSave.catalystPhoto.startsWith('data:image/')) {
     delete postToSave.catalystPhoto;
   }
@@ -24164,7 +34144,11 @@ async function publishSynthesizedPost() {
       delete postToSave.generationInputs.catalystPhoto;
     }
     if (typeof postToSave.generationInputs.referencePhotoUrl === 'string' && postToSave.generationInputs.referencePhotoUrl.startsWith('data:image/')) {
-      delete postToSave.generationInputs.referencePhotoUrl;
+      if (postToSave.referencePhotoUrl && postToSave.referencePhotoUrl.startsWith('http')) {
+        postToSave.generationInputs.referencePhotoUrl = postToSave.referencePhotoUrl;
+      } else {
+        delete postToSave.generationInputs.referencePhotoUrl;
+      }
     }
   }
 
@@ -24261,9 +34245,17 @@ async function publishSynthesizedPost() {
   renderFeed();
 
   // 7. Close modal & reset state & show toast
+  const justPublishedPost = { ...currentSynthesizedPost };
   closeCreatorModal(true);
   resetCreatorState();
-  showTemporaryToast('✨ Published! Your 3-poster Slant is live on slant.today');
+  showTemporaryToast(publishedSeriesObj
+    ? `🚀 Published to Live Feed & Series "${publishedSeriesObj.title}"!`
+    : '✨ Published! Your 3-poster Slant is live on slant.today');
+  setTimeout(() => {
+    if (typeof maybeShowPostPublishMicroPulse === 'function') {
+      maybeShowPostPublishMicroPulse(justPublishedPost);
+    }
+  }, 1600);
 
   // Scroll smoothly to top so user sees their new post
   window.scrollTo({ top: 0, behavior: 'smooth' });
