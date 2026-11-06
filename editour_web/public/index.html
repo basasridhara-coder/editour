@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_0900">
+  <link rel="stylesheet" href="style.css?v=20261106_0910">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -347,8 +347,8 @@
               <img class="user-avatar-img" id="userAvatarImg" src="" alt="User" style="display:none;" />
             </button>
           </div>
-          <!-- Diary Quick Action Button (All Users -> Directly Opens Diary Calendar) -->
-          <button class="header-diary-btn" id="headerDiaryBtn" onclick="openDiaryCalendarModal()" title="Daily Chronicles Calendar" aria-label="Open Diary Calendar">
+          <!-- Diary Quick Action Button (Held for later stage) -->
+          <button class="header-diary-btn" id="headerDiaryBtn" onclick="openDiaryCalendarModal()" title="Daily Chronicles Calendar" aria-label="Open Diary Calendar" style="display:none !important;">
             <span class="header-diary-icon">📔</span>
           </button>
           <!-- Direct Founder Feedback Quick Action Button -->
@@ -381,7 +381,7 @@
       <div class="filter-bar" id="categoryFilterBar">
         <div class="filter-pill active" data-cat="all">All Stories</div>
         <div class="filter-pill user-pill" id="pillSeries" data-cat="series" style="display:none;">📚 Series (<span id="badgeSeriesCount">0</span>)</div>
-        <div class="filter-pill user-pill" id="pillDailyChronicles" data-cat="daily_chronicles" style="display:none;">📔 Daily Chronicles (<span id="badgeChroniclesCount">0</span>)</div>
+        <div class="filter-pill user-pill" id="pillDailyChronicles" data-cat="daily_chronicles" style="display:none !important;">📔 Daily Chronicles (<span id="badgeChroniclesCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillDrafts" data-cat="drafts" style="display:none;">📝 Drafts (<span id="badgeDraftsCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillSaved" data-cat="saved" style="display:none;">🔖 Saved (<span id="badgeSavedCount">0</span>)</div>
         <div class="filter-pill user-pill" id="pillMyStories" data-cat="my_stories" style="display:none;">✍️ My Stories (<span id="badgeMyCount">0</span>)</div>
@@ -2522,8 +2522,8 @@
         </div>
       </div>
 
-      <!-- Dedicated Diary Section (Calendar & Private Feed of Daily Chronicle Moments) -->
-      <div class="drawer-section" id="drawerDiarySection">
+      <!-- Dedicated Diary Section (Held for later stage) -->
+      <div class="drawer-section" id="drawerDiarySection" style="display:none !important;">
         <div class="drawer-section-title">Private Diary • Only Visible to You</div>
         <div class="drawer-card drawer-diary-card" style="display:flex; flex-direction:column; gap:6px;">
           <button type="button" class="drawer-diary-open-btn" onclick="closeDrawer(); selectCategory('daily_chronicles');">
@@ -2890,13 +2890,13 @@
       </div>
 
       <!-- Credit Breakdown Cards -->
-      <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div id="userModalCreditsSection" style="display: grid; grid-template-columns: 1fr; gap: 10px;">
         <div style="padding: 12px; border-radius: 14px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.28);">
           <div style="font-size: 10px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 0.5px;">🌐💭 Perspective Art</div>
           <div id="userModalPerspectiveCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">5 Free Left</div>
           <div id="userModalPerspectiveSubText" style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">First 5 free &bull; then 1/day</div>
         </div>
-        <div style="padding: 12px; border-radius: 14px; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.3);">
+        <div style="display: none; padding: 12px; border-radius: 14px; background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.3);">
           <div style="font-size: 10px; font-weight: 800; color: #B45309; text-transform: uppercase; letter-spacing: 0.5px;">📔 Daily Chronicle Art</div>
           <div id="userModalChronicleCreditsText" style="font-size: 17px; font-weight: 900; color: var(--text-primary); margin-top: 4px;">1 / 1 Today</div>
           <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px; line-height: 1.35;">1 visual/day always free</div>
@@ -2906,7 +2906,7 @@
       <div style="padding: 10px 12px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
         <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 4px;">✨ Text Generation is Free — You Can Always Post Even at 0 Credits:</div>
         <div><strong>1. 🌐 Web Link:</strong> Post with <strong>Source Grounded + Original Photo</strong> from the source link (0 credits).</div>
-        <div style="margin-top: 2px;"><strong>2. 💭 Inner Voice / 📔 Chronicle:</strong> Post by <strong>attaching your own photo(s)</strong> (0 credits).</div>
+        <div style="margin-top: 2px;"><strong>2. 💭 Inner Voice:</strong> Post by <strong>attaching your own photo(s)</strong> (0 credits).</div>
         <div style="margin-top: 3px; font-size: 11px; opacity: 0.9;">Only generating AI-illustrated poster artwork uses a visual credit.</div>
       </div>
 
@@ -3106,6 +3106,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_0855"></script>
+  <script src="app.js?v=20261106_0910"></script>
 </body>
 </html>

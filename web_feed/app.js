@@ -3470,7 +3470,7 @@ function updateAuthUI() {
     if (pillMyStories) pillMyStories.style.display = '';
     if (pillSeries) pillSeries.style.display = '';
     if (pillDrafts) pillDrafts.style.display = '';
-    if (pillDailyChronicles) pillDailyChronicles.style.display = '';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = 'none';
 
     // Update Drawer Account UI
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -3502,7 +3502,7 @@ function updateAuthUI() {
 
     const headerDiaryBtn = document.getElementById('headerDiaryBtn');
     if (headerDiaryBtn) {
-      headerDiaryBtn.style.display = 'inline-flex';
+      headerDiaryBtn.style.display = 'none';
     }
     if (typeof decryptAllOwnedChroniclePosts === 'function') {
       decryptAllOwnedChroniclePosts();
@@ -3537,7 +3537,7 @@ function updateAuthUI() {
     if (pillMyStories) pillMyStories.style.display = myPostsCount > 0 ? '' : 'none';
     if (pillSeries) pillSeries.style.display = 'none';
     if (pillDrafts) pillDrafts.style.display = totalDraftsCount > 0 ? '' : 'none';
-    if (pillDailyChronicles) pillDailyChronicles.style.display = myChroniclesCount > 0 ? '' : 'none';
+    if (pillDailyChronicles) pillDailyChronicles.style.display = 'none';
 
     // Update Drawer Account UI for guest
     const drawerAuthGuest = document.getElementById('drawerAuthGuest');
@@ -3549,7 +3549,7 @@ function updateAuthUI() {
     if (drawerAdminBetaRow) drawerAdminBetaRow.style.display = 'none';
 
     const headerDiaryBtn = document.getElementById('headerDiaryBtn');
-    if (headerDiaryBtn) headerDiaryBtn.style.display = 'inline-flex';
+    if (headerDiaryBtn) headerDiaryBtn.style.display = 'none';
   }
 }
 
