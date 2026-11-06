@@ -14608,7 +14608,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   text-overflow: ellipsis;
 }
 
-@media (max-width: 640px) {
+/* Keep the sleek 500px Curator DNA layout on both desktop and mobile */
+@media (max-width: 9999px) {
   .curator-style-modal-body {
     padding: 10px 12px 16px;
     gap: 10px;
@@ -31406,15 +31407,25 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* ============================================================
    GLOBAL FORM & MODAL FLEX OVERFLOW GUARD
    Ensures inputs, selects, and action buttons stay strictly inside
-   their parent card frame across all mobile and desktop viewports
+   their parent card frame while keeping sleek mobile-like card width
+   (matching the 480px–500px feed post column) on desktop viewports
    ============================================================ */
 .modal-card,
+.creator-modal-card,
 .curator-style-modal,
 .diary-calendar-modal,
 .diary-welcome-card,
 .vault-screen-window {
   box-sizing: border-box;
-  max-width: calc(100vw - 20px);
+  width: min(500px, calc(100vw - 20px)) !important;
+  max-width: min(500px, calc(100vw - 20px)) !important;
+}
+
+@media (max-width: 600px) {
+  .creator-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 .modal-card input[type="text"],
