@@ -24431,17 +24431,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .login-narrative-quote-footer {
   display: flex;
   flex-direction: column;
-  gap: 11px;
-  padding: 16px 18px 14px;
+  gap: 12px;
+  padding: 20px 20px 16px;
   border-radius: 16px;
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  margin-bottom: 22px;
+  background: rgba(15, 23, 42, 0.035);
+  border: 1px solid rgba(15, 23, 42, 0.09);
+  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 [data-theme="obsidian"] .login-narrative-quote-footer {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.09);
 }
 
 .login-integrated-quote {
@@ -24449,18 +24451,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 11px;
   text-align: center;
 }
 
 .login-integrated-quote .manifesto-lead {
-  font-size: 15.6px;
+  font-size: 18.5px;
   line-height: 1.48;
+  font-weight: 600;
 }
 
 .login-integrated-quote .manifesto-question {
-  font-size: 14.2px;
-  line-height: 1.44;
+  font-size: 16px;
+  line-height: 1.45;
 }
 
 .login-anchor-seal-row {
@@ -24468,7 +24471,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding-top: 3px;
+  padding-top: 4px;
 }
 
 .login-anchor-seal-line {
@@ -24480,7 +24483,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .login-anchor-seal-text {
   font-family: 'Space Grotesk', 'Inter', sans-serif;
-  font-size: 10.2px;
+  font-size: 11.2px;
   font-weight: 800;
   letter-spacing: 0.9px;
   text-transform: uppercase;
@@ -24522,17 +24525,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
    ------------------------------------------------------------ */
 .slant-two-col-stage .triad-col-auth {
   order: 2;
-  max-width: 405px;
+  max-width: 410px;
   width: 100%;
   margin: 0 auto;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
   padding: 22px 22px 24px;
 }
 
 .login-auth-gateway-body {
   width: 100%;
-  margin-top: auto;
-  padding-top: 6px;
+  margin-top: 0;
+  padding-top: 2px;
 }
 
 .slant-two-col-stage .triad-col-auth .auth-header {
