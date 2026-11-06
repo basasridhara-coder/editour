@@ -20254,6 +20254,17 @@ function buildCuratorAnalyticsDataset() {
     const topic = classifyBroadTopicForPost(post);
     const emotion = classifyEmotionForPost(post);
     const polish = deriveCorrectionsForPost(post, localHistory);
+    const convictionScore = resolvePostConvictionScore(post);
+    const convictionTier = getConvictionTierMeta(convictionScore);
+    const rawTakeText = String(
+      post.polishedCuratorTake
+      || post.userSlantTake
+      || post.generationInputs?.slantTake
+      || post.curatorTake
+      || post.creatorOpinion
+      || post.summary
+      || ''
+    ).trim();
     const dateObj = new Date(post.createdAt || post.timestamp || Date.now());
     const shortDate = isNaN(dateObj.getTime())
       ? `Post #${idx + 1}`
@@ -20266,18 +20277,26 @@ function buildCuratorAnalyticsDataset() {
       isDraft: Boolean(post.isDraft || post.status === 'draft'),
       topic,
       emotion,
-      polish
+      polish,
+      convictionScore,
+      convictionTier,
+      takeSnippet: rawTakeText
     };
   });
 
-  // Aggregate Graph 1: Corrections
+  // Aggregate Graph 1: Corrections & Conviction Medal Tiers
   const totalCorrections = { spelling: 0, grammar: 0, punctuation: 0, phrasing: 0, grandTotal: 0 };
+  const convictionTierCounts = { tier3_piercing: 0, tier2_deep: 0, tier1_sharp: 0, totalScoreSum: 0 };
   analyzedPosts.forEach(item => {
     totalCorrections.spelling += item.polish.spelling;
     totalCorrections.grammar += item.polish.grammar;
     totalCorrections.punctuation += item.polish.punctuation;
     totalCorrections.phrasing += item.polish.phrasing;
     totalCorrections.grandTotal += item.polish.total;
+    convictionTierCounts.totalScoreSum += item.convictionScore;
+    if (item.convictionTier?.tierKey && convictionTierCounts[item.convictionTier.tierKey] !== undefined) {
+      convictionTierCounts[item.convictionTier.tierKey] += 1;
+    }
   });
 
   // Aggregate Graph 2: Topics
@@ -20306,6 +20325,7 @@ function buildCuratorAnalyticsDataset() {
     totalPosts: analyzedPosts.length,
     analyzedPosts,
     totalCorrections,
+    convictionTierCounts,
     topicsRanked: Object.values(topicCounts).sort((a, b) => b.count - a.count),
     emotionsRanked: Object.values(emotionCounts).sort((a, b) => b.count - a.count),
     emotionsInOrder: CURATOR_EMOTION_CATEGORIES.map(e => emotionCounts[e.id])
@@ -22195,7 +22215,7 @@ function renderCuratorStyleProfile() {
       <div class="curator-analytics-empty">
         <div style="font-size:32px; margin-bottom:8px;">📊</div>
         <div style="font-size:15px; font-weight:700; color:#F8FAFC;">No Slants Analyzed Yet</div>
-        <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">Write or publish your first Slant to unlock your 3 live graphs for Polish Corrections, Broad Topics, and Identified Emotions.</div>
+        <div style="font-size:12.5px; color:#94A3B8; margin-top:4px;">Write or publish your first Slant to unlock your 3 live graphs for Conviction Depth, Broad Topics, and Identified Emotions.</div>
       </div>
     `;
     return;
@@ -22204,7 +22224,7 @@ function renderCuratorStyleProfile() {
   const existingScroller = document.getElementById('curatorCorrBarsScroller');
   const prevBarsScrollLeft = existingScroller ? existingScroller.scrollLeft : null;
 
-  // Full series of analyzed posts for Graph 1 slidable candle window (ordered oldest -> newest)
+  // Full series of analyzed posts for Graph 1 slidable line chart (ordered oldest -> newest)
   const recentPostsForBars = data.analyzedPosts;
   if (
     curatorAnalyticsState.selectedPostIndex < 0 ||
@@ -22214,67 +22234,109 @@ function renderCuratorStyleProfile() {
   }
   const activeFilter = curatorAnalyticsState.correctionFilter || 'all';
 
-  // Calculate max bar height for Graph 1
-  const maxPostCorrections = Math.max(
-    4,
-    ...recentPostsForBars.map(p => (activeFilter === 'all' ? p.polish.total : (p.polish[activeFilter] || 0)))
-  );
-
   const selectedPostItem = recentPostsForBars[curatorAnalyticsState.selectedPostIndex] || recentPostsForBars[recentPostsForBars.length - 1];
-  const avgCorrectionsPerPost = (data.totalCorrections.grandTotal / totalPosts).toFixed(1);
+  const avgConvictionScore = Math.round((data.convictionTierCounts?.totalScoreSum || (totalPosts * 80)) / Math.max(1, totalPosts));
+  const avgTierMeta = getConvictionTierMeta(avgConvictionScore);
   const topTopic = data.topicsRanked[0];
   const topEmotion = data.emotionsRanked[0];
 
-  // Compare first half vs second half average corrections for trend badge
+  // Compare first half vs second half average conviction depth for trend badge
   const halfIdx = Math.max(1, Math.floor(recentPostsForBars.length / 2));
-  const firstHalfAvg = recentPostsForBars.slice(0, halfIdx).reduce((acc, p) => acc + p.polish.total, 0) / halfIdx;
+  const firstHalfDepth = recentPostsForBars.slice(0, halfIdx).reduce((acc, p) => acc + (p.convictionScore || 75), 0) / halfIdx;
   const secondHalfCount = Math.max(1, recentPostsForBars.length - halfIdx);
-  const secondHalfAvg = recentPostsForBars.slice(halfIdx).reduce((acc, p) => acc + p.polish.total, 0) / secondHalfCount;
-  const isImproving = secondHalfAvg <= firstHalfAvg;
+  const secondHalfDepth = recentPostsForBars.slice(halfIdx).reduce((acc, p) => acc + (p.convictionScore || 75), 0) / secondHalfCount;
+  const isDepthRising = secondHalfDepth >= firstHalfDepth - 0.5;
 
-  // Graph 1: Overall Proportion Bar segments
-  const grandTotalCorr = Math.max(1, data.totalCorrections.grandTotal);
-  const corrSegmentsHtml = CURATOR_CORRECTION_TYPES.map(t => {
-    const count = data.totalCorrections[t.id] || 0;
-    const pct = Math.round((count / grandTotalCorr) * 100);
+  const CONVICTION_TIER_DEFS = [
+    {
+      id: 'tier3_piercing',
+      icon: '🔥',
+      shortLabel: 'Piercing',
+      range: '90–100%',
+      color: '#D97706',
+      bg: 'rgba(245, 158, 11, 0.14)',
+      border: 'rgba(245, 158, 11, 0.42)'
+    },
+    {
+      id: 'tier2_deep',
+      icon: '✨',
+      shortLabel: 'Deep',
+      range: '80–89%',
+      color: '#10B981',
+      bg: 'rgba(16, 185, 129, 0.13)',
+      border: 'rgba(16, 185, 129, 0.38)'
+    },
+    {
+      id: 'tier1_sharp',
+      icon: '⚡',
+      shortLabel: 'Sharp',
+      range: '70–79%',
+      color: '#6366F1',
+      bg: 'rgba(99, 102, 241, 0.13)',
+      border: 'rgba(99, 102, 241, 0.38)'
+    }
+  ];
+
+  // Graph 1: Conviction Tier Proportion Bar segments
+  const tierCounts = data.convictionTierCounts || { tier3_piercing: 0, tier2_deep: 0, tier1_sharp: 0 };
+  const corrSegmentsHtml = CONVICTION_TIER_DEFS.map(t => {
+    const count = tierCounts[t.id] || 0;
+    const pct = Math.round((count / Math.max(1, totalPosts)) * 100);
     if (count <= 0) return '';
-    return `<div class="corr-prop-segment" style="width:${Math.max(5, pct)}%; background:${t.color};" title="${t.label}: ${count} (${pct}%)"></div>`;
+    return `<div class="corr-prop-segment" style="width:${Math.max(6, pct)}%; background:${t.color};" title="${t.icon} ${t.shortLabel} (${t.range}): ${count} posts (${pct}%)"></div>`;
   }).join('');
 
-  // Graph 1: 4 Color-Coded Category Cards
-  const corrCardsHtml = CURATOR_CORRECTION_TYPES.map(t => {
-    const count = data.totalCorrections[t.id] || 0;
-    const pct = Math.round((count / grandTotalCorr) * 100);
+  // Graph 1: 3 Medal Tier Filter Cards
+  const corrCardsHtml = CONVICTION_TIER_DEFS.map(t => {
+    const count = tierCounts[t.id] || 0;
+    const pct = Math.round((count / Math.max(1, totalPosts)) * 100);
     const isActive = activeFilter === t.id;
     return `
       <button type="button" class="corr-type-pill ${isActive ? 'active' : ''}"
         style="--pill-color:${t.color}; --pill-bg:${t.bg}; --pill-border:${t.border};"
         onclick="setCuratorCorrectionFilter('${t.id}')">
         <div class="corr-pill-top">
-          <span class="corr-pill-dot" style="background:${t.color};"></span>
-          <span class="corr-pill-name">${t.shortLabel}</span>
+          <span class="corr-pill-name">${t.icon} ${t.shortLabel}</span>
           <span class="corr-pill-pct">${pct}%</span>
         </div>
-        <div class="corr-pill-count" style="color:${t.color};">${count} <span class="corr-pill-unit">caught</span></div>
+        <div class="corr-pill-count" style="color:${t.color};">${count} <span class="corr-pill-unit">(${t.range})</span></div>
       </button>
     `;
   }).join('');
 
-  // Graph 1: Post-by-Post Stacked Bars
-  const postBarsHtml = recentPostsForBars.map((item, idx) => {
+  // Graph 1: Post-by-Post Conviction Depth Line Graph + Medal Nodes
+  const colW = 66;
+  const svgH = 92;
+  const padTop = 20;
+  const padBottom = 14;
+  const usableH = svgH - padTop - padBottom;
+  const scoreToY = (s) => {
+    const clamped = Math.max(68, Math.min(100, Number(s) || 75));
+    const ratio = (clamped - 68) / (100 - 68);
+    return Math.round((padTop + usableH * (1 - ratio)) * 10) / 10;
+  };
+
+  const totalTrackWidth = Math.max(280, recentPostsForBars.length * colW);
+  const y90 = scoreToY(90);
+  const y80 = scoreToY(80);
+  const y70 = scoreToY(70);
+
+  const linePoints = recentPostsForBars.map((item, idx) => {
+    const cx = Math.round(idx * colW + colW / 2);
+    const cy = scoreToY(item.convictionScore);
+    return { cx, cy, item, idx };
+  });
+
+  const polylinePts = linePoints.map(p => `${p.cx},${p.cy}`).join(' ');
+  const areaPts = linePoints.length > 1
+    ? `${linePoints[0].cx},${svgH - 4} ${polylinePts} ${linePoints[linePoints.length - 1].cx},${svgH - 4}`
+    : '';
+
+  const nodesHtml = linePoints.map(({ cx, cy, item, idx }) => {
     const isSelected = idx === curatorAnalyticsState.selectedPostIndex;
-    const typesToRender = activeFilter === 'all'
-      ? CURATOR_CORRECTION_TYPES
-      : CURATOR_CORRECTION_TYPES.filter(t => t.id === activeFilter);
-
-    const displayedTotal = typesToRender.reduce((sum, t) => sum + (item.polish[t.id] || 0), 0);
-    const stacksHtml = typesToRender.map(t => {
-      const val = item.polish[t.id] || 0;
-      if (val <= 0) return '';
-      const heightPct = Math.max(8, Math.round((val / maxPostCorrections) * 100));
-      return `<div class="corr-bar-segment" style="height:${heightPct}%; background:${t.color};" title="${t.shortLabel}: ${val}"></div>`;
-    }).join('');
-
+    const tierKey = item.convictionTier?.tierKey || 'tier1_sharp';
+    const isDimmed = activeFilter !== 'all' && activeFilter !== tierKey;
+    const tierDef = CONVICTION_TIER_DEFS.find(t => t.id === tierKey) || CONVICTION_TIER_DEFS[2];
     const shortTitleWords = String(item.headline || 'Slant')
       .replace(/^🔒\s*/g, '')
       .split(/\s+/)
@@ -22283,38 +22345,70 @@ function renderCuratorStyleProfile() {
       .join(' ');
 
     return `
-      <div class="corr-bar-col ${isSelected ? 'selected' : ''}" onclick="selectCuratorCorrectionPost(${idx})" title="#${idx + 1} · ${escapeHtml(item.headline)} (${displayedTotal} corrections)">
-        <div class="corr-bar-seq">#${idx + 1}</div>
-        <div class="corr-bar-val">${displayedTotal}</div>
-        <div class="corr-bar-track">
-          ${stacksHtml || `<div class="corr-bar-zero"></div>`}
+      <div class="conviction-line-col ${isSelected ? 'selected' : ''} ${isDimmed ? 'is-dimmed' : ''}"
+        style="width:${colW}px; min-width:${colW}px;"
+        onclick="selectCuratorCorrectionPost(${idx})"
+        title="#${idx + 1} · ${escapeHtml(item.headline)} (${item.convictionScore}% · ${tierDef.icon} ${tierDef.shortLabel})">
+        <div class="conviction-node-stage" style="height:${svgH}px;">
+          <div class="conviction-node-pin" style="top:${cy}px; --node-color:${tierDef.color}; --node-bg:${tierDef.bg};">
+            <span class="conviction-node-pct" style="color:${tierDef.color};">${item.convictionScore}%</span>
+            <span class="conviction-node-medal">${tierDef.icon}</span>
+          </div>
         </div>
+        <div class="corr-bar-seq">#${idx + 1}</div>
         <div class="corr-bar-date">${escapeHtml(item.shortDate)}</div>
         <div class="corr-bar-snippet">${escapeHtml(shortTitleWords)}</div>
       </div>
     `;
   }).join('');
 
-  // Graph 1: Selected Post Inspector
-  const selCorrBadges = CURATOR_CORRECTION_TYPES.map(t => {
-    const c = selectedPostItem ? (selectedPostItem.polish[t.id] || 0) : 0;
-    return `<span class="inspector-type-chip" style="background:${t.bg}; color:${t.color}; border:1px solid ${t.border};">
-      <span class="chip-dot" style="background:${t.color};"></span>${t.shortLabel}: <strong>${c}</strong>
-    </span>`;
-  }).join('');
+  const postBarsHtml = `
+    <div class="conviction-line-track" style="width:${totalTrackWidth}px; min-width:100%;">
+      <svg class="conviction-line-svg" width="${totalTrackWidth}" height="${svgH}" viewBox="0 0 ${totalTrackWidth} ${svgH}" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="convictionAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.26"/>
+            <stop offset="55%" stop-color="#10B981" stop-opacity="0.14"/>
+            <stop offset="100%" stop-color="#6366F1" stop-opacity="0.02"/>
+          </linearGradient>
+          <linearGradient id="convictionStrokeGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B"/>
+            <stop offset="50%" stop-color="#10B981"/>
+            <stop offset="100%" stop-color="#6366F1"/>
+          </linearGradient>
+        </defs>
+        <!-- Reference Threshold Lines (90% Piercing, 80% Deep, 70% Sharp) -->
+        <line x1="0" y1="${y90}" x2="${totalTrackWidth}" y2="${y90}" stroke="rgba(245,158,11,0.28)" stroke-dasharray="3 3" stroke-width="1"/>
+        <line x1="0" y1="${y80}" x2="${totalTrackWidth}" y2="${y80}" stroke="rgba(16,185,129,0.25)" stroke-dasharray="3 3" stroke-width="1"/>
+        <line x1="0" y1="${y70}" x2="${totalTrackWidth}" y2="${y70}" stroke="rgba(99,102,241,0.22)" stroke-dasharray="3 3" stroke-width="1"/>
+        ${areaPts ? `<polygon points="${areaPts}" fill="url(#convictionAreaGrad)"/>` : ''}
+        ${linePoints.length > 1 ? `<polyline points="${polylinePts}" fill="none" stroke="url(#convictionStrokeGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` : ''}
+      </svg>
+      <div class="conviction-line-cols-row">
+        ${nodesHtml}
+      </div>
+    </div>
+  `;
 
-  const selNotesHtml = (selectedPostItem && Array.isArray(selectedPostItem.polish.corrections) && selectedPostItem.polish.corrections.length > 0)
-    ? selectedPostItem.polish.corrections.slice(0, 3).map(note => {
-        const typeObj = CURATOR_CORRECTION_TYPES.find(t => t.id === note.type) || CURATOR_CORRECTION_TYPES[0];
-        return `
-          <div class="inspector-note-row">
-            <span class="inspector-note-tag" style="color:${typeObj.color}; border-color:${typeObj.border}; background:${typeObj.bg};">${typeObj.shortLabel}</span>
-            <span class="inspector-note-diff">
-              <del>${escapeHtml(note.original || '')}</del> &rarr; <strong>${escapeHtml(note.replacement || '')}</strong>
-            </span>
-          </div>
-        `;
-      }).join('')
+  // Graph 1: Selected Post Conviction Inspector
+  const selTier = selectedPostItem?.convictionTier || avgTierMeta;
+  const selCorrBadges = selectedPostItem ? `
+    <span class="inspector-type-chip" style="background:${selTier.bgTint}; color:${selTier.color}; border:1px solid ${selTier.borderTint};">
+      ${selTier.icon} <strong>${escapeHtml(selTier.badgeTitle)}</strong> (${selectedPostItem.convictionScore}% Depth)
+    </span>
+    <span class="inspector-type-chip" style="background:rgba(148,163,184,0.12); color:${selectedPostItem.topic.color}; border:1px solid rgba(148,163,184,0.24);">
+      ${selectedPostItem.topic.icon} ${escapeHtml(selectedPostItem.topic.label.split('&')[0].trim())}
+    </span>
+    <span class="inspector-type-chip" style="background:rgba(148,163,184,0.12); color:${selectedPostItem.emotion.color}; border:1px solid rgba(148,163,184,0.24);">
+      ${selectedPostItem.emotion.icon} ${escapeHtml(selectedPostItem.emotion.label.split('&')[0].trim())}
+    </span>
+  ` : '';
+
+  const selTakePreview = selectedPostItem?.takeSnippet
+    ? (selectedPostItem.takeSnippet.length > 150 ? `${selectedPostItem.takeSnippet.slice(0, 150).trim()}…` : selectedPostItem.takeSnippet)
+    : '';
+  const selNotesHtml = selTakePreview
+    ? `<div class="inspector-note-row" style="font-style:italic; line-height:1.38;">&ldquo;${escapeHtml(selTakePreview)}&rdquo;</div>`
     : '';
 
   // Graph 2: Broad Topic Bars + Drilldown
@@ -22424,8 +22518,8 @@ function renderCuratorStyleProfile() {
         <span class="kpi-value">${totalPosts} Posts</span>
       </div>
       <div class="curator-kpi-pill">
-        <span class="kpi-label">AVG POLISH CORRECTIONS</span>
-        <span class="kpi-value">${avgCorrectionsPerPost} / post <span class="kpi-trend ${isImproving ? 'good' : ''}">${isImproving ? '↓ Cleaner Flow' : 'Active Coaching'}</span></span>
+        <span class="kpi-label">AVG CONVICTION DEPTH</span>
+        <span class="kpi-value">${avgConvictionScore}% <span class="kpi-trend ${isDepthRising ? 'good' : ''}">${avgTierMeta.icon} ${escapeHtml(avgTierMeta.badgeTitle)}</span></span>
       </div>
       <div class="curator-kpi-pill">
         <span class="kpi-label">TOP FOCUS &amp; MOOD</span>
@@ -22433,36 +22527,36 @@ function renderCuratorStyleProfile() {
       </div>
     </div>
 
-    <!-- GRAPH 1: CORRECTIONS CAUGHT IN SLANT TAKE -->
+    <!-- GRAPH 1: CONVICTION DEPTH & MEDAL PROGRESSION -->
     <section class="curator-graph-card">
       <div class="graph-card-header">
         <div class="graph-header-top-row">
-          <div class="graph-step-badge" style="color:#C084FC; background:rgba(192,132,252,0.14);">GRAPH 1 · WRITING CRAFT</div>
-          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Colors</button>` : `<span class="graph-total-pill">${data.totalCorrections.grandTotal} Total Notes</span>`}
+          <div class="graph-step-badge" style="color:#F59E0B; background:rgba(245,158,11,0.14);">GRAPH 1 · CONVICTION DEPTH</div>
+          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Tiers</button>` : `<span class="graph-total-pill">Avg: ${avgConvictionScore}% &middot; ${avgTierMeta.icon} ${escapeHtml(avgTierMeta.badgeTitle)}</span>`}
         </div>
-        <h3 class="graph-card-title">Corrections Caught in &ldquo;Slant Take&rdquo;</h3>
-        <p class="graph-card-subtitle">Correction types caught during ✨ Polish across your posts</p>
+        <h3 class="graph-card-title">Conviction Depth &amp; Medal Progression</h3>
+        <p class="graph-card-subtitle">How your conviction depth (%) and medal tier evolved from post to post</p>
       </div>
 
       <!-- Multi-Color Proportion Strip -->
       <div class="corr-prop-bar">${corrSegmentsHtml}</div>
 
-      <!-- 4 Color-Coded Correction Type Buttons -->
-      <div class="corr-type-grid">
+      <!-- 3 Color-Coded Medal Tier Buttons -->
+      <div class="corr-type-grid conviction-tier-grid">
         ${corrCardsHtml}
       </div>
 
-      <!-- Post-by-Post Stacked Bar Chart (Slidable Candle Window) -->
+      <!-- Post-by-Post Conviction Depth Line Graph (Slidable Window) -->
       <div class="corr-chart-stage">
         <div class="corr-chart-header-row">
-          <div class="corr-chart-caption">Post-by-Post Breakdown (${recentPostsForBars.length} Posts &middot; Tap or slide)</div>
+          <div class="corr-chart-caption">Post-by-Post Depth Curve (${recentPostsForBars.length} Posts &middot; Tap any medal point)</div>
           <div class="corr-chart-slide-controls">
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(-1)" title="Slide Earlier Posts">&#x2039;</button>
             <button type="button" class="corr-slide-nav-btn" onclick="scrollCuratorCorrectionBars(1)" title="Slide Later Posts">&#x203A;</button>
           </div>
         </div>
         <div class="corr-bars-window-frame">
-          <div class="corr-bars-scroller" id="curatorCorrBarsScroller">
+          <div class="corr-bars-scroller conviction-line-scroller" id="curatorCorrBarsScroller">
             ${postBarsHtml}
           </div>
           ${recentPostsForBars.length > 5 ? `
@@ -22483,7 +22577,7 @@ function renderCuratorStyleProfile() {
               <span class="inspector-date-badge">${escapeHtml(selectedPostItem.shortDate)}</span>
               <span class="inspector-post-headline">${escapeHtml(selectedPostItem.headline)}</span>
             </div>
-            <span class="inspector-total-tag">${selectedPostItem.polish.total} Corrections</span>
+            <span class="inspector-total-tag" style="color:${selTier.color};">${selTier.icon} ${selectedPostItem.convictionScore}% Depth</span>
           </div>
           <div class="inspector-chips-row">
             ${selCorrBadges}

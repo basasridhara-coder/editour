@@ -13847,11 +13847,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
   transition: width 0.3s ease;
 }
 
-/* Graph 1: 4 Color-Coded Correction Pills */
+/* Graph 1: Color-Coded Tier / Correction Pills */
 .corr-type-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
+}
+
+.corr-type-grid.conviction-tier-grid {
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .corr-type-pill {
@@ -14132,6 +14136,109 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 600;
   color: #94A3B8;
   white-space: nowrap;
+}
+
+/* Graph 1: Post-by-Post Conviction Depth Line Graph + Medal Nodes */
+.conviction-line-scroller {
+  display: block;
+  min-height: 138px;
+  padding: 4px 0 6px;
+}
+
+.conviction-line-track {
+  position: relative;
+  display: block;
+}
+
+.conviction-line-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.conviction-line-cols-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.conviction-line-col {
+  flex: 0 0 66px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 0 2px 4px;
+  border-radius: 8px;
+  transition: background 0.15s ease, opacity 0.18s ease;
+}
+
+.conviction-line-col.is-dimmed {
+  opacity: 0.32;
+}
+
+.conviction-line-col:hover,
+.conviction-line-col.selected {
+  background: rgba(245, 158, 11, 0.10);
+}
+
+.conviction-node-stage {
+  position: relative;
+  width: 100%;
+}
+
+.conviction-node-pin {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.conviction-node-pct {
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  transform: translateY(-2px);
+  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.35);
+}
+
+[data-theme="daylight"] .conviction-node-pct {
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+.conviction-node-medal {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--node-bg, rgba(15, 23, 42, 0.85));
+  border: 1.5px solid var(--node-color, #10B981);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+[data-theme="daylight"] .conviction-node-medal {
+  background: #FFFFFF;
+  box-shadow: 0 2px 5px rgba(15, 23, 42, 0.10);
+}
+
+.conviction-line-col.selected .conviction-node-medal,
+.conviction-line-col:hover .conviction-node-medal {
+  transform: scale(1.16);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.24), 0 3px 8px rgba(15, 23, 42, 0.22);
 }
 
 /* Graph 1: Post Inspector (Flat Top-Rule Strip Instead of Box-in-Box) */
@@ -14519,6 +14626,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   }
   .corr-type-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+  }
+  .corr-type-grid.conviction-tier-grid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 5px;
   }
   .corr-type-pill {
