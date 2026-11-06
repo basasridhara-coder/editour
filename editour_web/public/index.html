@@ -590,7 +590,7 @@
             <div class="slant-depth-coach-hint" id="slantDepthCoachHint" style="display: none;"></div>
           </div>
 
-          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway here..."></textarea>
+          <textarea id="creatorSlantTakeInput" class="creator-textarea hero-textarea" rows="4" placeholder="Write your perspective, reaction, or takeaway in your own words..." onpaste="handleBlockedPerspectivePaste(event)" ondrop="handleBlockedPerspectivePaste(event)"></textarea>
 
           <!-- Daily Chronicle Multi-Moment Cards Deck (Option B) -->
           <div class="daily-chronicle-deck-wrap" id="dailyChronicleDeckWrap" style="display: none;">
@@ -684,7 +684,7 @@
               Adding the source gives Slant the context that sparked your thought, helping frame your perspective with sharper depth.
             </div>
             <input type="url" id="creatorUrlInput" class="creator-input" placeholder="https://... (Paste article, YouTube, Substack, X, or Instagram link)" autocomplete="off">
-            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;">
+            <input type="text" id="creatorSparkInput" class="creator-input" placeholder="Briefly describe what sparked this thought..." autocomplete="off" style="display:none;" onpaste="handleBlockedPerspectivePaste(event)" ondrop="handleBlockedPerspectivePaste(event)">
             <!-- Scrape Status Indicator -->
             <div id="urlScrapeIndicator" class="url-scrape-indicator" style="display:none;"></div>
             <!-- Objective Editorial Research Assistant Ledger Card -->

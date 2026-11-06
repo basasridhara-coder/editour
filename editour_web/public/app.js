@@ -27098,6 +27098,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
   const slantInput = document.getElementById('creatorSlantTakeInput');
   if (slantInput && !slantInput.dataset.errorCleanAttached) {
     slantInput.dataset.errorCleanAttached = 'true';
+    attachAuthenticWritingGuard(slantInput);
     slantInput.addEventListener('input', () => {
       if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
       if ((slantInput.value || '').trim().length > 0 && typeof clearCreatorPromptReadyGlow === 'function') {
@@ -27116,6 +27117,7 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
   const sparkInput = document.getElementById('creatorSparkInput');
   if (sparkInput && !sparkInput.dataset.castTriggerAttached) {
     sparkInput.dataset.castTriggerAttached = 'true';
+    attachAuthenticWritingGuard(sparkInput);
     sparkInput.addEventListener('input', () => {
       const sltInput = document.getElementById('creatorSlantTakeInput');
       const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
@@ -27138,6 +27140,35 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
       if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
+}
+
+let _lastBlockedPasteToastAt = 0;
+function handleBlockedPerspectivePaste(e) {
+  if (e && typeof e.preventDefault === 'function') {
+    e.preventDefault();
+  }
+  const now = Date.now();
+  if (now - _lastBlockedPasteToastAt > 2200) {
+    _lastBlockedPasteToastAt = now;
+    if (typeof showTemporaryToast === 'function') {
+      showTemporaryToast('✍️ Paste is disabled here — please write your perspective in your own words (voice typing works too!).');
+    }
+  }
+  return false;
+}
+window.handleBlockedPerspectivePaste = handleBlockedPerspectivePaste;
+
+function attachAuthenticWritingGuard(el) {
+  if (!el || el.dataset.authenticWriteGuardAttached === 'true') return;
+  el.dataset.authenticWriteGuardAttached = 'true';
+  el.addEventListener('paste', handleBlockedPerspectivePaste);
+  el.addEventListener('drop', handleBlockedPerspectivePaste);
+  el.addEventListener('beforeinput', (e) => {
+    const inputType = String(e.inputType || '');
+    if (inputType === 'insertFromPaste' || inputType === 'insertFromPasteAsQuotation' || inputType === 'insertFromDrop') {
+      handleBlockedPerspectivePaste(e);
+    }
+  });
 }
 
 function clearCreatorPromptReadyGlow() {
