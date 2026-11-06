@@ -40,7 +40,7 @@
   <link rel="preconnect" href="https://fxfklefnkpmhofncqhfh.supabase.co" crossorigin>
   <link rel="preconnect" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Merriweather:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,400;1,600;1,700;1,900&family=Space+Grotesk:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261106_1610">
+  <link rel="stylesheet" href="style.css?v=20261106_1640">
   <!-- Favicon & Brand Icons -->
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png">
@@ -2226,9 +2226,9 @@
 
   <!-- Admin Beta Access, Invites, Feedback & System Health Modal (Exclusive to Master Admin) -->
   <div class="modal-overlay" id="adminBetaModal" onclick="if(event.target===this) closeAdminBetaModal()">
-    <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; padding: 20px 22px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
+    <div class="modal-card" style="max-width: 620px; width: min(620px, calc(100vw - 20px)); max-height: 90vh; box-sizing: border-box; overflow-x: hidden; display: flex; flex-direction: column; padding: 18px 18px; border-radius: 20px; text-align: left;" onclick="event.stopPropagation()">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-subtle, rgba(15,23,42,0.1));">
-        <div>
+        <div style="min-width: 0; padding-right: 36px;">
           <div style="font-size: 10.5px; font-weight: 800; color: #818CF8; letter-spacing: 0.8px; text-transform: uppercase;">Founder Command Center</div>
           <h2 style="font-size: 18px; font-weight: 800; color: var(--text-primary); margin: 2px 0 0;">Curators, Feedback &amp; System Health</h2>
         </div>
@@ -2236,24 +2236,24 @@
       </div>
 
       <!-- 3-Tab Switcher: Curators | User Feedback | Vercel & Supabase Health -->
-      <div class="admin-command-tabs" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; background: rgba(148,163,184,0.08); padding: 4px; border-radius: 12px;">
-        <button type="button" id="adminTabBtnRoster" onclick="switchAdminCommandTab('roster')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid rgba(99,102,241,0.4); background: rgba(99,102,241,0.18); color: #818CF8; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+      <div class="admin-command-tabs" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 14px; background: rgba(148,163,184,0.08); padding: 4px; border-radius: 12px; width: 100%; box-sizing: border-box;">
+        <button type="button" id="adminTabBtnRoster" onclick="switchAdminCommandTab('roster')" style="min-width: 0; box-sizing: border-box; padding: 8px 6px; border-radius: 9px; border: 1px solid rgba(99,102,241,0.4); background: rgba(99,102,241,0.18); color: #818CF8; font-size: 11.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           <span>👥 Curators</span>
         </button>
-        <button type="button" id="adminTabBtnFeedback" onclick="switchAdminCommandTab('feedback')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" id="adminTabBtnFeedback" onclick="switchAdminCommandTab('feedback')" style="min-width: 0; box-sizing: border-box; padding: 8px 6px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           <span>💬 Feedback</span>
           <span id="adminTabFeedbackBadge" style="display:none; background:#F59E0B; color:#0F172A; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">0</span>
         </button>
-        <button type="button" id="adminTabBtnHealth" onclick="switchAdminCommandTab('health')" style="padding: 8px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <button type="button" id="adminTabBtnHealth" onclick="switchAdminCommandTab('health')" style="min-width: 0; box-sizing: border-box; padding: 8px 6px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
           <span>🩺 Health &amp; Alerts</span>
           <span id="adminTabHealthBadge" style="display:none; background:#EF4444; color:#FFF; font-size:10px; font-weight:900; padding:1px 6px; border-radius:99px;">!</span>
         </button>
       </div>
 
       <!-- TAB PANE 1: Curators & Visual Credits -->
-      <div id="adminPaneRoster" style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
+      <div id="adminPaneRoster" style="overflow-y: auto; overflow-x: hidden; flex: 1; min-width: 0; width: 100%; box-sizing: border-box; padding-right: 4px; display: flex; flex-direction: column; gap: 16px;">
         <!-- Live Beta Activity & Credits Summary -->
-        <div id="adminStatsSummaryRow" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+        <div id="adminStatsSummaryRow" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; width: 100%; box-sizing: border-box;">
           <div style="padding: 8px 8px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; text-align: center;">
             <div style="font-size: 9px; font-weight: 800; color: #818CF8; text-transform: uppercase; letter-spacing: 0.5px;">Members</div>
             <div id="adminSummaryCuratorsCount" style="font-size: 16px; font-weight: 800; color: var(--text-primary); margin-top: 1px;">-</div>
@@ -3024,20 +3024,20 @@
       <!-- Category Selector Pills -->
       <div style="margin-bottom:12px;">
         <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">What is this about?</label>
-        <div id="userFeedbackCategoryRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
-          <button type="button" class="fb-cat-chip active" data-cat="voice_quality" onclick="selectUserFeedbackCategory('voice_quality')" style="padding:8px 6px; border-radius:10px; border:1.5px solid #F59E0B; background:rgba(245,158,11,0.14); color:#FBBF24; font-size:11.5px; font-weight:800; cursor:pointer;">🎯 Voice &amp; AI</button>
-          <button type="button" class="fb-cat-chip" data-cat="feature_idea" onclick="selectUserFeedbackCategory('feature_idea')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">💡 Feature Idea</button>
-          <button type="button" class="fb-cat-chip" data-cat="bug_report" onclick="selectUserFeedbackCategory('bug_report')" style="padding:8px 6px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11.5px; font-weight:700; cursor:pointer;">🐛 Bug / Slow</button>
+        <div id="userFeedbackCategoryRow" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; width:100%; box-sizing:border-box;">
+          <button type="button" class="fb-cat-chip active" data-cat="voice_quality" onclick="selectUserFeedbackCategory('voice_quality')" style="min-width:0; width:100%; box-sizing:border-box; padding:8px 5px; border-radius:10px; border:1.5px solid #F59E0B; background:rgba(245,158,11,0.14); color:#FBBF24; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🎯 Voice &amp; AI</button>
+          <button type="button" class="fb-cat-chip" data-cat="feature_idea" onclick="selectUserFeedbackCategory('feature_idea')" style="min-width:0; width:100%; box-sizing:border-box; padding:8px 5px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">💡 Feature Idea</button>
+          <button type="button" class="fb-cat-chip" data-cat="bug_report" onclick="selectUserFeedbackCategory('bug_report')" style="min-width:0; width:100%; box-sizing:border-box; padding:8px 5px; border-radius:10px; border:1.5px solid rgba(148,163,184,0.28); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🐛 Bug / Slow</button>
         </div>
       </div>
 
       <!-- 1-Tap Experience Pulse -->
       <div style="margin-bottom:12px;">
         <label style="font-size:11.5px; font-weight:800; color:var(--text-primary); display:block; margin-bottom:6px;">How is Slant feeling right now?</label>
-        <div id="userFeedbackRatingRow" style="display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;">
-          <button type="button" class="fb-rate-chip" data-rate="nailed_it" onclick="selectUserFeedbackRating('nailed_it')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">😍 Nailed it</button>
-          <button type="button" class="fb-rate-chip active" data-rate="needed_tweaks" onclick="selectUserFeedbackRating('needed_tweaks')" style="padding:7px 6px; border-radius:9px; border:1.5px solid #818CF8; background:rgba(99,102,241,0.14); color:#818CF8; font-size:11px; font-weight:800; cursor:pointer;">✍️ Needs Polish</button>
-          <button type="button" class="fb-rate-chip" data-rate="missed_point" onclick="selectUserFeedbackRating('missed_point')" style="padding:7px 6px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:11px; font-weight:700; cursor:pointer;">⚠️ Had a Hiccup</button>
+        <div id="userFeedbackRatingRow" style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; width:100%; box-sizing:border-box;">
+          <button type="button" class="fb-rate-chip" data-rate="nailed_it" onclick="selectUserFeedbackRating('nailed_it')" style="min-width:0; width:100%; box-sizing:border-box; padding:7px 5px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">😍 Nailed it</button>
+          <button type="button" class="fb-rate-chip active" data-rate="needed_tweaks" onclick="selectUserFeedbackRating('needed_tweaks')" style="min-width:0; width:100%; box-sizing:border-box; padding:7px 5px; border-radius:9px; border:1.5px solid #818CF8; background:rgba(99,102,241,0.14); color:#818CF8; font-size:10.5px; font-weight:800; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">✍️ Needs Polish</button>
+          <button type="button" class="fb-rate-chip" data-rate="missed_point" onclick="selectUserFeedbackRating('missed_point')" style="min-width:0; width:100%; box-sizing:border-box; padding:7px 5px; border-radius:9px; border:1px solid rgba(148,163,184,0.26); background:transparent; color:var(--text-primary); font-size:10.5px; font-weight:700; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">⚠️ Had a Hiccup</button>
         </div>
       </div>
 
@@ -3073,6 +3073,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261106_1610"></script>
+  <script src="app.js?v=20261106_1640"></script>
 </body>
 </html>

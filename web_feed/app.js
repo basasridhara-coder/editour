@@ -5570,9 +5570,9 @@ async function loadAdminBetaData(forceRefresh = false) {
               <span style="font-size:11px; color:#818CF8; display:block;">${escapeHtml(item.email)}</span>
               ${item.reason ? `<span style="font-size:11px; color:var(--text-secondary); display:block; margin-top:3px; font-style:italic;">"${escapeHtml(item.reason)}"</span>` : ''}
             </div>
-            <div style="display:flex; gap:5px; flex-shrink:0;">
-              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', ${isAccessReq ? 0 : 5})" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
-              ${!isAccessReq ? `<button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">+15 ⚡</button>` : ''}
+            <div style="display:flex; gap:5px; flex-shrink:0; flex-wrap:wrap;">
+              <button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', ${isAccessReq ? 0 : 5})" style="background:#10B981; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;">${isAccessReq ? 'Approve Access ✓' : 'Grant +5 ⚡'}</button>
+              ${!isAccessReq ? `<button type="button" onclick="handleAdminApproveRequest('${escapeHtml(item.email)}', 15)" style="background:#6366F1; color:#fff; border:none; padding:5px 9px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;">+15 ⚡</button>` : ''}
               <button type="button" onclick="handleAdminDenyRequest('${escapeHtml(item.email)}')" style="background:rgba(239,68,68,0.1); color:#EF4444; border:none; padding:5px 8px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer;">✕</button>
             </div>
           `;
@@ -22492,7 +22492,7 @@ function renderCuratorStyleProfile() {
       <div class="graph-card-header">
         <div class="graph-header-top-row">
           <div class="graph-step-badge" style="color:#F59E0B; background:rgba(245,158,11,0.14);">GRAPH 1 · CONVICTION DEPTH</div>
-          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Tiers</button>` : `<span class="graph-total-pill">Avg: ${avgConvictionScore}% &middot; ${avgTierMeta.icon} ${escapeHtml(avgTierMeta.badgeTitle)}</span>`}
+          ${activeFilter !== 'all' ? `<button type="button" class="graph-reset-filter-btn" onclick="setCuratorCorrectionFilter('all')">Show All Tiers</button>` : `<span class="graph-total-pill">Avg: ${avgConvictionScore}% &middot; ${avgTierMeta.icon} ${escapeHtml(String(avgTierMeta.badgeTitle || '').replace(/\s*Conviction$/i, ''))}</span>`}
         </div>
         <h3 class="graph-card-title">Conviction Depth &amp; Medal Progression</h3>
         <p class="graph-card-subtitle">How your conviction depth (%) and medal tier evolved from post to post</p>

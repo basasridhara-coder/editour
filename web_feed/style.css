@@ -6954,6 +6954,7 @@ header {
   font-weight: 600;
   cursor: pointer;
   width: 100%;
+  box-sizing: border-box;
   text-align: left;
   transition: all 0.15s ease;
 }
@@ -6965,10 +6966,14 @@ header {
 
 .drawer-menu-row .row-icon {
   font-size: 15px;
+  flex-shrink: 0;
 }
 
 .drawer-menu-row .row-label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .drawer-menu-row .row-pill {
@@ -6978,6 +6983,8 @@ header {
   border-radius: var(--radius-pill);
   background: rgba(99, 102, 241, 0.18);
   color: #A5B4FC;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .drawer-menu-row.drawer-sign-out {
@@ -13634,8 +13641,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(96vw, 900px);
-  max-width: 900px;
+  max-width: calc(100vw - 16px);
   max-height: 92vh;
+  box-sizing: border-box;
   background: #0B0F19;
   border: 1px solid rgba(168, 85, 247, 0.32);
   border-radius: 16px;
@@ -13651,7 +13659,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 13px 18px;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.6);
 }
@@ -13660,10 +13671,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 1;
 }
 
 .curator-style-sparkle {
   font-size: 22px;
+  flex-shrink: 0;
 }
 
 .curator-style-title {
@@ -13688,6 +13702,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   line-height: 1;
   padding: 4px;
   border-radius: 8px;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
@@ -13697,8 +13712,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 }
 
 .curator-style-modal-body {
-  padding: 14px 18px 20px;
+  padding: 14px 16px 20px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -13707,8 +13727,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Curator 3-Graph Analytics Dashboard */
 .curator-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .curator-kpi-pill {
@@ -13719,6 +13741,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .kpi-label {
@@ -13761,6 +13787,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   gap: 9px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .graph-card-header {
@@ -13769,14 +13800,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
   align-items: stretch;
   gap: 3px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .graph-header-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   margin-bottom: 1px;
 }
 
@@ -13789,6 +13825,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 2px 7px;
   border-radius: 5px;
   white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-bottom: 0;
 }
 
@@ -13817,6 +13857,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   padding: 2px 9px;
   border-radius: 99px;
   white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex-shrink: 0;
 }
 
@@ -13830,6 +13874,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-radius: 99px;
   cursor: pointer;
   white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex-shrink: 0;
 }
 
@@ -13852,25 +13900,36 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Graph 1: Color-Coded Tier / Correction Pills */
 .corr-type-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .corr-type-grid.conviction-tier-grid {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .corr-type-pill {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 9px;
-  padding: 7px 9px;
+  padding: 7px 8px;
   text-align: left;
   cursor: pointer;
   transition: all 0.18s ease;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .corr-type-pill:hover,
@@ -13883,7 +13942,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-pill-top {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+  width: 100%;
 }
 
 .corr-pill-dot {
@@ -13898,6 +13960,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 700;
   color: #E2E8F0;
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -13907,16 +13970,21 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-size: 10px;
   font-weight: 700;
   color: #94A3B8;
+  flex-shrink: 0;
 }
 
 .corr-pill-count {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1.15;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .corr-pill-unit {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   color: #94A3B8;
 }
@@ -13928,6 +13996,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0;
   padding: 10px 0 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .corr-chart-header-row {
@@ -13936,6 +14009,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .corr-chart-caption {
@@ -13943,6 +14019,8 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 700;
   color: #94A3B8;
   margin-bottom: 0;
+  min-width: 0;
+  flex: 1;
 }
 
 .corr-chart-slide-controls {
@@ -13983,13 +14061,15 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .corr-bars-window-frame {
   width: 100%;
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border-radius: 0;
   background: transparent;
   border: none;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 [data-theme="daylight"] .corr-bars-window-frame {
@@ -14002,6 +14082,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   flex-wrap: nowrap;
   gap: 6px;
   align-items: flex-end;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   min-height: 128px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -14074,9 +14158,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .corr-bars-slider-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 2px;
   padding-top: 4px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .corr-slider-edge-lbl {
@@ -14084,10 +14172,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 700;
   color: #94A3B8;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .corr-bars-range-slider {
-  flex: 1;
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 100%;
   height: 5px;
   accent-color: #A855F7;
   cursor: pointer;
@@ -14355,9 +14446,13 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Graph 2: Broad Topic Donut + Horizontal Bars */
 .topic-graph-layout {
   display: grid;
-  grid-template-columns: 132px 1fr;
+  grid-template-columns: 128px minmax(0, 1fr);
   gap: 14px;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .curator-donut-wrap {
@@ -14432,6 +14527,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
   font-weight: 700;
   color: #E2E8F0;
   min-width: 0;
+  flex: 1;
+}
+
+.hbar-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hbar-color-dot {
@@ -14471,8 +14574,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 /* Graph 3: Emotion Columns Grid */
 .emotion-columns-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .emotion-col-card {
@@ -14487,6 +14593,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
   cursor: pointer;
   transition: all 0.18s ease;
   text-align: center;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .emotion-col-card:hover,
@@ -14614,7 +14725,7 @@ mark.polish-mark:hover, mark.polish-mark.active {
     gap: 10px;
   }
   .curator-kpi-strip {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
   }
   .curator-kpi-pill:last-child {
@@ -14622,31 +14733,45 @@ mark.polish-mark:hover, mark.polish-mark.active {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px;
   }
   .curator-kpi-pill {
     padding: 7px 10px;
   }
   .corr-type-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5px;
   }
   .corr-type-grid.conviction-tier-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
   .corr-type-pill {
-    padding: 6px 8px;
+    padding: 6px 6px;
+  }
+  .corr-pill-name {
+    font-size: 10.5px;
+  }
+  .corr-pill-pct {
+    font-size: 9.5px;
+  }
+  .corr-pill-count {
+    font-size: 13px;
+  }
+  .corr-pill-unit {
+    font-size: 8.8px;
   }
   .topic-graph-layout {
-    grid-template-columns: 112px 1fr;
+    grid-template-columns: 104px minmax(0, 1fr);
     gap: 10px;
   }
   .curator-donut-wrap {
-    width: 108px;
-    height: 108px;
+    width: 100px;
+    height: 100px;
   }
   .emotion-columns-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 5px;
   }
 }
@@ -17568,10 +17693,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 /* 1. Header Bar */
 .vault-window-header {
-  padding: 14px 20px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.95);
   flex-shrink: 0;
@@ -17580,7 +17709,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .vault-window-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .vault-badge-pill {
@@ -17604,7 +17735,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .vault-header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 100%;
 }
 
 .vault-header-reset-btn {
@@ -18410,13 +18543,16 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 /* 4. Footer Bar */
 .vault-window-footer {
-  padding: 14px 20px;
+  padding: 12px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(15, 23, 42, 0.95);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
   flex-shrink: 0;
 }
 
@@ -18439,7 +18575,11 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .vault-footer-buttons {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
 }
 
 .vault-secondary-btn {
