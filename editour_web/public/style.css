@@ -24432,18 +24432,18 @@ mark.polish-mark:hover, mark.polish-mark.active {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 20px 16px;
-  border-radius: 16px;
-  background: rgba(15, 23, 42, 0.035);
-  border: 1px solid rgba(15, 23, 42, 0.09);
+  padding: 4px 4px 12px;
+  border-radius: 0;
+  background: transparent;
+  border: none;
   margin-bottom: 0;
   width: 100%;
   box-sizing: border-box;
 }
 
 [data-theme="obsidian"] .login-narrative-quote-footer {
-  background: rgba(255, 255, 255, 0.035);
-  border-color: rgba(255, 255, 255, 0.09);
+  background: transparent;
+  border-color: transparent;
 }
 
 .login-integrated-quote {
@@ -24621,16 +24621,24 @@ mark.polish-mark:hover, mark.polish-mark.active {
     margin: 0 auto;
     width: 100%;
     height: auto !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 8px 4px 16px !important;
   }
 }
 
 @media (max-width: 680px) {
   .login-main-wrap {
-    padding: 6px 8px 24px 8px !important;
+    padding: 0 0 24px 0 !important;
   }
 
   .login-page-card-standalone {
-    padding: 10px 10px 20px 10px !important;
+    padding: 8px 12px 20px 12px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
   .slant-triad-layout.slant-two-col-stage {
@@ -25166,11 +25174,14 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 @media (max-width: 680px) {
   .login-main-wrap {
-    padding: 6px 8px 24px !important;
+    padding: 0 0 24px !important;
   }
 
   .login-page-card-standalone {
-    padding: 10px 10px 20px !important;
+    padding: 8px 12px 20px !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
   .login-lower-samples-flow {
