@@ -13699,27 +13699,23 @@ function setCreatorSeries(seriesId) {
   activeCreatorSeriesId = matched ? matched.id : null;
   syncCreatorSeriesDropdowns();
 
-  // Update Step 3 bottom Save / Publish buttons to reflect Series mode
+  // Keep Step 3 bottom Save / Publish buttons uniform ("Save Draft" & "Publish 🚀") even when a Series is selected
   const isChron = Boolean(currentSynthesizedPost && typeof isChronicleModePost === 'function' && isChronicleModePost(currentSynthesizedPost));
   if (!isChron) {
     const bottomSaveBtn = document.getElementById('step3BottomSaveDraftBtn');
     const publishBtn = document.getElementById('publishBtn');
     const saveLbl = document.getElementById('step3SaveLabel');
     if (bottomSaveBtn) {
-      bottomSaveBtn.innerHTML = matched
-        ? '<span>🔒 Save to Series (Private)</span>'
-        : '<span>🔖 Save Draft</span>';
+      bottomSaveBtn.innerHTML = '<span>🔖 Save Draft</span>';
       bottomSaveBtn.title = matched
-        ? `Save privately inside Series "${matched.title}" without posting to public feed`
+        ? `Save as draft inside Series "${matched.title}"`
         : 'Save privately to your feed & drafts without publishing';
     }
     if (publishBtn) {
-      publishBtn.innerHTML = matched
-        ? '<span>Publish (Series + Public) 🚀</span>'
-        : '<span>Publish 🚀</span>';
+      publishBtn.innerHTML = '<span>Publish 🚀</span>';
     }
     if (saveLbl) {
-      saveLbl.textContent = matched ? 'In Series' : 'Save Draft';
+      saveLbl.textContent = 'Save Draft';
     }
   }
 
@@ -32320,11 +32316,11 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
   if (bottomSaveBtn) {
     bottomSaveBtn.innerHTML = isChronicle
       ? '<span>📔 Save to My Diary</span>'
-      : (matchedSeries ? '<span>🔒 Save to Series (Private)</span>' : '<span>🔖 Save Draft</span>');
+      : '<span>🔖 Save Draft</span>';
     bottomSaveBtn.title = isChronicle
       ? 'Save to your strictly personal Diary Calendar (never goes to people\'s feed)'
       : (matchedSeries
-        ? `Save privately inside Series "${matchedSeries.title}" without posting to public feed`
+        ? `Save as draft inside Series "${matchedSeries.title}"`
         : 'Save privately to your feed & drafts without publishing');
     bottomSaveBtn.classList.toggle('creator-diary-primary-cta', isChronicle);
     bottomSaveBtn.classList.toggle('single-diary-cta', isChronicle);
@@ -32333,9 +32329,7 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
     // Diary Chronicles have a single "Save to My Diary" button and can NEVER be published to people's public feed
     publishBtn.style.display = isChronicle ? 'none' : '';
     publishBtn.classList.remove('creator-publish-deemphasized');
-    publishBtn.innerHTML = matchedSeries
-      ? '<span>Publish (Series + Public) 🚀</span>'
-      : '<span>Publish 🚀</span>';
+    publishBtn.innerHTML = '<span>Publish 🚀</span>';
     publishBtn.title = matchedSeries
       ? `Publish to live public feed and include in Series "${matchedSeries.title}"`
       : 'Publish to the live public feed';
@@ -32345,12 +32339,12 @@ function syncStep3SaveButtonLabel(post = currentSynthesizedPost) {
     saveBtn.title = isChronicle
       ? 'Save to your Drafts so you can keep editing later without pushing to your Diary Calendar'
       : (matchedSeries
-        ? `Save privately to Series "${matchedSeries.title}" (Visible only to you)`
+        ? `Save as draft in Series "${matchedSeries.title}"`
         : 'Save to your Drafts & Feed (Private • Only visible to you)');
   }
   const saveLbl = document.getElementById('step3SaveLabel');
   if (saveLbl && saveLbl.textContent !== 'Saved') {
-    saveLbl.textContent = (!isChronicle && matchedSeries) ? 'In Series' : 'Save';
+    saveLbl.textContent = 'Save';
   }
   const prevTab0 = document.getElementById('prevTab0');
   const prevTab1 = document.getElementById('prevTab1');
