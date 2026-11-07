@@ -13366,8 +13366,8 @@ function createPostCardElement(post, index) {
     <!-- Inline Collapsible Source Video + Scrolling Source Summary Drawer -->
     <div class="inline-source-drawer" id="inline-source-drawer-${index}" style="display: none;"></div>
 
-    <!-- Instagram-style Caption Area: Creator Handle + Curator Take + Native Inline Expand -->
-    <div class="post-content">
+    <!-- Instagram-style Caption Area (Hidden per editorial flow so readers swipe into Poster 2 & 3 instead of reading caption under Poster 1) -->
+    <div class="post-content" style="display: none !important;">
       <div class="post-summary-snippet ${isCaptionExpanded ? 'is-expanded' : ''}" id="caption-snippet-${index}" ${isLongCaption && !isCaptionExpanded ? `onclick="toggleCaptionExpand('${index}', true)" style="cursor: pointer;"` : ''}>
         ${captionSnippetHtml}
       </div>
@@ -19667,11 +19667,12 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
     if (depth.wordCount === 0) {
       wordPill.textContent = 'Depth 0%';
     } else if (hasEnoughDepth && depth.hasAllThreeBeats) {
-      wordPill.textContent = `✓ Depth ${depth.depthScore}%`;
+      const tierLabel = depth.depthScore >= 90 ? '🔥 Pierced' : (depth.depthScore >= 80 ? '✨ Deep' : '⚡ Spark');
+      wordPill.textContent = `${tierLabel} ${depth.depthScore}%`;
     } else {
       wordPill.textContent = `Depth ${depth.depthScore}%`;
     }
-    wordPill.title = 'Live perspective depth (70%+ & 3/3 signals required)';
+    wordPill.title = 'Live perspective depth: ⚡ Spark (70–79%) • ✨ Deep (80–89%) • 🔥 Pierced (90%+)';
   }
 
   // Live depth progress bar fills dynamically as the creator types
@@ -30311,6 +30312,133 @@ function isValidWebUrl(str) {
   return false;
 }
 
+const SLANT_GUIDE_SAMPLES = {
+  tech: {
+    topicLabel: '🌐 Tech / Market Link',
+    tiers: {
+      spark: {
+        badge: '⚡ Spark (74% • Sharp Voice)',
+        whyTier: 'Direct 3-beat take: names the market trigger, the guardrail shift, and a clear stance in 3 concise sentences.',
+        moment: 'Watched AI and semiconductor stocks slide this week after new US regulatory guardrails were announced.',
+        why: 'However, markets are confusing short-term policy friction with a drop in real-world demand.',
+        conviction: 'I believe AI growth will still lead the next decade as long as companies solve real problems.'
+      },
+      deep: {
+        badge: '✨ Deep (85% • Deep Slanter)',
+        whyTier: 'Unpacks the deeper contrast between hype-driven valuation and durable utility before stating the conviction.',
+        moment: 'Seeing AI and chip stocks pull back sharply after Washington introduced stricter guardrails caught everyone off guard after months of euphoria.',
+        why: 'What this really reveals is that the market priced in effortless hyper-growth, whereas regulations now force companies to prove genuine utility over pure hype.',
+        conviction: 'To me, this reset is healthy — lasting global growth will belong to AI builders who solve real human bottlenecks, even if it unfolds more steadily.'
+      },
+      pierced: {
+        badge: '🔥 Pierced (94% • Piercing Voice)',
+        whyTier: 'Combines a vivid lived observation, the structural paradox underneath, and an unshakeable personal conviction.',
+        moment: 'For the past year AI felt like an unstoppable wave that every institution and retail investor wanted a piece of, until US policy guardrails suddenly sent semiconductor stocks sliding.',
+        why: 'Beneath the market panic lies a vital shift: guardrails do not kill transformative technology — they strip away speculative froth and expose who is actually creating enduring value.',
+        conviction: 'I strongly believe this momentum cannot be halted as long as AI solves real problems; the meteoric hype may cool, but patient conviction in real utility is what builds the future.'
+      }
+    }
+  },
+  book: {
+    topicLabel: '📖 Reading a Book',
+    tiers: {
+      spark: {
+        badge: '⚡ Spark (75% • Sharp Voice)',
+        whyTier: 'Clear reading note with all 3 signals (passage noticed, contrast, and personal takeaway).',
+        moment: 'Read a chapter tonight on how ancient craftsmen signed even the hidden backs of cathedral statues.',
+        why: 'Most of us only polish the work that gets public applause and cut corners on what nobody sees.',
+        conviction: 'Moving forward, I want my private standards to be higher than any external validation.'
+      },
+      deep: {
+        badge: '✨ Deep (86% • Deep Slanter)',
+        whyTier: 'Connects the book passage to a modern habit tension and names what shifted personally.',
+        moment: 'While reading late tonight, a line stopped me cold: medieval sculptors carved the backs of roof statues with the same care as the front, even though no human eye would ever see them.',
+        why: 'In a world obsessed with instant metrics and visible credit, we quietly train ourselves to perform for the audience rather than honour the craft itself.',
+        conviction: 'For me, true mastery begins when the work we do in the dark is just as honest as the work we put on stage.'
+      },
+      pierced: {
+        badge: '🔥 Pierced (95% • Piercing Voice)',
+        whyTier: 'Brings personal vulnerability to the reading moment, exposing an inner shift and a life principle.',
+        moment: 'Sitting with my book tonight after a long week of chasing deadlines, I read about craftsmen who spent months perfecting the unseen backs of stone figures high above the cathedral floor.',
+        why: 'It pierced me because I realized how often I measure a day by what others noticed, whereas the deepest pride comes from integrity that asks for no witness.',
+        conviction: 'The principle I am claiming for my own life and work is simple: build the unseen corners with complete devotion, because your soul always knows where you cut corners.'
+      }
+    }
+  },
+  life: {
+    topicLabel: '🌱 Life / Personal Experience',
+    tiers: {
+      spark: {
+        badge: '⚡ Spark (74% • Sharp Voice)',
+        whyTier: 'Captures the real-life scene, why it stood out, and a warm takeaway in 3 crisp lines.',
+        moment: 'Watched my son sprint the final 50m on Sports Day when his legs were giving out.',
+        why: 'We think grit is purely internal, but the stadium chanting his name carried him across the line.',
+        conviction: 'Always show up loudly for the people you love when they are running on empty.'
+      },
+      deep: {
+        badge: '✨ Deep (86% • Deep Slanter)',
+        whyTier: 'Contrasts conventional wisdom about solo grit against what actually happened in the moment.',
+        moment: 'On Sports Day, I watched my son hit a wall in the final 50 meters of his race, until the whole stand started chanting his name and his stride suddenly came back to life.',
+        why: 'We love preaching that resilience is a solo battle, yet in that moment borrowed belief from the people around him literally unlocked strength he did not know he had left.',
+        conviction: 'To me, that is the real power of family and community — never underestimate how far your voice can carry someone you love when their own strength fades.'
+      },
+      pierced: {
+        badge: '🔥 Pierced (95% • Piercing Voice)',
+        whyTier: 'Full emotional honesty: paints the exact sensory scene, the inner realization, and a lasting life rule.',
+        moment: 'Standing by the track on Sports Day, I watched my son’s legs buckle in the final 50 meters — and then saw his eyes lift as the entire stadium roared his name until he lunged across the finish line.',
+        why: 'It broke open an old myth inside me: we teach our kids to be self-reliant islands, whereas human beings are wired to borrow courage from the people who refuse to let them quit.',
+        conviction: 'Going forward, I never want to offer quiet support from the sidelines; show up loudly for the people you love, because your belief is often the exact fuel that carries them home.'
+      }
+    }
+  }
+};
+
+let _activeGuideTopic = 'tech';
+let _activeGuideTier = 'pierced';
+
+function renderSlantGuideSample() {
+  const box = document.getElementById('slantGuideDynamicSampleBox');
+  if (!box) return;
+  const topicObj = SLANT_GUIDE_SAMPLES[_activeGuideTopic] || SLANT_GUIDE_SAMPLES.tech;
+  const sample = (topicObj.tiers && topicObj.tiers[_activeGuideTier]) || topicObj.tiers.pierced;
+
+  document.querySelectorAll('.guide-topic-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-guide-topic') === _activeGuideTopic);
+  });
+  document.querySelectorAll('.guide-tier-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-guide-tier') === _activeGuideTier);
+  });
+
+  box.innerHTML = `
+    <div class="guide-sample-header-row">
+      <span class="guide-sample-topic-label">${escapeHtml(topicObj.topicLabel)}</span>
+      <span class="guide-sample-tier-pill tier-${escapeHtml(_activeGuideTier)}">${escapeHtml(sample.badge)}</span>
+    </div>
+    <div class="example-body">
+      <div class="ex-beat ex-b1"><span class="ex-inline-tag tag-moment">1. Moment</span> ${escapeHtml(sample.moment)}</div>
+      <div class="ex-beat ex-b2"><span class="ex-inline-tag tag-why">2. Why It Matters</span> ${escapeHtml(sample.why)}</div>
+      <div class="ex-beat ex-b3"><span class="ex-inline-tag tag-conviction">3. Conviction</span> ${escapeHtml(sample.conviction)}</div>
+    </div>
+    <div class="guide-sample-why-note">
+      <strong>Why this is ${escapeHtml(_activeGuideTier.toUpperCase())}:</strong> ${escapeHtml(sample.whyTier)}
+    </div>
+  `;
+}
+
+function selectSlantGuideSample(topic, tier, e) {
+  if (e && typeof e.stopPropagation === 'function') {
+    e.stopPropagation();
+  }
+  if (topic && SLANT_GUIDE_SAMPLES[topic]) {
+    _activeGuideTopic = topic;
+  }
+  if (tier && ['spark', 'deep', 'pierced'].includes(tier)) {
+    _activeGuideTier = tier;
+  }
+  renderSlantGuideSample();
+}
+window.selectSlantGuideSample = selectSlantGuideSample;
+
 function toggleSlantStructureGuide(e) {
   if (e && typeof e.stopPropagation === 'function') {
     e.stopPropagation();
@@ -30320,6 +30448,14 @@ function toggleSlantStructureGuide(e) {
   const btn = document.getElementById('slantGuideToggleBtn');
   if (!card) return;
   const isHidden = card.style.display === 'none' || !card.style.display;
+  if (isHidden) {
+    if (typeof currentSlantSparkType !== 'undefined') {
+      if (currentSlantSparkType === 'book') _activeGuideTopic = 'book';
+      else if (currentSlantSparkType === 'experience' || currentSlantSparkType === 'observation') _activeGuideTopic = 'life';
+      else _activeGuideTopic = 'tech';
+    }
+    renderSlantGuideSample();
+  }
   card.style.display = isHidden ? 'block' : 'none';
   if (btn) {
     btn.classList.toggle('active', isHidden);

@@ -8689,6 +8689,172 @@ header {
   color: var(--text-primary);
 }
 
+.slant-guide-samples-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.slant-guide-controls-top {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.slant-guide-topic-tabs,
+.slant-guide-tier-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.guide-topic-tab,
+.guide-tier-tab {
+  padding: 5px 6px;
+  border-radius: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.15s ease;
+}
+
+[data-theme="daylight"] .guide-topic-tab,
+[data-theme="daylight"] .guide-tier-tab {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+.guide-topic-tab.active {
+  background: #253833;
+  color: #FFFFFF !important;
+  border-color: #253833;
+  font-weight: 800;
+}
+
+.guide-tier-tab[data-guide-tier="spark"].active {
+  background: rgba(79, 70, 229, 0.16);
+  color: #4F46E5;
+  border-color: rgba(79, 70, 229, 0.45);
+  font-weight: 800;
+}
+
+.guide-tier-tab[data-guide-tier="deep"].active {
+  background: rgba(13, 148, 136, 0.16);
+  color: #0D9488;
+  border-color: rgba(13, 148, 136, 0.45);
+  font-weight: 800;
+}
+
+.guide-tier-tab[data-guide-tier="pierced"].active {
+  background: rgba(217, 119, 6, 0.18);
+  color: #B45309;
+  border-color: rgba(217, 119, 6, 0.5);
+  font-weight: 800;
+}
+
+[data-theme="obsidian"] .guide-tier-tab[data-guide-tier="spark"].active {
+  color: #A5B4FC;
+}
+[data-theme="obsidian"] .guide-tier-tab[data-guide-tier="deep"].active {
+  color: #5EEAD4;
+}
+[data-theme="obsidian"] .guide-tier-tab[data-guide-tier="pierced"].active {
+  color: #FCD34D;
+}
+
+.guide-sample-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px dashed rgba(148, 163, 184, 0.28);
+}
+
+.guide-sample-topic-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.guide-sample-tier-pill {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 99px;
+}
+
+.guide-sample-tier-pill.tier-spark {
+  background: rgba(79, 70, 229, 0.14);
+  color: #4F46E5;
+}
+.guide-sample-tier-pill.tier-deep {
+  background: rgba(13, 148, 136, 0.15);
+  color: #0F766E;
+}
+.guide-sample-tier-pill.tier-pierced {
+  background: rgba(245, 158, 11, 0.18);
+  color: #B45309;
+}
+
+[data-theme="obsidian"] .guide-sample-tier-pill.tier-spark { color: #A5B4FC; }
+[data-theme="obsidian"] .guide-sample-tier-pill.tier-deep { color: #5EEAD4; }
+[data-theme="obsidian"] .guide-sample-tier-pill.tier-pierced { color: #FCD34D; }
+
+.ex-inline-tag {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-right: 4px;
+  vertical-align: baseline;
+}
+
+.ex-inline-tag.tag-moment {
+  background: rgba(2, 132, 199, 0.14);
+  color: #0369A1;
+  border: 1px solid rgba(2, 132, 199, 0.28);
+}
+
+.ex-inline-tag.tag-why {
+  background: rgba(217, 119, 6, 0.15);
+  color: #B45309;
+  border: 1px solid rgba(217, 119, 6, 0.30);
+}
+
+.ex-inline-tag.tag-conviction {
+  background: rgba(5, 150, 105, 0.15);
+  color: #047857;
+  border: 1px solid rgba(5, 150, 105, 0.30);
+}
+
+[data-theme="obsidian"] .ex-inline-tag.tag-moment { color: #7DD3FC; }
+[data-theme="obsidian"] .ex-inline-tag.tag-why { color: #FCD34D; }
+[data-theme="obsidian"] .ex-inline-tag.tag-conviction { color: #6EE7B7; }
+
+.guide-sample-why-note {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed rgba(148, 163, 184, 0.28);
+  font-size: 10.5px;
+  line-height: 1.38;
+  color: var(--text-secondary);
+}
+.guide-sample-why-note strong {
+  color: var(--text-primary);
+}
+
 [data-theme="daylight"] .slant-guide-btn {
   background: #FDF5EA;
   color: #9A5B1A;
