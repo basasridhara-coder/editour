@@ -1280,9 +1280,12 @@ function updateUnifiedPosterVisualStripUI() {
   const checkAi = document.getElementById('posterModeCheckAiArt');
 
   const applyCardAndCheckmarkStyle = (card, checkEl, isActive, accentColor, tintBg, isDisabled = false) => {
+    const isObsidian = document.documentElement.getAttribute('data-theme') === 'obsidian';
+    const inactiveBg = isObsidian ? 'rgba(30, 41, 59, 0.75)' : '#FFFFFF';
+    const disabledBg = isObsidian ? 'rgba(15, 23, 42, 0.5)' : '#F1F5F9';
     if (card) {
       card.style.border = isActive ? `2px solid ${accentColor}` : '1.5px solid rgba(148,163,184,0.35)';
-      card.style.background = isDisabled ? '#F1F5F9' : (isActive ? tintBg : '#FFFFFF');
+      card.style.background = isDisabled ? disabledBg : (isActive ? tintBg : inactiveBg);
       card.style.boxShadow = isActive ? `0 4px 12px ${tintBg}` : 'none';
       card.style.opacity = isDisabled ? '0.48' : '1';
       card.style.filter = isDisabled ? 'grayscale(0.75)' : 'none';
@@ -1293,8 +1296,8 @@ function updateUnifiedPosterVisualStripUI() {
     if (checkEl) {
       if (isDisabled) {
         checkEl.textContent = '🔒';
-        checkEl.style.background = '#E2E8F0';
-        checkEl.style.borderColor = '#CBD5E1';
+        checkEl.style.background = isObsidian ? '#334155' : '#E2E8F0';
+        checkEl.style.borderColor = isObsidian ? '#475569' : '#CBD5E1';
         checkEl.style.color = '#64748B';
       } else if (isActive) {
         checkEl.textContent = '✓';
@@ -1303,8 +1306,8 @@ function updateUnifiedPosterVisualStripUI() {
         checkEl.style.color = '#FFFFFF';
       } else {
         checkEl.textContent = '';
-        checkEl.style.background = '#FFFFFF';
-        checkEl.style.borderColor = '#CBD5E1';
+        checkEl.style.background = 'transparent';
+        checkEl.style.borderColor = isObsidian ? 'rgba(148,163,184,0.5)' : '#CBD5E1';
         checkEl.style.color = 'transparent';
       }
     }
@@ -2255,16 +2258,16 @@ function renderWebCollageSelectedSlotsUI() {
     return `
       <div style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 4px; border-radius: 8px; background: ${isStar ? '#FFFBEB' : '#FFFFFF'}; border: ${isStar ? '1.5px solid #D97706' : '1px solid rgba(16,185,129,0.4)'}; box-shadow: 0 2px 5px rgba(15,23,42,0.04);">
         <img src="${escapeHtml(it.thumbUrl || it.url)}" alt="" onclick="setStarredWebCollageSlot(${idx})" style="width: 26px; height: 26px; border-radius: 5px; object-fit: cover; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Tap to mark as #1 Hero'}">
-        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.07)'}; color: ${isStar ? '#B45309' : 'var(--text-secondary)'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
+        <button type="button" onclick="setStarredWebCollageSlot(${idx})" style="border: none; background: ${isStar ? '#FEF3C7' : 'rgba(15,23,42,0.08)'}; color: ${isStar ? '#B45309' : '#334155'}; padding: 2px 5px; border-radius: 99px; font-size: 9.5px; font-weight: 800; cursor: pointer;" title="${isStar ? 'Tap to remove Hero mark (equal prominence)' : 'Mark as #1 Hero (60%)'}">
           ${isStar ? '★ #1 Hero' : `☆ #${idx + 1}`}
         </button>
         ${total > 1 ? `
           <div style="display: inline-flex; align-items: center; gap: 2px;">
-            <button type="button" onclick="moveWebCollageSlot(${idx}, -1)" ${!canLeft ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot earlier">◀</button>
-            <button type="button" onclick="moveWebCollageSlot(${idx}, 1)" ${!canRight ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot later">▶</button>
+            <button type="button" onclick="moveWebCollageSlot(${idx}, -1)" ${!canLeft ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: #0F172A; width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canLeft ? 'pointer' : 'default'}; opacity: ${canLeft ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot earlier">◀</button>
+            <button type="button" onclick="moveWebCollageSlot(${idx}, 1)" ${!canRight ? 'disabled' : ''} style="border: 1px solid rgba(148,163,184,0.45); background: #FFFFFF; color: #0F172A; width: 17px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; cursor: ${canRight ? 'pointer' : 'default'}; opacity: ${canRight ? '1' : '0.3'}; padding: 0; line-height: 1;" title="Move slot later">▶</button>
           </div>
         ` : ''}
-        <span style="font-size: 10px; font-weight: 700; color: var(--text-primary); max-width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${it.isUploadedPhoto ? '📷 ' : ''}${escapeHtml(it.title || 'Photo')}</span>
+        <span style="font-size: 10px; font-weight: 700; color: #0F172A; max-width: 78px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${it.isUploadedPhoto ? '📷 ' : ''}${escapeHtml(it.title || 'Photo')}</span>
         <button type="button" onclick="removeWebCollageSelectedSlot(${idx})" style="border: none; background: rgba(239,68,68,0.12); color: #DC2626; width: 17px; height: 17px; border-radius: 50%; font-size: 10.5px; font-weight: 900; cursor: pointer; line-height: 1;">&times;</button>
       </div>
     `;
