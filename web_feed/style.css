@@ -28407,6 +28407,9 @@ mark.polish-mark:hover, mark.polish-mark.active {
   border-radius: 10px;
   background: #F4F7F6;
   border: 1px solid #D5E2DD;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -28438,24 +28441,32 @@ mark.polish-mark:hover, mark.polish-mark.active {
 
 .slant-depth-top-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .slant-depth-signals-group {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  gap: 5px;
-  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .depth-beat-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  padding: 3.5px 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
   border-radius: 999px;
   font-size: 10.5px;
   font-weight: 700;
@@ -28465,6 +28476,10 @@ mark.polish-mark:hover, mark.polish-mark.active {
   color: #475569;
   transition: all 0.16s ease;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
 }
 
 .depth-beat-pill:hover {
@@ -28499,13 +28514,19 @@ mark.polish-mark:hover, mark.polish-mark.active {
 .depth-beat-pill .beat-check {
   font-size: 10px;
   font-weight: 900;
+  flex-shrink: 0;
 }
 
 .slant-depth-meters-right {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 5px;
-  margin-left: auto;
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  box-sizing: border-box;
 }
 
 .depth-signals-count-pill,
@@ -28520,6 +28541,32 @@ mark.polish-mark:hover, mark.polish-mark.active {
   background: rgba(148, 163, 184, 0.16);
   color: #475569;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.depth-unrecognized-word-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2.5px 7px;
+  border-radius: 6px;
+  font-size: 9.8px;
+  font-weight: 600;
+  color: #B45309;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+[data-theme="obsidian"] .depth-unrecognized-word-pill {
+  color: #FBBF24;
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(251, 191, 36, 0.32);
 }
 
 .depth-signals-count-pill .req-sub {
