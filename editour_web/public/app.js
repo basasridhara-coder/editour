@@ -18958,6 +18958,9 @@ const PERSPECTIVE_ENGLISH_ANCHOR_WORDS = new Set([
   'video', 'podcast', 'money', 'growth', 'value', 'truth', 'hope', 'dream', 'mind', 'heart', 'idea', 'ideas', 'problem'
 ]);
 
+const VALID_INITIAL_CONSONANT_CLUSTERS = /^(?:bl|br|ch|cl|cr|cz|dh|dj|dr|dw|fl|fr|gh|gl|gn|gr|gw|jh|kh|kl|kn|kr|ks|kw|ll|mn|ph|pl|pn|pr|ps|pt|qu|rh|sc|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|sz|th|tm|tr|ts|tw|tz|vl|vr|wh|wr|zh|zv|zw|sch|scr|shr|skw|spl|spr|squ|str|thr|thw|shw|dhr|bhr|ksh|chr|phr|phth)/i;
+const VALID_FINAL_CONSONANT_CLUSTERS = /(?:bb|ch|ck|ct|dd|ff|ft|gg|gh|gm|gn|ks|lb|lc|ld|lf|lg|lk|ll|lm|ln|lp|ls|lt|lv|lz|mb|mp|nc|nd|ng|nk|nn|np|ns|nt|nx|nz|ph|pl|pp|ps|pt|rb|rc|rd|rf|rg|rk|rl|rm|rn|rp|rr|rs|rt|rv|rz|sc|sh|sk|sm|sn|sp|ss|st|th|tl|tr|ts|tt|tz|xt|zz|dge|tch|nch|ght|rld|rst|rth|rch|rsh|mpt|nct|ngth|lpt|lst|rct|rmth|rph|thm)$/i;
+
 function isTokenReadableWord(rawToken = '') {
   const cleaned = String(rawToken || '')
     .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
@@ -18970,16 +18973,48 @@ function isTokenReadableWord(rawToken = '') {
     return true;
   }
 
+  if (/[-/]/.test(lower)) {
+    const parts = lower.split(/[-/]+/).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.every(p => isTokenReadableWord(p));
+    }
+  }
+
   const alpha = lower.replace(/[^a-z]/g, '');
   if (!alpha) return false;
   if (alpha.length === 1) return true;
 
-  // Reject only unmistakable keyboard-mash tokens (0 vowels, 3+ identical consecutive letters, or 5+ consecutive consonants)
   const vowels = alpha.match(/[aeiouy]/g) || [];
   if (vowels.length === 0) return false;
   if (/(.)\1\1/.test(alpha)) return false;
-  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(alpha)) return false;
-  if (alpha.length >= 7 && (vowels.length / alpha.length) < 0.16) return false;
+  if (alpha.length >= 10 && (vowels.length / alpha.length) < 0.15) return false;
+
+  // Normalize vowel+w diphthongs (aw, ew, ow, uw) so 'w' after a vowel (e.g. growth, down, news) is treated as a vowel glide
+  const norm = alpha.replace(/([aeiouy])w/g, '$1u');
+
+  // 1. Reject impossible initial consonant clusters (e.g. "kdokand" -> "kd", "jxksks" -> "jx", "ndkwnd" -> "nd", "fhakksd" -> "fh")
+  const lead = (norm.match(/^[bcdfghjklmnpqrstvwxz]+/) || [''])[0];
+  if (lead.length >= 4) return false;
+  if (lead.length >= 2 && !VALID_INITIAL_CONSONANT_CLUSTERS.test(lead)) return false;
+
+  // 2. Reject impossible trailing consonant clusters (after stripping a trailing plural 's' so "pyramids", "questions", "systems" always pass)
+  const stem = (norm.length > 3 && norm.endsWith('s') && /[aeiouy]/.test(norm.slice(0, -1)))
+    ? norm.slice(0, -1)
+    : norm;
+  const trail = (stem.match(/[bcdfghjklmnpqrstvwxz]+$/) || [''])[0];
+  if (trail.length >= 5) return false;
+  if (trail.length >= 2 && !VALID_FINAL_CONSONANT_CLUSTERS.test(trail)) return false;
+
+  // 3. Reject 5+ consecutive internal consonants
+  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(norm) && !/(?:ngth|nstr|xtr|xpl|xpr|ksht|nskr|schm|schn|schr|schw|phth)/.test(norm)) {
+    return false;
+  }
+
+  // 4. Reject repetitive consonant mash or keyboard row runs
+  if (/([bcdfghjklmnpqrstvwxz]{2,3})\1/.test(alpha)) return false;
+  if (/(?:asdf|fdsa|qwer|rewq|zxcv|vcxz|hjkl|lkjh|uiop|poiu|mnbv|vbnm|dfgh|fghj|ghjk|sdfg|xcvb|ksk|dks|ndkd|mdnd|kdok|fhak|iieb|idsd)/i.test(alpha)) {
+    return false;
+  }
 
   return true;
 }
@@ -19033,23 +19068,32 @@ function analyzePerspectiveWordQuality(text = '', options = {}) {
     if (isTokenReadableWord(tok)) {
       validWords.push(tok);
     } else {
-      invalidWords.push(cleanLower);
+      const displayTok = tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '') || tok;
+      invalidWords.push(displayTok);
     }
   }
 
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
   const isNonsense = invalidWords.length > 0 && (validWords.length === 0 || invalidRatio >= 0.5);
+  const hasWarning = invalidWords.length >= 1;
+
+  let coachingMessage = '';
+  if (invalidWords.length > 0) {
+    coachingMessage = invalidWords.length === 1
+      ? 'Unrecognized word identified'
+      : 'Unrecognized words identified';
+  }
 
   return {
     totalTokens,
     validWordCount: validWords.length,
-    invalidWords: [],
+    invalidWords,
     invalidRatio,
     anchorCount,
-    hasWarning: false,
+    hasWarning,
     isNonsense,
-    coachingMessage: ''
+    coachingMessage
   };
 }
 window.analyzePerspectiveWordQuality = analyzePerspectiveWordQuality;
@@ -19140,18 +19184,19 @@ function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
     }
   }
 
-  // 3. Check Moment on a distinct remaining clause (requires genuine moment/observation/context cues — never grant Moment on blind word count alone)
+  // 3. Check Moment on a distinct remaining clause (matches momentRegex OR a natural English sentence clause with >= 6 valid words and >= 2 English anchor words)
   let momentIdx = -1;
   for (let i = 0; i < rawClauses.length; i++) {
     if (usedIdx.has(i)) continue;
-    if (momentRegex.test(rawClauses[i])) {
+    const clauseQ = analyzePerspectiveWordQuality(rawClauses[i], { waitForSpace: false });
+    if (momentRegex.test(rawClauses[i]) || (clauseQ.validWordCount >= 6 && clauseQ.anchorCount >= 2 && rawClauses[i].length >= 26)) {
       momentIdx = i;
       usedIdx.add(i);
       break;
     }
   }
 
-  let hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && momentRegex.test(combined));
+  let hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && (momentRegex.test(combined) || rawQuality.anchorCount >= 2));
   let hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
   let hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
 
@@ -19952,7 +19997,7 @@ function insertDepthBeatStarter(beatKey, event) {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function updateLivePerspectiveDepthUI(highlightMissing = false) {
+function updateLivePerspectiveDepthUI(highlightMissing = false, options = {}) {
   const bar = document.getElementById('slantLiveDepthBar');
   if (!bar) return;
 
@@ -19971,7 +20016,10 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   const rawText = slantInput ? slantInput.value : '';
   const sparkText = sparkInput ? sparkInput.value : '';
 
-  const depth = evaluatePerspectiveDepth(rawText, sparkText, { waitForSpace: !highlightMissing });
+  const waitForSpace = (options && typeof options.waitForSpace === 'boolean')
+    ? options.waitForSpace
+    : !highlightMissing;
+  const depth = evaluatePerspectiveDepth(rawText, sparkText, { waitForSpace });
 
   bar.classList.toggle('is-ready', depth.isReady);
   if (depth.isReady) {
@@ -20014,6 +20062,20 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   setBeatPill('liveBeatMoment', 'liveBeatMomentCheck', depth.hasMoment, 'moment');
   setBeatPill('liveBeatWhy', 'liveBeatWhyCheck', depth.hasWhyItMatters, 'why');
   setBeatPill('liveBeatConviction', 'liveBeatConvictionCheck', depth.hasConviction, 'conviction');
+
+  // Subtle inline pill for unrecognized word(s) — never opens the big bottom label section
+  const unrecPill = document.getElementById('slantDepthUnrecognizedPill');
+  if (unrecPill) {
+    const invList = Array.isArray(depth.invalidWords) ? depth.invalidWords : [];
+    if (invList.length > 0) {
+      unrecPill.style.display = 'inline-flex';
+      unrecPill.textContent = invList.length === 1 ? 'Unrecognized word identified' : 'Unrecognized words identified';
+      unrecPill.title = `Unrecognized: ${Array.from(new Set(invList)).slice(0, 4).join(', ')}`;
+    } else {
+      unrecPill.style.display = 'none';
+      unrecPill.title = '';
+    }
+  }
 
   const signalsPill = document.getElementById('slantDepthSignalsCountPill');
   if (signalsPill) {
@@ -27534,7 +27596,9 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
       }
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
-      // Wait for a space, newline, or punctuation boundary (or empty clear) before evaluating words & coaching
+      // Wait for a space, newline, or punctuation boundary (or empty clear) before evaluating words & coaching live,
+      // plus a 650ms idle debounce so finished words/sentences without a trailing space are also evaluated once the user pauses
+      if (window._slantLiveDepthIdleTimer) clearTimeout(window._slantLiveDepthIdleTimer);
       const cursorPos = typeof slantInput.selectionStart === 'number' ? slantInput.selectionStart : val.length;
       const charBeforeCursor = cursorPos > 0 ? val.slice(0, cursorPos) : val;
       const isAtWordBoundary = val.trim().length === 0 || /[\s.!?,;:]$/.test(charBeforeCursor) || /[\s.!?,;:]$/.test(val);
@@ -27542,13 +27606,20 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
         const spkInput = document.getElementById('creatorSparkInput');
         const combined = val + ' ' + (spkInput ? spkInput.value : '');
         checkAndTriggerFamilyCast(combined);
-        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false, { waitForSpace: true });
         if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
         if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
+      } else {
+        window._slantLiveDepthIdleTimer = setTimeout(() => {
+          if (typeof updateLivePerspectiveDepthUI === 'function') {
+            updateLivePerspectiveDepthUI(false, { waitForSpace: false });
+          }
+        }, 650);
       }
     });
     slantInput.addEventListener('blur', () => {
-      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
+      if (window._slantLiveDepthIdleTimer) clearTimeout(window._slantLiveDepthIdleTimer);
+      if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false, { waitForSpace: false });
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');

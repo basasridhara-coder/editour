@@ -6237,6 +6237,9 @@ const SERVER_ENGLISH_ANCHOR_WORDS = new Set([
   'video', 'podcast', 'money', 'growth', 'value', 'truth', 'hope', 'dream', 'mind', 'heart', 'idea', 'ideas', 'problem'
 ]);
 
+const SERVER_VALID_INITIAL_CLUSTERS = /^(?:bl|br|ch|cl|cr|cz|dh|dj|dr|dw|fl|fr|gh|gl|gn|gr|gw|jh|kh|kl|kn|kr|ks|kw|ll|mn|ph|pl|pn|pr|ps|pt|qu|rh|sc|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|sz|th|tm|tr|ts|tw|tz|vl|vr|wh|wr|zh|zv|zw|sch|scr|shr|skw|spl|spr|squ|str|thr|thw|shw|dhr|bhr|ksh|chr|phr|phth)/i;
+const SERVER_VALID_FINAL_CLUSTERS = /(?:bb|ch|ck|ct|dd|ff|ft|gg|gh|gm|gn|ks|lb|lc|ld|lf|lg|lk|ll|lm|ln|lp|ls|lt|lv|lz|mb|mp|nc|nd|ng|nk|nn|np|ns|nt|nx|nz|ph|pl|pp|ps|pt|rb|rc|rd|rf|rg|rk|rl|rm|rn|rp|rr|rs|rt|rv|rz|sc|sh|sk|sm|sn|sp|ss|st|th|tl|tr|ts|tt|tz|xt|zz|dge|tch|nch|ght|rld|rst|rth|rch|rsh|mpt|nct|ngth|lpt|lst|rct|rmth|rph|thm)$/i;
+
 function isServerTokenReadableWord(rawToken = '') {
   const cleaned = String(rawToken || '')
     .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
@@ -6248,6 +6251,12 @@ function isServerTokenReadableWord(rawToken = '') {
   if (SERVER_ALLOWED_SHORT_TOKENS.has(lower) || SERVER_ENGLISH_ANCHOR_WORDS.has(lower)) {
     return true;
   }
+  if (/[-/]/.test(lower)) {
+    const parts = lower.split(/[-/]+/).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.every(p => isServerTokenReadableWord(p));
+    }
+  }
   const alpha = lower.replace(/[^a-z]/g, '');
   if (!alpha) return false;
   if (alpha.length === 1) return true;
@@ -6255,8 +6264,28 @@ function isServerTokenReadableWord(rawToken = '') {
   const vowels = alpha.match(/[aeiouy]/g) || [];
   if (vowels.length === 0) return false;
   if (/(.)\1\1/.test(alpha)) return false;
-  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(alpha)) return false;
-  if (alpha.length >= 7 && (vowels.length / alpha.length) < 0.16) return false;
+  if (alpha.length >= 10 && (vowels.length / alpha.length) < 0.15) return false;
+
+  const norm = alpha.replace(/([aeiouy])w/g, '$1u');
+  const lead = (norm.match(/^[bcdfghjklmnpqrstvwxz]+/) || [''])[0];
+  if (lead.length >= 4) return false;
+  if (lead.length >= 2 && !SERVER_VALID_INITIAL_CLUSTERS.test(lead)) return false;
+
+  const stem = (norm.length > 3 && norm.endsWith('s') && /[aeiouy]/.test(norm.slice(0, -1)))
+    ? norm.slice(0, -1)
+    : norm;
+  const trail = (stem.match(/[bcdfghjklmnpqrstvwxz]+$/) || [''])[0];
+  if (trail.length >= 5) return false;
+  if (trail.length >= 2 && !SERVER_VALID_FINAL_CLUSTERS.test(trail)) return false;
+
+  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(norm) && !/(?:ngth|nstr|xtr|xpl|xpr|ksht|nskr|schm|schn|schr|schw|phth)/.test(norm)) {
+    return false;
+  }
+
+  if (/([bcdfghjklmnpqrstvwxz]{2,3})\1/.test(alpha)) return false;
+  if (/(?:asdf|fdsa|qwer|rewq|zxcv|vcxz|hjkl|lkjh|uiop|poiu|mnbv|vbnm|dfgh|fghj|ghjk|sdfg|xcvb|ksk|dks|ndkd|mdnd|kdok|fhak|iieb|idsd)/i.test(alpha)) {
+    return false;
+  }
 
   return true;
 }
@@ -6278,18 +6307,22 @@ function analyzeServerTextWordQuality(text = '') {
     if (isServerTokenReadableWord(tok)) {
       validWords.push(tok);
     } else {
-      invalidWords.push(cleanLower);
+      invalidWords.push(tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '') || tok);
     }
   }
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
   const isNonsense = invalidWords.length > 0 && (validWords.length === 0 || invalidRatio >= 0.5);
+  let coachingMessage = '';
+  if (invalidWords.length > 0) {
+    coachingMessage = invalidWords.length === 1 ? 'Unrecognized word identified' : 'Unrecognized words identified';
+  }
   return {
     validWordCount: validWords.length,
-    invalidWords: [],
+    invalidWords,
     anchorCount,
     isNonsense,
-    coachingMessage: ''
+    coachingMessage
   };
 }
 
@@ -6345,14 +6378,15 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   let momentIdx = -1;
   for (let i = 0; i < rawClauses.length; i++) {
     if (usedIdx.has(i)) continue;
-    if (momentRegex.test(rawClauses[i])) {
+    const clauseQ = analyzeServerTextWordQuality(rawClauses[i]);
+    if (momentRegex.test(rawClauses[i]) || (clauseQ.validWordCount >= 6 && clauseQ.anchorCount >= 2 && rawClauses[i].length >= 26)) {
       momentIdx = i;
       usedIdx.add(i);
       break;
     }
   }
 
-  const hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && momentRegex.test(combined));
+  const hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && (momentRegex.test(combined) || rawQuality.anchorCount >= 2));
   const hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
   const hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
 
