@@ -6316,22 +6316,13 @@ function analyzeServerTextWordQuality(text = '') {
   }
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
-  const lacksEnglishStructure = totalTokens >= 6 && anchorCount === 0;
-  const isNonsense = totalTokens > 0 && (
-    invalidRatio >= 0.25 ||
-    invalidWords.length >= 3 ||
-    (totalTokens < 5 && invalidWords.length >= 1) ||
-    lacksEnglishStructure
-  );
+  const isNonsense = invalidWords.length > 0 && (validWords.length === 0 || invalidRatio >= 0.5);
   let coachingMessage = '';
   if (invalidWords.length > 0) {
-    const sampleQuoted = Array.from(new Set(invalidWords)).slice(0, 4).map(w => `"${w}"`).join(', ');
-    coachingMessage = `Unrecognized or nonsense words detected (${sampleQuoted}${invalidWords.length > 4 ? '...' : ''}). Please avoid random or non-existent words and write your perspective using clear, everyday English.`;
-  } else if (lacksEnglishStructure) {
-    coachingMessage = 'Please write your perspective in clear, natural English sentences so Slant can identify your Moment, Why It Matters, and Conviction.';
+    coachingMessage = invalidWords.length === 1 ? 'Unrecognized word identified' : 'Unrecognized words identified';
   }
   return {
-    validWordCount: isNonsense ? 0 : validWords.length,
+    validWordCount: validWords.length,
     invalidWords,
     anchorCount,
     isNonsense,
@@ -6344,14 +6335,14 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   const combined = `${spark || ''} ${clean}`.trim();
   const rawQuality = analyzeServerTextWordQuality(clean);
   const combinedQuality = analyzeServerTextWordQuality(combined);
-  if (rawQuality.isNonsense || (clean.length > 0 && combinedQuality.isNonsense)) {
+  if (rawQuality.isNonsense) {
     return {
       hasMoment: false,
       hasWhyItMatters: false,
       hasConviction: false,
       depthScore: 0,
       isNonsense: true,
-      nudge: rawQuality.coachingMessage || combinedQuality.coachingMessage || 'Please write your perspective using clear, real words.'
+      nudge: 'Start with a concrete Moment — what did you see, read, watch, or experience that sparked this thought?'
     };
   }
   const wordCount = combinedQuality.validWordCount;
@@ -6361,7 +6352,7 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
     .map(c => c.trim())
     .filter(c => {
       const cq = analyzeServerTextWordQuality(c);
-      return !cq.isNonsense && cq.validWordCount >= 4 && cq.anchorCount >= 1;
+      return !cq.isNonsense && cq.validWordCount >= 4;
     });
 
   const usedIdx = new Set();

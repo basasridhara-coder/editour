@@ -19064,36 +19064,20 @@ function analyzePerspectiveWordQuality(text = '', options = {}) {
 
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
-  // Flag as nonsense if:
-  // - >= 25% of completed words are invalid/gibberish, OR
-  // - >= 3 unrecognized completed words exist, OR
-  // - >= 1 unrecognized completed word in a short (< 5 token) input, OR
-  // - >= 6 completed tokens exist with ZERO recognizable English anchor/function words
-  const lacksEnglishStructure = totalTokens >= 6 && anchorCount === 0;
-  const isNonsense = totalTokens > 0 && (
-    invalidRatio >= 0.25 ||
-    invalidWords.length >= 3 ||
-    (totalTokens < 5 && invalidWords.length >= 1) ||
-    lacksEnglishStructure
-  );
-  const hasWarning = isNonsense || invalidWords.length >= 1;
+  // Only flag nonsense when actual unrecognized/non-existent words dominate the input (never judge sentence completeness)
+  const isNonsense = invalidWords.length > 0 && (validWords.length === 0 || invalidRatio >= 0.5);
+  const hasWarning = invalidWords.length >= 1;
 
   let coachingMessage = '';
   if (invalidWords.length > 0) {
-    const uniqueInvalid = Array.from(new Set(invalidWords)).slice(0, 4);
-    const sampleQuoted = uniqueInvalid.map(w => `"${w}"`).join(', ');
-    if (isNonsense) {
-      coachingMessage = `Unrecognized or nonsense words detected (${sampleQuoted}${invalidWords.length > 4 ? '...' : ''}). Please avoid random or non-existent words and write your perspective using clear, everyday English — or tap 💡 Guide above to see real examples.`;
-    } else {
-      coachingMessage = `Check wording: ${sampleQuoted} ${uniqueInvalid.length === 1 ? 'does not look like a clear word' : 'do not look like clear words'}. Consider replacing ${uniqueInvalid.length === 1 ? 'it' : 'them'} with clearer wording, or tap ✨ Review & Polish for phrasing suggestions.`;
-    }
-  } else if (lacksEnglishStructure) {
-    coachingMessage = 'This doesn\'t read like a complete sentence yet. Please write your thought in natural, everyday English sentences so Slant can identify your Moment, Why It Matters, and Conviction.';
+    coachingMessage = invalidWords.length === 1
+      ? 'Unrecognized word identified'
+      : 'Unrecognized words identified';
   }
 
   return {
     totalTokens,
-    validWordCount: isNonsense ? 0 : validWords.length,
+    validWordCount: validWords.length,
     invalidWords,
     invalidRatio,
     anchorCount,
@@ -19116,15 +19100,15 @@ function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
   const effectiveRawForEval = (waitForSpace && !/[\s.!?,;:]$/.test(rawStr))
     ? rawStr.replace(/\S+$/, '').trim()
     : cleanRaw;
-  const effectiveCombinedForEval = `${cleanSpark} ${effectiveRawForEval}`.trim();
 
   const rawQuality = analyzePerspectiveWordQuality(rawStr, { waitForSpace });
   const combinedQuality = analyzePerspectiveWordQuality(
     waitForSpace ? `${sparkStr} ${rawStr}` : combined,
     { waitForSpace }
   );
-  const isNonsense = rawQuality.isNonsense || (effectiveRawForEval.length > 0 && combinedQuality.isNonsense);
+  const isNonsense = rawQuality.isNonsense;
 
+  // Count only valid readable words (unrecognized gibberish words are ignored, not counted)
   const wordCount = isNonsense ? 0 : combinedQuality.validWordCount;
   const minWords = PERSPECTIVE_MIN_WORDS;
   const hasMinWords = wordCount >= minWords;
@@ -19145,23 +19129,23 @@ function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
       depthScore: 0,
       isVerifiedByPolish: false,
       isReady: false,
-      hasWordQualityWarning: true,
+      hasWordQualityWarning: rawQuality.hasWarning,
       isNonsense: true,
       invalidWords: rawQuality.invalidWords,
-      wordQualityMessage: rawQuality.coachingMessage || combinedQuality.coachingMessage,
+      wordQualityMessage: rawQuality.coachingMessage,
       missingLabels: ['Moment', 'Why It Matters', 'Conviction'],
-      nudge: rawQuality.coachingMessage || combinedQuality.coachingMessage || 'Please write your perspective using clear, real words.'
+      nudge: 'Start with a concrete Moment — what did you see, read, watch, or experience that sparked this thought?'
     };
   }
 
   // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once,
-  // and filter out any clause that is mostly gibberish or lacks real words
+  // and filter out any clause that does not have at least 4 valid words
   const rawClauses = effectiveRawForEval
     .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
     .map(c => c.trim())
     .filter(c => {
       const cq = analyzePerspectiveWordQuality(c, { waitForSpace: false });
-      return !cq.isNonsense && cq.validWordCount >= 4 && cq.anchorCount >= 1;
+      return !cq.isNonsense && cq.validWordCount >= 4;
     });
 
   const usedIdx = new Set();
@@ -19233,8 +19217,8 @@ function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
     ? Math.max(Number(verifiedPolishDepthState.depthScore) || 0, computedDepthScore)
     : computedDepthScore;
 
-  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved (and no nonsense words)
-  const isReady = !rawQuality.hasWarning && isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
+  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved
+  const isReady = !isNonsense && isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
 
   const missingLabels = [];
   if (!hasMoment) missingLabels.push('Moment');
@@ -19242,9 +19226,7 @@ function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
   if (!hasConviction) missingLabels.push('Conviction');
 
   let nudge = '';
-  if (rawQuality.hasWarning && rawQuality.coachingMessage) {
-    nudge = rawQuality.coachingMessage;
-  } else if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
+  if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
     nudge = verifiedPolishDepthState.nudge;
   } else if (!hasMoment) {
     nudge = 'Start with a concrete Moment — what did you see, read, watch, or experience that sparked this thought?';
@@ -20023,7 +20005,7 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   bar.classList.toggle('is-ready', depth.isReady);
   if (depth.isReady) {
     bar.classList.remove('is-gate-warning');
-  } else if (highlightMissing || depth.isNonsense) {
+  } else if (highlightMissing) {
     bar.classList.add('is-gate-warning');
   } else {
     bar.classList.remove('is-gate-warning');
@@ -20061,6 +20043,20 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   setBeatPill('liveBeatMoment', 'liveBeatMomentCheck', depth.hasMoment, 'moment');
   setBeatPill('liveBeatWhy', 'liveBeatWhyCheck', depth.hasWhyItMatters, 'why');
   setBeatPill('liveBeatConviction', 'liveBeatConvictionCheck', depth.hasConviction, 'conviction');
+
+  // Subtle inline pill for unrecognized word(s) — never opens the big bottom label section
+  const unrecPill = document.getElementById('slantDepthUnrecognizedPill');
+  if (unrecPill) {
+    const invList = Array.isArray(depth.invalidWords) ? depth.invalidWords : [];
+    if (invList.length > 0) {
+      unrecPill.style.display = 'inline-flex';
+      unrecPill.textContent = invList.length === 1 ? 'Unrecognized word identified' : 'Unrecognized words identified';
+      unrecPill.title = `Unrecognized: ${Array.from(new Set(invList)).slice(0, 4).join(', ')}`;
+    } else {
+      unrecPill.style.display = 'none';
+      unrecPill.title = '';
+    }
+  }
 
   const signalsPill = document.getElementById('slantDepthSignalsCountPill');
   if (signalsPill) {
@@ -20105,9 +20101,6 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
         <div class="depth-coach-text"><strong>${escapeHtml(meta.title)}:</strong> ${escapeHtml(meta.prompt)}</div>
         <button type="button" class="depth-coach-insert-btn" onclick="insertDepthBeatStarter('${activeDepthCoachBeat}', event)">+ Add cue</button>
       `;
-    } else if (depth.hasWordQualityWarning && depth.wordQualityMessage) {
-      hintEl.style.display = 'flex';
-      hintEl.innerHTML = `<div class="depth-coach-text" style="color:#D97706;">⚠️ <strong>Avoid Unrecognized Wording:</strong> ${escapeHtml(depth.wordQualityMessage)}</div>`;
     } else if (depth.isVerifiedByPolish) {
       hintEl.style.display = 'flex';
       if (depth.isReady) {
