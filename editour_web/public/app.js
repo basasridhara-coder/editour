@@ -13467,12 +13467,123 @@ function goToSlide(event, postIndex, slideIndex) {
     });
   }
 
-  if (slideIndex >= 1 && typeof requestAnimationFrame === 'function') {
-    requestAnimationFrame(() => {
-      calibrateAllLiveEssayPaginations(carousel);
-      triggerSlantMinutesPagePeek(carousel, slideIndex);
-    });
+  if (slideIndex >= 1) {
+    if (postIndex !== 'preview' && postIndex !== 'diary_preview') {
+      window._userLearnedCarouselSwipe = true;
+    }
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        calibrateAllLiveEssayPaginations(carousel);
+        triggerSlantMinutesPagePeek(carousel, slideIndex);
+      });
+    }
   }
+}
+
+let _hookPeekObserver = null;
+let _lastFeedScrollTimestamp = 0;
+if (typeof window !== 'undefined') {
+  window._hookPeekSessionCount = 0;
+  window._userLearnedCarouselSwipe = false;
+  window.addEventListener('scroll', () => {
+    _lastFeedScrollTimestamp = Date.now();
+  }, { passive: true });
+}
+
+function triggerHookPosterEditorialPeek(carousel) {
+  if (!carousel || carousel.dataset.hookPeeked === 'true') return;
+  if (window._userLearnedCarouselSwipe || (window._hookPeekSessionCount || 0) >= 3) return;
+  const curSlide = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
+  if (curSlide !== 0) return;
+
+  const postIndex = String(carousel.id || '').replace(/^carousel-/, '');
+  if (!postIndex || postIndex === 'preview' || postIndex === 'diary_preview') return;
+
+  const track = document.getElementById(`track-${postIndex}`);
+  if (!track) return;
+
+  const slideCount = parseInt(carousel.getAttribute('data-slide-count') || '2', 10);
+  if (slideCount < 2) return;
+  const stepPercent = 100 / slideCount;
+  const peekTrackPercent = (0.125 * stepPercent).toFixed(3); // 12.5% of 1 poster width (~48px)
+
+  carousel.dataset.hookPeeked = 'true';
+  window._hookPeekSessionCount = (window._hookPeekSessionCount || 0) + 1;
+
+  let returnTimer = null;
+  let cleanupTimer = null;
+  let cancelled = false;
+
+  const cancelPeek = () => {
+    if (cancelled) return;
+    cancelled = true;
+    if (returnTimer) clearTimeout(returnTimer);
+    if (cleanupTimer) clearTimeout(cleanupTimer);
+    carousel.removeEventListener('touchstart', cancelPeek);
+    carousel.removeEventListener('mousedown', cancelPeek);
+    const activeSlideNow = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
+    if (activeSlideNow === 0) {
+      track.style.transition = 'transform 0.32s cubic-bezier(0.22, 1, 0.36, 1)';
+      track.style.transform = 'translate3d(0%, 0, 0)';
+    }
+  };
+
+  carousel.addEventListener('touchstart', cancelPeek, { passive: true });
+  carousel.addEventListener('mousedown', cancelPeek, { passive: true });
+
+  // Glide 12.5% left to reveal warm broadsheet edge of Poster 2
+  track.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)';
+  track.style.transform = `translate3d(-${peekTrackPercent}%, 0, 0)`;
+
+  // Hold briefly (500ms), then glide smoothly back to 0%
+  returnTimer = setTimeout(() => {
+    if (cancelled) return;
+    const activeSlideNow = parseInt(carousel.getAttribute('data-current-slide') || '0', 10);
+    if (activeSlideNow === 0) {
+      track.style.transition = 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)';
+      track.style.transform = 'translate3d(0%, 0, 0)';
+    }
+    cleanupTimer = setTimeout(() => {
+      carousel.removeEventListener('touchstart', cancelPeek);
+      carousel.removeEventListener('mousedown', cancelPeek);
+    }, 400);
+  }, 520);
+}
+
+function ensureHookPeekObserver() {
+  if (_hookPeekObserver || typeof IntersectionObserver === 'undefined') return _hookPeekObserver;
+  _hookPeekObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const carousel = entry.target;
+      if (!carousel) return;
+      if ( carousel._dwellPeekTimer ) {
+        clearTimeout(carousel._dwellPeekTimer);
+        carousel._dwellPeekTimer = null;
+      }
+      if (
+        entry.isIntersecting &&
+        entry.intersectionRatio >= 0.72 &&
+        carousel.dataset.hookPeeked !== 'true' &&
+        !window._userLearnedCarouselSwipe &&
+        (window._hookPeekSessionCount || 0) < 3
+      ) {
+        const scheduleCheck = (delayMs) => {
+          carousel._dwellPeekTimer = setTimeout(() => {
+            if (window._userLearnedCarouselSwipe || (window._hookPeekSessionCount || 0) >= 3) return;
+            const sinceScroll = Date.now() - (_lastFeedScrollTimestamp || 0);
+            if (sinceScroll < 750) {
+              // User was still scrolling recently; wait until they settle
+              scheduleCheck(850 - sinceScroll);
+              return;
+            }
+            triggerHookPosterEditorialPeek(carousel);
+          }, delayMs);
+        };
+        scheduleCheck(1200);
+      }
+    });
+  }, { threshold: [0, 0.72] });
+  return _hookPeekObserver;
 }
 
 function triggerSlantMinutesPagePeek(carousel, slideIndex) {
@@ -13558,6 +13669,13 @@ function setupCarouselGestures(postIndex) {
   const carousel = document.getElementById(`carousel-${postIndex}`);
   if (!carousel || carousel.dataset.gesturesAttached) return;
   carousel.dataset.gesturesAttached = 'true';
+
+  if (postIndex !== 'preview' && postIndex !== 'diary_preview') {
+    const obs = ensureHookPeekObserver();
+    if (obs) {
+      obs.observe(carousel);
+    }
+  }
 
   let startX = 0;
   let startY = 0;
