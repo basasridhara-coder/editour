@@ -5394,26 +5394,32 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 3. Alert admin on new pending access/credit requests
-      if (pending.length > 0 && !sessionStorage.getItem('admin_notified_req_' + pending.length)) {
-        sessionStorage.setItem('admin_notified_req_' + pending.length, 'true');
-        const latestRequester = pending[0]?.email || 'A user';
-        const isAccessReq = pending[0]?.type === 'access_request';
-        const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
-        const alertMsg = pending.length === 1
-          ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
-          : `🔔 <strong>${pending.length} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
-        showTemporaryToast(alertMsg, 8000, true, () => {
-          openAdminBetaModal();
-          switchAdminCommandTab('roster');
-        });
+      // 3. Alert admin on new pending access/credit requests (persisted in localStorage so it doesn't repeat on every app open)
+      if (pending.length > 0) {
+        const latestReqSig = `${pending[0]?.email || 'req'}_${pending[0]?.requestedAt || pending.length}`;
+        const reqKey = 'admin_notified_req_' + latestReqSig;
+        if (!localStorage.getItem(reqKey) && !sessionStorage.getItem(reqKey)) {
+          try { localStorage.setItem(reqKey, 'true'); } catch (_) {}
+          sessionStorage.setItem(reqKey, 'true');
+          const latestRequester = pending[0]?.email || 'A user';
+          const isAccessReq = pending[0]?.type === 'access_request';
+          const reqTypeLabel = isAccessReq ? 'access request' : 'access/credit request';
+          const alertMsg = pending.length === 1
+            ? `🔔 <strong>1 ${reqTypeLabel} pending</strong> from <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>. Tap to review.`
+            : `🔔 <strong>${pending.length} requests pending</strong> (including <span style="color:#818CF8;">${escapeHtml(latestRequester)}</span>). Tap to review.`;
+          showTemporaryToast(alertMsg, 8000, true, () => {
+            openAdminBetaModal();
+            switchAdminCommandTab('roster');
+          });
+        }
       }
 
-      // 4. Alert admin on new unread user feedback
+      // 4. Alert admin on new unread user feedback (persisted in localStorage per feedback ID)
       if (unreadFeedback.length > 0) {
         const latestFb = unreadFeedback[0];
         const fbKey = 'admin_notified_fb_' + (latestFb?.id || unreadFeedback.length);
-        if (!sessionStorage.getItem(fbKey)) {
+        if (!localStorage.getItem(fbKey) && !sessionStorage.getItem(fbKey)) {
+          try { localStorage.setItem(fbKey, 'true'); } catch (_) {}
           sessionStorage.setItem(fbKey, 'true');
           const sender = latestFb?.handle || latestFb?.email || 'a user';
           showTemporaryToast(`💬 <strong>New User Feedback</strong> from <span style="color:#FBBF24;">${escapeHtml(sender)}</span>. Tap to read.`, 8000, true, () => {
@@ -5423,10 +5429,13 @@ async function loadAdminBetaPendingCount() {
         }
       }
 
-      // 5. Alert admin on critical Vercel / Supabase / Gemini quota issues
+      // 5. Alert admin on critical Vercel / Supabase / Gemini quota issues (persisted in localStorage per critical event ID so it never repeats on every app open)
       if (health.status === 'critical') {
-        const healthKey = 'admin_notified_health_' + criticalHealthCount;
-        if (!sessionStorage.getItem(healthKey)) {
+        const telemetryArr = Array.isArray(data.systemTelemetry) ? data.systemTelemetry : [];
+        const latestCritId = health.latestCriticalEventId || telemetryArr.find(e => e?.severity === 'critical')?.id || String(criticalHealthCount);
+        const healthKey = 'admin_notified_health_' + latestCritId;
+        if (!localStorage.getItem(healthKey) && !sessionStorage.getItem(healthKey)) {
+          try { localStorage.setItem(healthKey, 'true'); } catch (_) {}
           sessionStorage.setItem(healthKey, 'true');
           showTemporaryToast(`🚨 <strong>System Quota/Timeout Alert:</strong> ${criticalHealthCount} error(s) in 24h (429/504/DB). Tap to inspect.`, 9500, true, () => {
             openAdminBetaModal();
@@ -7524,14 +7533,22 @@ async function syncLiveCloudPosts(forceRender = false) {
   if (currentUser && myCreatedPostIds && myCreatedPostIds.size > 0) {
     try {
       sanitizeUserOwnershipAndCache();
-      const myIdsArray = Array.from(myCreatedPostIds).filter(id => !deletedPostIds.has(id)).slice(0, 30);
+      const loadedIdSet = new Set((allPosts || []).map(p => p?.id).filter(Boolean));
+      const allMyIds = Array.from(myCreatedPostIds).filter(id => !deletedPostIds.has(id));
+      // Prioritize missing IDs first, plus at most 10 recent IDs so we never pull 30 heavy JSONB rows at once
+      const missingMyIds = allMyIds.filter(id => !loadedIdSet.has(id));
+      const myIdsArray = [...missingMyIds, ...allMyIds.filter(id => loadedIdSet.has(id))].slice(0, 10);
       const inFilter = myIdsArray.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+      const myCtrl = new AbortController();
+      const myTimeoutId = setTimeout(() => myCtrl.abort(), 6500);
       const myResp = myIdsArray.length > 0 ? await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
+        signal: myCtrl.signal,
         headers: {
           'apikey': SUPABASE_KEY,
           'Authorization': `Bearer ${SUPABASE_KEY}`
         }
       }) : { ok: false };
+      clearTimeout(myTimeoutId);
       if (myResp.ok) {
         const myRows = await myResp.json();
         if (Array.isArray(myRows)) {
@@ -17236,8 +17253,27 @@ async function syncFeed() {
 
 async function loadRemainingPosts() {
   try {
-    // Ultra-lean fetch: fetch up to 20 posts, no while loop, never blow egress
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at,data&order=created_at.desc&limit=20`, {
+    // Two-step indexed fetch: first fetch lightweight IDs, then only fetch missing post payloads by primary key
+    // (Prevents Postgres statement_timeout / HTTP 500 from sorting full JSONB `data` rows)
+    const idResp = await fetch(`${SUPABASE_URL}/rest/v1/posts?select=id,created_at&id=like.slant*&order=created_at.desc&limit=18`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (!idResp.ok) return;
+    const idRows = await idResp.json();
+    if (!Array.isArray(idRows) || idRows.length === 0) return;
+
+    const existingIds = new Set((allPosts || []).map(p => p?.id).filter(Boolean));
+    const missingIds = idRows
+      .map(r => r?.id)
+      .filter(id => id && !existingIds.has(id) && !deletedPostIds.has(id) && !id.startsWith('system_'))
+      .slice(0, 10);
+    if (missingIds.length === 0) return;
+
+    const inFilter = missingIds.map(id => '%22' + encodeURIComponent(id) + '%22').join(',');
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/posts?id=in.(${inFilter})`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`

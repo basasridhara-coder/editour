@@ -220,6 +220,7 @@ async function sendFounderWebhookAlert(webhookUrl, title, summaryLines = []) {
 function buildSystemHealthSummary(ftData, supabaseLatencyMs = 0, totalDbPostsCount = 0) {
   const nowMs = Date.now();
   const dayAgoMs = nowMs - 24 * 60 * 60 * 1000;
+  const sixHoursAgoMs = nowMs - 6 * 60 * 60 * 1000;
   const events = Array.isArray(ftData?.telemetry_events) ? ftData.telemetry_events : [];
   const feedback = Array.isArray(ftData?.feedback_items) ? ftData.feedback_items : [];
 
@@ -232,17 +233,31 @@ function buildSystemHealthSummary(ftData, supabaseLatencyMs = 0, totalDbPostsCou
     return true;
   });
 
+  const recent6h = recent24h.filter(e => Date.parse(e?.createdAt || '') >= sixHoursAgoMs);
+
   const quota429Count24h = recent24h.filter(e => e.type === 'gemini_quota_429' || Number(e.statusCode) === 429).length;
   const timeout504Count24h = recent24h.filter(e => e.type === 'vercel_timeout' || Number(e.statusCode) === 504 || Number(e.statusCode) === 502).length;
   const supabaseErrorCount24h = recent24h.filter(e => e.type === 'supabase_error' && Number(e.statusCode) >= 500).length;
   const slowRequestCount24h = recent24h.filter(e => e.type === 'slow_response').length;
   const unreadFeedbackCount = feedback.filter(f => f.status !== 'resolved').length;
 
+  const quota429Count6h = recent6h.filter(e => e.type === 'gemini_quota_429' || Number(e.statusCode) === 429).length;
+  const timeout504Count6h = recent6h.filter(e => e.type === 'vercel_timeout' || Number(e.statusCode) === 504 || Number(e.statusCode) === 502).length;
+  const supabaseErrorCount6h = recent6h.filter(e => e.type === 'supabase_error' && Number(e.statusCode) >= 500).length;
+
+  const latestCriticalEvent = recent24h.find(e =>
+    e.severity === 'critical' ||
+    e.type === 'gemini_quota_429' ||
+    e.type === 'vercel_timeout' ||
+    (e.type === 'supabase_error' && Number(e.statusCode) >= 500)
+  );
+  const latestCriticalEventId = latestCriticalEvent?.id || '';
+
   let status = 'healthy';
   let statusLabel = '🟢 All Systems Nominal';
   const recommendations = [];
 
-  if (quota429Count24h >= 3 || timeout504Count24h >= 2 || supabaseErrorCount24h >= 2) {
+  if (quota429Count6h >= 3 || timeout504Count6h >= 2 || supabaseErrorCount6h >= 3) {
     status = 'critical';
     statusLabel = '🔴 Action Needed — Quota / Timeout Spikes Detected';
   } else if (quota429Count24h > 0 || timeout504Count24h > 0 || supabaseErrorCount24h > 0 || slowRequestCount24h >= 3 || supabaseLatencyMs > 1400 || totalDbPostsCount > 450) {
@@ -269,6 +284,7 @@ function buildSystemHealthSummary(ftData, supabaseLatencyMs = 0, totalDbPostsCou
   return {
     status,
     statusLabel,
+    latestCriticalEventId,
     supabaseLatencyMs,
     totalDbPostsCount,
     unreadFeedbackCount,
