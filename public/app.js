@@ -900,7 +900,7 @@ function updateCreatorStudioCreditBadge(creditsObj) {
   // Update User Credits Modal cards if present
   if (perspTextEl) {
     if (isMaster) {
-      perspTextEl.textContent = '⚡ ∞ Unlimited';
+      perspTextEl.textContent = '⚡ ∞ Unlimited (Admin)';
     } else if (starterRemaining > 0) {
       perspTextEl.textContent = `🎨 ${starterRemaining}/${starterTotal} Starter Free${bonus > 0 ? ` (+${bonus} Bonus)` : ''}`;
     } else {
@@ -908,7 +908,9 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     }
   }
   if (perspSubEl) {
-    if (starterRemaining > 0) {
+    if (isMaster) {
+      perspSubEl.innerHTML = `Master Admin has <strong>unlimited credits</strong>. Standard curators receive <strong>${starterTotal} of ${starterTotal} starter AI Concept Art credits</strong> first, then <strong>${dailyLimit} free AI credit per day</strong> (+ instant Request top-up anytime).`;
+    } else if (starterRemaining > 0) {
       perspSubEl.innerHTML = `You have <strong>${starterRemaining} of ${starterTotal} starter AI Concept Art credits</strong> remaining. Once used, you receive <strong>${dailyLimit} free AI credit per day</strong> (+ instant Request top-up anytime).`;
     } else {
       perspSubEl.innerHTML = `Starter pack completed · <strong>${dailyLimit}/day</strong> daily AI Concept Art credit${bonus > 0 ? ` + <strong>${bonus} bonus credits</strong>` : ''}. Need more today? Request a top-up below!`;
@@ -6097,7 +6099,7 @@ async function handleAdminAddEmail() {
     });
     if (resp.ok) {
       if (input) input.value = '';
-      showTemporaryToast(`✓ Invited ${email} with 5 starter credits!`);
+      showTemporaryToast(`✓ Invited ${email} with 3 starter credits!`);
       loadAdminBetaData(false);
     } else {
       const err = await resp.json().catch(() => ({}));
@@ -6135,7 +6137,7 @@ async function handleAdminApproveRequest(email, amount = 0) {
       body: JSON.stringify({ action: 'approve_request', adminEmail, email, amount })
     });
     if (resp.ok) {
-      showTemporaryToast(amount > 0 ? `⚡ Approved & granted +${amount} visual credits to ${email}!` : `✓ Approved access for ${email} (5 starter credits)!`);
+      showTemporaryToast(amount > 0 ? `⚡ Approved & granted +${amount} visual credits to ${email}!` : `✓ Approved access for ${email} (3 starter credits)!`);
       loadAdminBetaData(false);
     }
   } catch (e) {
@@ -6208,7 +6210,7 @@ async function handleAdminSetDefaultDailyLimit(dailyLimit = 1) {
       body: JSON.stringify({ action: 'set_daily_limit', adminEmail, dailyLimit })
     });
     if (resp.ok) {
-      showTemporaryToast(`⚡ Default daily Perspective limit (after 5 starter credits) set to ${dailyLimit}/day!`);
+      showTemporaryToast(`⚡ Default daily AI Concept Art limit (after 3 starter credits) set to ${dailyLimit}/day!`);
       loadAdminBetaData(false);
     }
   } catch (e) {

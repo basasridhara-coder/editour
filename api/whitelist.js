@@ -866,6 +866,13 @@ module.exports = async function handler(req, res) {
         };
       } else {
         whitelist.default_daily_limit = newLimit;
+        if (whitelist.user_credits && typeof whitelist.user_credits === 'object') {
+          for (const [, entry] of Object.entries(whitelist.user_credits)) {
+            if (entry && typeof entry === 'object') {
+              entry.dailyLimit = newLimit;
+            }
+          }
+        }
       }
       await saveWhitelistData(whitelist);
 
