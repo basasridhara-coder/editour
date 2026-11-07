@@ -19007,9 +19007,10 @@ function isTokenReadableWord(rawToken = '') {
   return true;
 }
 
-function analyzePerspectiveWordQuality(text = '') {
-  const raw = String(text || '').trim();
-  if (!raw) {
+function analyzePerspectiveWordQuality(text = '', options = {}) {
+  const rawStr = String(text || '');
+  const trimmed = rawStr.trim();
+  if (!trimmed) {
     return {
       totalTokens: 0,
       validWordCount: 0,
@@ -19022,7 +19023,27 @@ function analyzePerspectiveWordQuality(text = '') {
     };
   }
 
-  const rawTokens = raw.split(/\s+/).filter(Boolean);
+  const waitForSpace = options && options.waitForSpace === true;
+  const endsWithWordBoundary = /[\s.!?,;:]$/.test(rawStr);
+  const allTokens = trimmed.split(/\s+/).filter(Boolean);
+  // When waiting for space during live typing, ignore the last token if the user hasn't pressed space/punctuation after it yet
+  const rawTokens = (waitForSpace && !endsWithWordBoundary)
+    ? allTokens.slice(0, -1)
+    : allTokens;
+
+  if (rawTokens.length === 0) {
+    return {
+      totalTokens: 0,
+      validWordCount: 0,
+      invalidWords: [],
+      invalidRatio: 0,
+      anchorCount: 0,
+      hasWarning: false,
+      isNonsense: false,
+      coachingMessage: ''
+    };
+  }
+
   const validWords = [];
   const invalidWords = [];
   let anchorCount = 0;
@@ -19044,10 +19065,10 @@ function analyzePerspectiveWordQuality(text = '') {
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
   // Flag as nonsense if:
-  // - >= 25% of words are invalid/gibberish, OR
-  // - >= 3 unrecognized words exist, OR
-  // - >= 1 unrecognized word in a short (< 5 token) input, OR
-  // - >= 6 tokens exist with ZERO recognizable English anchor/function words
+  // - >= 25% of completed words are invalid/gibberish, OR
+  // - >= 3 unrecognized completed words exist, OR
+  // - >= 1 unrecognized completed word in a short (< 5 token) input, OR
+  // - >= 6 completed tokens exist with ZERO recognizable English anchor/function words
   const lacksEnglishStructure = totalTokens >= 6 && anchorCount === 0;
   const isNonsense = totalTokens > 0 && (
     invalidRatio >= 0.25 ||
@@ -19083,14 +19104,26 @@ function analyzePerspectiveWordQuality(text = '') {
 }
 window.analyzePerspectiveWordQuality = analyzePerspectiveWordQuality;
 
-function evaluatePerspectiveDepth(rawText = '', spark = '') {
-  const cleanRaw = String(rawText || '').trim();
-  const cleanSpark = String(spark || '').trim();
+function evaluatePerspectiveDepth(rawText = '', spark = '', options = {}) {
+  const rawStr = String(rawText || '');
+  const sparkStr = String(spark || '');
+  const cleanRaw = rawStr.trim();
+  const cleanSpark = sparkStr.trim();
   const combined = `${cleanSpark} ${cleanRaw}`.trim();
 
-  const rawQuality = analyzePerspectiveWordQuality(cleanRaw);
-  const combinedQuality = analyzePerspectiveWordQuality(combined);
-  const isNonsense = rawQuality.isNonsense || (cleanRaw.length > 0 && combinedQuality.isNonsense);
+  const waitForSpace = Boolean(options && options.waitForSpace);
+  // For live typing (waitForSpace: true), only evaluate completed words (followed by space or punctuation)
+  const effectiveRawForEval = (waitForSpace && !/[\s.!?,;:]$/.test(rawStr))
+    ? rawStr.replace(/\S+$/, '').trim()
+    : cleanRaw;
+  const effectiveCombinedForEval = `${cleanSpark} ${effectiveRawForEval}`.trim();
+
+  const rawQuality = analyzePerspectiveWordQuality(rawStr, { waitForSpace });
+  const combinedQuality = analyzePerspectiveWordQuality(
+    waitForSpace ? `${sparkStr} ${rawStr}` : combined,
+    { waitForSpace }
+  );
+  const isNonsense = rawQuality.isNonsense || (effectiveRawForEval.length > 0 && combinedQuality.isNonsense);
 
   const wordCount = isNonsense ? 0 : combinedQuality.validWordCount;
   const minWords = PERSPECTIVE_MIN_WORDS;
@@ -19123,11 +19156,11 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
 
   // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once,
   // and filter out any clause that is mostly gibberish or lacks real words
-  const rawClauses = cleanRaw
+  const rawClauses = effectiveRawForEval
     .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
     .map(c => c.trim())
     .filter(c => {
-      const cq = analyzePerspectiveWordQuality(c);
+      const cq = analyzePerspectiveWordQuality(c, { waitForSpace: false });
       return !cq.isNonsense && cq.validWordCount >= 4 && cq.anchorCount >= 1;
     });
 
@@ -19985,7 +20018,7 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   const rawText = slantInput ? slantInput.value : '';
   const sparkText = sparkInput ? sparkInput.value : '';
 
-  const depth = evaluatePerspectiveDepth(rawText, sparkText);
+  const depth = evaluatePerspectiveDepth(rawText, sparkText, { waitForSpace: !highlightMissing });
 
   bar.classList.toggle('is-ready', depth.isReady);
   if (depth.isReady) {
@@ -27544,18 +27577,28 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
     slantInput.dataset.errorCleanAttached = 'true';
     attachAuthenticWritingGuard(slantInput);
     slantInput.addEventListener('input', () => {
+      const val = slantInput.value || '';
       if (typeof clearMandatoryError === 'function') clearMandatoryError(slantInput);
-      if ((slantInput.value || '').trim().length > 0 && typeof clearCreatorPromptReadyGlow === 'function') {
+      if (val.trim().length > 0 && typeof clearCreatorPromptReadyGlow === 'function') {
         clearCreatorPromptReadyGlow();
       }
-      const spkInput = document.getElementById('creatorSparkInput');
-      const combined = (slantInput.value || '') + ' ' + (spkInput ? spkInput.value : '');
-      checkAndTriggerFamilyCast(combined);
       onCreatorStage1InputChange();
       autoSaveCreatorFormState(false);
+      // Wait for a space, newline, or punctuation boundary (or empty clear) before evaluating words & coaching
+      const cursorPos = typeof slantInput.selectionStart === 'number' ? slantInput.selectionStart : val.length;
+      const charBeforeCursor = cursorPos > 0 ? val.slice(0, cursorPos) : val;
+      const isAtWordBoundary = val.trim().length === 0 || /[\s.!?,;:]$/.test(charBeforeCursor) || /[\s.!?,;:]$/.test(val);
+      if (isAtWordBoundary) {
+        const spkInput = document.getElementById('creatorSparkInput');
+        const combined = val + ' ' + (spkInput ? spkInput.value : '');
+        checkAndTriggerFamilyCast(combined);
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
+        if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
+        if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
+      }
+    });
+    slantInput.addEventListener('blur', () => {
       if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
-      if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
-      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const sparkInput = document.getElementById('creatorSparkInput');
@@ -27563,13 +27606,22 @@ function openCreatorModal(resumeDraftId = null, forcedAnchorMode = null, options
     sparkInput.dataset.castTriggerAttached = 'true';
     attachAuthenticWritingGuard(sparkInput);
     sparkInput.addEventListener('input', () => {
-      const sltInput = document.getElementById('creatorSlantTakeInput');
-      const combined = (sltInput ? sltInput.value : '') + ' ' + (sparkInput.value || '');
-      checkAndTriggerFamilyCast(combined);
+      const val = sparkInput.value || '';
       autoSaveCreatorFormState(false);
+      const cursorPos = typeof sparkInput.selectionStart === 'number' ? sparkInput.selectionStart : val.length;
+      const charBeforeCursor = cursorPos > 0 ? val.slice(0, cursorPos) : val;
+      const isAtWordBoundary = val.trim().length === 0 || /[\s.!?,;:]$/.test(charBeforeCursor) || /[\s.!?,;:]$/.test(val);
+      if (isAtWordBoundary) {
+        const sltInput = document.getElementById('creatorSlantTakeInput');
+        const combined = (sltInput ? sltInput.value : '') + ' ' + val;
+        checkAndTriggerFamilyCast(combined);
+        if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
+        if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
+        if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
+      }
+    });
+    sparkInput.addEventListener('blur', () => {
       if (typeof updateLivePerspectiveDepthUI === 'function') updateLivePerspectiveDepthUI(false);
-      if (typeof autoIdentifyVisualProjectionsFromInput === 'function') autoIdentifyVisualProjectionsFromInput(false);
-      if (typeof evaluateSmartRegenScopeAutoSwitch === 'function') evaluateSmartRegenScopeAutoSwitch();
     });
   }
   const urlInput = document.getElementById('creatorUrlInput');
