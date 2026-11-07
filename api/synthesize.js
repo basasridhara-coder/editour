@@ -6237,10 +6237,6 @@ const SERVER_ENGLISH_ANCHOR_WORDS = new Set([
   'video', 'podcast', 'money', 'growth', 'value', 'truth', 'hope', 'dream', 'mind', 'heart', 'idea', 'ideas', 'problem'
 ]);
 
-const SERVER_VALID_INITIAL_CLUSTERS = /^(?:bl|br|ch|cl|cr|dr|dw|fl|fr|gh|gl|gn|gr|kh|kl|kn|kr|kw|ph|pl|pn|pr|ps|qu|rh|sc|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|tw|vl|vr|wh|wr|sch|scr|shr|skw|spl|spr|squ|str|thr|thw|shw|dhr|bhr|ksh|gy|ny|vy|ty|dy|py|by|my)/i;
-const SERVER_VALID_FINAL_CLUSTERS = /(?:ch|ck|ct|dd|ff|ft|gh|gn|ks|ld|lf|lk|ll|lm|ln|lp|ls|lt|mb|mp|nd|ng|nk|nn|nt|ph|ps|pt|rb|rc|rd|rf|rg|rk|rl|rm|rn|rp|rs|rt|rv|rz|sc|sh|sk|sp|ss|st|th|ts|tz|xt|zz|dge|tch|nch|ght|rld|rst|rth|rch|rsh|mpt|nct|nds|nts|mps|nks|ngs|lds|lfs|lks|lms|lps|lts|cts|fts|pts|xts|rds|rks|rms|rns|rps|rts|sts|sks|sps|ths|chs|shs|cks)$/i;
-const SERVER_VALID_INTERNAL_BLENDS = /(?:ch|sh|th|ph|wh|gh|ck|ng|nk|st|sp|sk|sl|sm|sn|sw|str|spr|scr|spl|sch|chr|thr|phr|tr|dr|pr|br|cr|gr|fr|pl|bl|cl|gl|fl|ld|lf|lk|lm|ln|lp|lt|ct|ft|pt|xt|nd|nt|mp|mb|nc|nch|tch|dge|ght|rth|rch|rsh|rst|rld|rts|rds|rks|rms|rns|lts|nds|nts|mps|nks|ngs|nst|ntr|ndr|mpl|mpr|npr|npl|xpl|xpr|xtr|ksh)/i;
-
 function isServerTokenReadableWord(rawToken = '') {
   const cleaned = String(rawToken || '')
     .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
@@ -6252,45 +6248,16 @@ function isServerTokenReadableWord(rawToken = '') {
   if (SERVER_ALLOWED_SHORT_TOKENS.has(lower) || SERVER_ENGLISH_ANCHOR_WORDS.has(lower)) {
     return true;
   }
-  if (/[-/]/.test(lower)) {
-    const parts = lower.split(/[-/]+/).filter(Boolean);
-    if (parts.length > 1) {
-      return parts.every(p => isServerTokenReadableWord(p));
-    }
-  }
   const alpha = lower.replace(/[^a-z]/g, '');
   if (!alpha) return false;
-  if (alpha.length === 1) return alpha === 'a' || alpha === 'i';
+  if (alpha.length === 1) return true;
 
   const vowels = alpha.match(/[aeiouy]/g) || [];
   if (vowels.length === 0) return false;
   if (/(.)\1\1/.test(alpha)) return false;
-  if (alpha.length >= 6 && (vowels.length / alpha.length) < 0.2) return false;
+  if (/[bcdfghjklmnpqrstvwxz]{5,}/.test(alpha)) return false;
+  if (alpha.length >= 7 && (vowels.length / alpha.length) < 0.16) return false;
 
-  const leadingConsonantsMatch = alpha.match(/^[bcdfghjklmnpqrstvwxz]+/);
-  if (leadingConsonantsMatch) {
-    const lead = leadingConsonantsMatch[0];
-    if (lead.length >= 4) return false;
-    if (lead.length >= 2 && !SERVER_VALID_INITIAL_CLUSTERS.test(lead)) return false;
-  }
-
-  const trailingConsonantsMatch = alpha.match(/[bcdfghjklmnpqrstvwxz]+$/);
-  if (trailingConsonantsMatch) {
-    const trail = trailingConsonantsMatch[0];
-    if (trail.length >= 5) return false;
-    if (trail.length >= 2 && !SERVER_VALID_FINAL_CLUSTERS.test(trail)) return false;
-  }
-
-  const consonantRuns = alpha.match(/[bcdfghjklmnpqrstvwxz]{4,}/g);
-  if (consonantRuns) {
-    for (const run of consonantRuns) {
-      if (run.length >= 6 || !SERVER_VALID_INTERNAL_BLENDS.test(run)) return false;
-    }
-  }
-
-  if (/([bcdfghjklmnpqrstvwxz]{2,3})\1/.test(alpha) || /(?:asdf|qwer|zxcv|hjkl|jkl|ksk|dks|ndkd|mdnd)/.test(alpha)) {
-    return false;
-  }
   return true;
 }
 
@@ -6311,22 +6278,18 @@ function analyzeServerTextWordQuality(text = '') {
     if (isServerTokenReadableWord(tok)) {
       validWords.push(tok);
     } else {
-      invalidWords.push(tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '') || tok);
+      invalidWords.push(cleanLower);
     }
   }
   const totalTokens = validWords.length + invalidWords.length;
   const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
   const isNonsense = invalidWords.length > 0 && (validWords.length === 0 || invalidRatio >= 0.5);
-  let coachingMessage = '';
-  if (invalidWords.length > 0) {
-    coachingMessage = invalidWords.length === 1 ? 'Unrecognized word identified' : 'Unrecognized words identified';
-  }
   return {
     validWordCount: validWords.length,
-    invalidWords,
+    invalidWords: [],
     anchorCount,
     isNonsense,
-    coachingMessage
+    coachingMessage: ''
   };
 }
 
@@ -6394,12 +6357,17 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   const hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
 
   const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
-  const wordScore = beatsCount === 0
-    ? Math.min(18, Math.round((wordCount / 42) * 18))
-    : Math.min(45, Math.round((wordCount / 42) * 45));
+  const hasNaturalEnglishSentenceCue = beatsCount > 0 || rawQuality.anchorCount >= 2;
+  const wordScore = !hasNaturalEnglishSentenceCue
+    ? 0
+    : (beatsCount === 0
+      ? Math.min(18, Math.round((wordCount / 42) * 18))
+      : Math.min(45, Math.round((wordCount / 42) * 45)));
   const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
   const clauseBonus = beatsCount === 0 ? 0 : Math.min(8, rawClauses.length * 2);
-  const depthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(beatsCount > 0 ? 12 : 0, wordScore + beatScore + clauseBonus));
+  const depthScore = (wordCount === 0 || !hasNaturalEnglishSentenceCue)
+    ? 0
+    : Math.min(96, Math.max(beatsCount > 0 ? 12 : 0, wordScore + beatScore + clauseBonus));
 
   let nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
   if (rawQuality.coachingMessage) {
