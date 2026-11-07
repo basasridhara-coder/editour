@@ -851,15 +851,15 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     if (isMaster) {
       activeModeIcon.textContent = activePerspectiveEmoji;
       activeModeSummary.textContent = `${activePerspectiveLabel}: ⚡ ∞ Unlimited`;
-      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0 AI Credits (Unlimited)';
     } else {
       activeModeIcon.textContent = activePerspectiveEmoji;
       activeModeSummary.textContent = starterRemaining > 0
         ? `${activePerspectiveLabel}: ${perspLeft} Free Left (${starterRemaining}/${starterTotal} Starter)`
         : (perspLeft > 0
             ? `${activePerspectiveLabel}: ${perspLeft} Left Today`
-            : '0 AI Concept Credits • Use Upload / Web Photos (0⚡ Free)');
-      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0⚡ Free';
+            : '0 AI Concept Credits • Upload / Web Photos Require 0 Credits (Unlimited)');
+      secondarySummary.textContent = '📸🖼️ Real & Web Photos: 0 AI Credits (Unlimited)';
     }
   }
 
@@ -942,13 +942,13 @@ function updateCreatorStudioCreditBadge(creditsObj) {
     badge.style.background = 'rgba(239,68,68,0.16)';
     badge.style.color = '#F87171';
     badge.style.borderColor = 'rgba(239,68,68,0.45)';
-    badge.title = 'AI Concept Art credits used for today (Uploaded & Web Source photos remain 0⚡ Free). Tap to request more credits!';
+    badge.title = 'AI Concept Art credits used for today (Uploaded & Web Source photos require 0 AI credits — unlimited). Tap to request more credits!';
   } else if (starterRemaining > 0) {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} free left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
     badge.style.color = '#34D399';
     badge.style.borderColor = 'rgba(16,185,129,0.35)';
-    badge.title = `${starterRemaining}/${starterTotal} free starter AI Concept Art credits remaining (Uploaded & Web Source photos are always 0⚡ Free). Tap for details or to request more.`;
+    badge.title = `${starterRemaining}/${starterTotal} free starter AI Concept Art credits remaining (Uploaded & Web Source photos require 0 AI credits — unlimited). Tap for details or to request more.`;
   } else {
     badge.textContent = `${activePerspectiveEmoji} ${perspLeft} left`;
     badge.style.background = 'rgba(16,185,129,0.14)';
@@ -1079,7 +1079,7 @@ function selectUnifiedPosterVisualMode(mode) {
   const zeroCredits = typeof isZeroVisualCreditsForActivePillar === 'function' && isZeroVisualCreditsForActivePillar();
 
   if (mode === 'ai_art' && zeroCredits) {
-    showTemporaryToast('🔒 AI Illustration is disabled when you have 0 credits today. Use Original/Attached Photo (0⚡) or Web Source (0⚡), or get credits via request/subscription!');
+    showTemporaryToast('🔒 AI Illustration requires 1 credit. Use Original/Attached Photo or Web Source (0 AI Credits Required • Unlimited), or request a top-up!');
     updateUnifiedPosterVisualStripUI();
     return;
   }
@@ -1104,12 +1104,12 @@ function selectUnifiedPosterVisualMode(mode) {
       if (!hasAnyMomentPhoto) {
         showTemporaryToast('✓ Checked Moment Photos — attach a photo to any moment above (★ Starred moment takes prominence)!');
       } else {
-        showTemporaryToast('✓ Checked Moment Photos (0⚡ Free • ★ Starred moment takes prominence)!');
+        showTemporaryToast('✓ Checked Moment Photos (0 AI Credits Required • ★ Starred moment takes prominence)!');
       }
     } else if (isLinkActive) {
       const hasOrig = Boolean(creatorReferenceImageBase64 || currentScrapedArticle?.imageUrl || currentScrapedArticle?.imageBase64);
       if (hasOrig) {
-        showTemporaryToast('✓ Checked Original / Attached Photo (0⚡ Free) — or snap/upload up to 3 photos below!');
+        showTemporaryToast('✓ Checked Original / Attached Photo (0 AI Credits Required) — or snap/upload up to 3 photos below!');
       } else {
         showTemporaryToast('✓ Checked Original / Attached Photo — paste a link above or snap/upload 1–3 photos below!');
       }
@@ -1323,7 +1323,7 @@ function updateUnifiedPosterVisualStripUI() {
       costBadge.style.color = '#4F46E5';
       costBadge.style.borderColor = 'rgba(79, 70, 241, 0.3)';
     } else {
-      costBadge.textContent = '0⚡ Free';
+      costBadge.textContent = '0 AI Credits';
       costBadge.style.background = 'rgba(16, 185, 129, 0.15)';
       costBadge.style.color = '#059669';
       costBadge.style.borderColor = 'rgba(16, 185, 129, 0.35)';
@@ -1343,7 +1343,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.style.cursor = 'not-allowed';
       eqBtn.setAttribute('aria-disabled', 'true');
       if (eqSummary) {
-        eqSummary.textContent = '🔒 Disabled (0⚡ Credits Today)';
+        eqSummary.textContent = '🔒 Disabled (0 Credits Today)';
       }
     } else if (!isAiArtMode) {
       eqBtn.style.opacity = '0.6';
@@ -1351,7 +1351,7 @@ function updateUnifiedPosterVisualStripUI() {
       eqBtn.style.cursor = 'pointer';
       eqBtn.setAttribute('aria-disabled', 'false');
       if (eqSummary) {
-        eqSummary.textContent = isWebCollageMode ? 'Web Source (0⚡)' : 'Original Photo (0⚡)';
+        eqSummary.textContent = isWebCollageMode ? 'Web Source (0 Credits)' : 'Original Photo (0 Credits)';
       }
     } else {
       eqBtn.style.opacity = '1';
@@ -31389,8 +31389,8 @@ async function startAiSynthesis() {
         openWebCollageBuilderFromContext();
       }
       showTemporaryToast(isZeroCreditsNow
-        ? '🖼️ 0 AI credits left — pick 1–3 web photos above OR attach your own photo (0⚡ Free)!'
-        : '🖼️ Pick 1–3 web photos above, attach a photo (0⚡ Free), or select 🎨 AI Concept Art (1⚡)!');
+        ? '🖼️ 0 AI credits left — pick 1–3 web photos above OR attach your own photo (0 AI Credits Required)!'
+        : '🖼️ Pick 1–3 web photos above, attach a photo (0 AI Credits Required), or select 🎨 AI Concept Art (1⚡)!');
       return;
     } else {
       creatorPerspectiveMode = 'source';

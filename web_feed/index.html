@@ -907,29 +907,29 @@
               </div>
             </div>
 
-            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0⚡ Default), 2) Web Source (0⚡), 3) AI Concept Art (1⚡) -->
+            <!-- 3 Clear Options with Explicit Checkmarks: 1) Original / Attached Photo (0 AI Credits Default), 2) Web Source (0 AI Credits), 3) AI Concept Art (1⚡) -->
             <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin-bottom: 9px;">
-              <!-- Card 1: Original / Attached Photo (Free 0⚡ Default) -->
+              <!-- Card 1: Original / Attached Photo (0 AI Credits Required Default) -->
               <button type="button" id="posterModeCardOriginal" onclick="selectUnifiedPosterVisualMode('original_photo')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 2px solid #059669; background: rgba(16,185,129,0.06); color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
                   <div style="display: inline-flex; align-items: center; gap: 5px;">
                     <span id="posterModeCheckOriginal" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid #059669; background: #059669; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;">✓</span>
                     <span id="posterModeOrigIcon" style="font-size: 13.5px;">📸</span>
                   </div>
-                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0 Credits</span>
                 </div>
                 <div id="posterModeOrigTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Original Photo</div>
                 <div id="posterModeOrigSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Snap / upload 1–3</div>
               </button>
 
-              <!-- Card 2: Web Source (Free 0⚡) -->
+              <!-- Card 2: Web Source (0 AI Credits Required) -->
               <button type="button" id="posterModeCardCollage" onclick="selectUnifiedPosterVisualMode('web_collage')" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 5px; padding: 8px 9px; border-radius: 11px; border: 1.5px solid rgba(148,163,184,0.35); background: #FFFFFF; color: var(--text-primary); text-align: left; cursor: pointer; transition: all 0.15s ease;">
                 <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 4px;">
                   <div style="display: inline-flex; align-items: center; gap: 5px;">
                     <span id="posterModeCheckCollage" style="width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid rgba(148,163,184,0.55); background: #FFFFFF; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 900; line-height: 1; flex-shrink: 0;"></span>
                     <span style="font-size: 13.5px;">🖼️</span>
                   </div>
-                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0⚡ Free</span>
+                  <span style="font-size: 9px; font-weight: 900; padding: 1px 5px; border-radius: 99px; background: rgba(16,185,129,0.14); color: #059669;">0 Credits</span>
                 </div>
                 <div id="posterModeCollageTitle" style="font-size: 11px; font-weight: 800; line-height: 1.2; color: var(--text-primary);">Web Source</div>
                 <div id="posterModeCollageSub" style="font-size: 9.8px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Pick 1–3 web photos</div>
@@ -1082,7 +1082,7 @@
                     </div>
                   </div>
                   <div id="webCollageAppliedStatus" style="display: none; font-size: 10.5px; font-weight: 800; color: #059669; text-align: center;">
-                    ✓ Ready for Poster 1 (0⚡ Free)
+                    ✓ Ready for Poster 1 (0 AI Credits Required)
                   </div>
                 </div>
               </div>
@@ -2858,7 +2858,7 @@
 
       <!-- Welcome Intro Banner (Shown automatically the first time a user starts Slanting) -->
       <div id="userCreditsFirstTimeWelcomeBanner" style="display: none; padding: 10px 12px; border-radius: 12px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08)); border: 1px solid rgba(16,185,129,0.35); font-size: 12px; color: var(--text-primary); line-height: 1.42;">
-        👋 <strong>Welcome to Slant Studio!</strong> Publishing with your own photos or Web Search is always <strong>0⚡ Free</strong>. Here is how your AI Concept Art credits work:
+        👋 <strong>Welcome to Slant Studio!</strong> Publishing with your own photos or Web Search requires <strong>0 AI Credits — generate as many Slants as you like!</strong> Here is how your AI Concept Art credits work:
       </div>
 
       <!-- Credit Breakdown Card -->
@@ -2871,10 +2871,10 @@
       </div>
 
       <div style="padding: 11px 13px; border-radius: 12px; background: rgba(16,185,129,0.09); border: 1px solid rgba(16,185,129,0.32); font-size: 11.8px; color: var(--text-secondary); line-height: 1.45;">
-        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">✨ Real &amp; Web Photo Slants Are Always 0⚡ Free:</div>
-        <div><strong>1. 📸 Snap / Upload Photos (0⚡ Free):</strong> Attach 1–3 personal or camera photos directly to your Slant.</div>
-        <div style="margin-top: 3px;"><strong>2. 🖼️ Web Source &amp; Link Thumbnail (0⚡ Free):</strong> Extract the photo from your pasted link or pick 1–3 photos via Web Search.</div>
-        <div style="margin-top: 4px; font-size: 11px; opacity: 0.92;"><strong>🎨 AI Concept Art (1⚡ Credit):</strong> Only needed when expressing an abstract visual thought with no real reference image.</div>
+        <div style="font-weight: 800; color: var(--text-primary); margin-bottom: 5px;">✨ Real &amp; Web Photo Slants Require 0 AI Credits (Unlimited):</div>
+        <div><strong>1. 📸 Snap / Upload Photos (0 AI Credits Required &bull; Unlimited):</strong> Attach 1–3 personal or camera photos directly to your Slant — generate as many Slants as you can.</div>
+        <div style="margin-top: 3px;"><strong>2. 🖼️ Web Source &amp; Link Thumbnail (0 AI Credits Required &bull; Unlimited):</strong> Extract the photo from your pasted link or pick 1–3 photos via Web Search — generate unlimited Slants with no credits needed.</div>
+        <div style="margin-top: 4px; font-size: 11px; opacity: 0.92;"><strong>🎨 AI Concept Art (Uses 1⚡ AI Credit):</strong> Only needed when expressing an abstract visual thought with no real reference image.</div>
       </div>
 
       <!-- Request More Credits Section -->
