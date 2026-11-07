@@ -1132,7 +1132,7 @@
 
         <!-- 4. Bottom Navigation Bar (Stage 2 - Visual Selection & One-Click Synthesis with Optional Equalizer) -->
         <div class="creator-bottom-nav creator-step1-nav">
-          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Art Style, Family Cast & Regional Setting">
+          <button type="button" class="creator-equalizer-pill-btn" id="creatorEqualizerBtn" onclick="openCreatorEqualizer()" title="Tune Art Style & Regional Setting">
             <span class="equalizer-icon">🎚️</span>
             <div class="equalizer-text-wrap">
               <span class="equalizer-label">SETTINGS</span>
@@ -1259,8 +1259,8 @@
               </div>
             </div>
 
-            <!-- 5. Family Cast Card -->
-            <div class="family-cast-card" id="familyCastStagingCard">
+            <!-- 5. Family Cast Card (Held for later feature stage) -->
+            <div class="family-cast-card" id="familyCastStagingCard" style="display:none !important;">
               <div class="family-cast-header">
                 <div class="family-cast-title-group">
                   <span class="family-cast-icon">👥</span>
@@ -1292,7 +1292,7 @@
             </div>
 
             <!-- Optional Manual Launcher when card is hidden -->
-            <div class="family-cast-launcher-wrap" id="familyCastLauncherWrap" style="display:none;">
+            <div class="family-cast-launcher-wrap" id="familyCastLauncherWrap" style="display:none !important;">
               <button type="button" class="family-cast-launcher-btn" onclick="manuallyOpenFamilyCastStaging()">
                 <span>👥 Include Family Character from Vault</span>
               </button>
@@ -1616,8 +1616,8 @@
           </div>
         </div>
 
-        <!-- 4. Family Cast -->
-        <div class="equalizer-section" id="equalizerCastingVaultSection">
+        <!-- 4. Family Cast (Held for later feature stage) -->
+        <div class="equalizer-section" id="equalizerCastingVaultSection" style="display:none !important;">
           <div class="equalizer-section-header">
             <span class="equalizer-section-icon">👥</span>
             <div class="equalizer-title-inline-row" style="flex:1;">
@@ -2480,7 +2480,7 @@
               <span class="row-label">Curator Style &amp; Writing Growth</span>
               <span class="row-pill" style="background:rgba(168,85,247,0.2); color:#C084FC; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px;">DNA</span>
             </button>
-            <button class="drawer-menu-row" id="drawerFamilyCastRow" onclick="closeDrawer(); openFamilyCastModal();">
+            <button class="drawer-menu-row" id="drawerFamilyCastRow" onclick="closeDrawer(); openFamilyCastModal();" style="display:none !important;">
               <span class="row-icon">👥</span>
               <span class="row-label">Reference &amp; Family Vault</span>
               <span class="row-pill" id="drawerFamilyPendingBadge" style="background:#EF4444; color:#fff; display:none; padding:1px 7px; border-radius:10px; font-size:10.5px; font-weight:800; margin-right:4px;">0</span>

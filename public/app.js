@@ -23232,16 +23232,7 @@ async function loadFamilyCastProfile(forceRefresh = false) {
         }
         renderFamilyCastStagingUI();
 
-        // Automatically prompt First-Login Reference & Family Vault setup if user has not configured their Self reference yet
-        const onboardingDismissedKey = 'slant_vault_onboard_prompted_' + userIdentifier;
-        if (window._familyVaultNeedsOnboarding && !window._vaultOnboardingPromptedThisSession && !sessionStorage.getItem(onboardingDismissedKey)) {
-          window._vaultOnboardingPromptedThisSession = true;
-          try { sessionStorage.setItem(onboardingDismissedKey, '1'); } catch (_) {}
-          setTimeout(() => {
-            openFamilyCastModal({ isOnboarding: true });
-          }, 900);
-        }
-
+        // Family Cast Vault onboarding popup held for later feature stage
         isFamilyCastFetching = false;
         return familyCastProfileCache;
       }
@@ -25031,7 +25022,7 @@ function checkAndTriggerFamilyCast(text = '') {
   const launcher = document.getElementById('familyCastLauncherWrap');
   const hint = document.getElementById('familyCastAutoHint');
   const eqHint = document.getElementById('equalizerCastAutoHint');
-  if (card) card.style.display = 'flex';
+  if (card) card.style.display = 'none';
   if (launcher) launcher.style.display = 'none';
 
   if (window._userManuallyToggledCast) {
