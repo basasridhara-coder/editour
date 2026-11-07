@@ -18615,6 +18615,15 @@ async function polishUserTake() {
     return;
   }
 
+  const rawWordCheck = analyzePerspectiveWordQuality(rawText);
+  if (rawWordCheck.isNonsense) {
+    if (reviewCard) reviewCard.style.display = 'none';
+    updateLivePerspectiveDepthUI(true);
+    showTemporaryToast(`⚠️ ${rawWordCheck.coachingMessage || 'Please replace unrecognized words with clear, real English words before reviewing.'}`, 4500);
+    input.focus();
+    return;
+  }
+
   // Set loading state on button without changing text width so neighboring visual toggle never shifts
   if (btn) {
     btn.disabled = true;
@@ -18691,14 +18700,28 @@ async function polishUserTake() {
     }
 
     const clientPolishedBeats = evaluateClientFallbackStructureBeats(polished || rawText, sparkText);
-    if (!structureBeats) {
+    const rawWordQuality = analyzePerspectiveWordQuality(rawText);
+    const polishedWordQuality = analyzePerspectiveWordQuality(polished || rawText);
+    const isNonsenseInput = rawWordQuality.isNonsense || polishedWordQuality.isNonsense;
+    if (isNonsenseInput) {
+      structureBeats = {
+        hasMoment: false,
+        hasWhyItMatters: false,
+        hasConviction: false,
+        depthScore: 0,
+        nudge: rawWordQuality.coachingMessage || polishedWordQuality.coachingMessage
+      };
+    } else if (!structureBeats) {
       structureBeats = clientPolishedBeats;
     } else {
+      const serverScore = Number(structureBeats.depthScore);
       structureBeats = {
-        hasMoment: Boolean(structureBeats.hasMoment) || clientPolishedBeats.hasMoment,
-        hasWhyItMatters: Boolean(structureBeats.hasWhyItMatters) || clientPolishedBeats.hasWhyItMatters,
+        hasMoment: Boolean(structureBeats.hasMoment),
+        hasWhyItMatters: Boolean(structureBeats.hasWhyItMatters),
         hasConviction: Boolean(structureBeats.hasConviction) || clientPolishedBeats.hasConviction,
-        depthScore: Math.max(Number(structureBeats.depthScore) || 0, clientPolishedBeats.depthScore || 0),
+        depthScore: Number.isFinite(serverScore) && serverScore >= 0
+          ? Math.max(serverScore, clientPolishedBeats.depthScore || 0)
+          : (clientPolishedBeats.depthScore || 0),
         nudge: structureBeats.nudge || clientPolishedBeats.nudge
       };
     }
@@ -18865,27 +18888,253 @@ let verifiedPolishDepthState = {
   nudge: ''
 };
 
+const PERSPECTIVE_ALLOWED_SHORT_TOKENS = new Set([
+  'a', 'i', 'ai', 'us', 'uk', 'eu', 'ui', 'ux', 'tv', 'pc', 'vc', 'pr', 'hr', 'id', 'ip', 'os', 'it', 'ok',
+  'vs', 'mr', 'ms', 'dr', 'st', 'rd', 'am', 'pm', 'ad', 'bc', 'ptm', 'rss', 'bjp', 'gdp', 'ceo', 'cto', 'cfo',
+  'llm', 'api', 'app', 'gpu', 'cpu', 'ram', 'ssd', 'ios', 'url', 'seo', 'b2b', 'b2c', 'd2c', 'emi', 'upi', 'gst',
+  'rbi', 'ipl', 'icc', 'un', 'who', 'imf', 'ipo', 'etf', 'sip', 'nav', 'roi', 'kpi', 'okr', 'mvp', 'saas', 'paas'
+]);
+
+const PERSPECTIVE_ENGLISH_ANCHOR_WORDS = new Set([
+  'the', 'a', 'an', 'i', 'me', 'my', 'mine', 'myself', 'we', 'our', 'ours', 'ourselves', 'us', 'you', 'your', 'yours',
+  'he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its', 'they', 'them', 'their', 'theirs', 'this', 'that', 'these', 'those',
+  'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'done',
+  'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must', 'ought', 'need', 'needs', 'needed',
+  'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
+  'after', 'above', 'below', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
+  'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+  'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'now', 'also', 'still', 'even',
+  'as', 'if', 'because', 'while', 'although', 'though', 'since', 'until', 'unless', 'whether', 'what', 'which', 'who', 'whom', 'whose',
+  'and', 'but', 'or', 'yet', 'like', 'unlike', 'instead', 'however', 'therefore', 'despite', 'without', 'within', 'beyond', 'around',
+  'feel', 'feels', 'felt', 'feeling', 'think', 'thinks', 'thought', 'thinking', 'believe', 'believes', 'believed',
+  'see', 'sees', 'saw', 'seen', 'seeing', 'watch', 'watched', 'watching', 'read', 'reading', 'sit', 'sitting', 'sat',
+  'build', 'builds', 'building', 'built', 'work', 'works', 'working', 'worked', 'live', 'lives', 'living', 'lived',
+  'life', 'time', 'day', 'days', 'night', 'nights', 'morning', 'evening', 'today', 'yesterday', 'recently', 'tomorrow',
+  'people', 'person', 'world', 'way', 'make', 'makes', 'made', 'making', 'know', 'knows', 'knew', 'known',
+  'take', 'takes', 'took', 'taken', 'come', 'comes', 'came', 'coming', 'go', 'goes', 'went', 'gone', 'going',
+  'want', 'wants', 'wanted', 'look', 'looks', 'looked', 'looking', 'use', 'uses', 'used', 'using',
+  'find', 'finds', 'found', 'give', 'gives', 'gave', 'given', 'tell', 'tells', 'told', 'say', 'says', 'said',
+  'new', 'good', 'better', 'best', 'first', 'last', 'long', 'great', 'little', 'old', 'right', 'big', 'high', 'different',
+  'small', 'large', 'next', 'early', 'young', 'important', 'public', 'real', 'true', 'free', 'deep', 'clear', 'able',
+  'ai', 'app', 'apps', 'tech', 'technology', 'india', 'indian', 'kids', 'kid', 'child', 'children', 'son', 'sons',
+  'daughter', 'wife', 'husband', 'family', 'parents', 'parent', 'friend', 'friends', 'colleague', 'school', 'office', 'home',
+  'city', 'country', 'market', 'markets', 'company', 'companies', 'future', 'change', 'shift', 'moment', 'story', 'article',
+  'video', 'podcast', 'money', 'growth', 'value', 'truth', 'hope', 'dream', 'mind', 'heart', 'idea', 'ideas', 'problem'
+]);
+
+const VALID_INITIAL_CONSONANT_CLUSTERS = /^(?:bl|br|ch|cl|cr|dr|dw|fl|fr|gh|gl|gn|gr|kh|kl|kn|kr|kw|ph|pl|pn|pr|ps|qu|rh|sc|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|tw|vl|vr|wh|wr|sch|scr|shr|skw|spl|spr|squ|str|thr|thw|shw|dhr|bhr|ksh|gy|ny|vy|ty|dy|py|by|my)/i;
+const VALID_FINAL_CONSONANT_CLUSTERS = /(?:ch|ck|ct|dd|ff|ft|gh|gn|ks|ld|lf|lk|ll|lm|ln|lp|ls|lt|mb|mp|nd|ng|nk|nn|nt|ph|ps|pt|rb|rc|rd|rf|rg|rk|rl|rm|rn|rp|rs|rt|rv|rz|sc|sh|sk|sp|ss|st|th|ts|tz|xt|zz|dge|tch|nch|ght|rld|rst|rth|rch|rsh|mpt|nct|nds|nts|mps|nks|ngs|lds|lfs|lks|lms|lps|lts|cts|fts|pts|xts|rds|rks|rms|rns|rps|rts|sts|sks|sps|ths|chs|shs|cks)$/i;
+const VALID_INTERNAL_CONSONANT_BLENDS = /(?:ch|sh|th|ph|wh|gh|ck|ng|nk|st|sp|sk|sl|sm|sn|sw|str|spr|scr|spl|sch|chr|thr|phr|tr|dr|pr|br|cr|gr| fr|pl|bl|cl|gl|fl|ld|lf|lk|lm|ln|lp|lt|ct|ft|pt|xt|nd|nt|mp|mb|nc|nch|tch|dge|ght|rth|rch|rsh|rst|rld|rts|rds|rks|rms|rns|lts|nds|nts|mps|nks|ngs|nst|ntr|ndr|mpl|mpr|npr|npl|xpl|xpr|xtr|ksh)/i;
+
+function isTokenReadableWord(rawToken = '') {
+  const cleaned = String(rawToken || '')
+    .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
+    .replace(/['\u2019](?:s|d|ve|re|ll|m|t)$/i, '');
+  if (!cleaned) return true;
+  if (/^\d+(?:[.,:/-]\d+)*(?:st|nd|rd|th|%|yo|k|m|b|cr|x)?$/i.test(cleaned)) return true;
+
+  const lower = cleaned.toLowerCase();
+  if (PERSPECTIVE_ALLOWED_SHORT_TOKENS.has(lower) || PERSPECTIVE_ENGLISH_ANCHOR_WORDS.has(lower)) {
+    return true;
+  }
+
+  // Handle hyphenated or slash-separated compound tokens (e.g. "9-to-5", "parent-teacher", "mind/heart")
+  if (/[-/]/.test(lower)) {
+    const parts = lower.split(/[-/]+/).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.every(p => isTokenReadableWord(p));
+    }
+  }
+
+  const alpha = lower.replace(/[^a-z]/g, '');
+  if (!alpha) return false;
+  if (alpha.length === 1) {
+    return alpha === 'a' || alpha === 'i';
+  }
+
+  // 1. Every multi-letter word (not in short acronym whitelist) must contain at least one vowel [aeiouy]
+  const vowels = alpha.match(/[aeiouy]/g) || [];
+  if (vowels.length === 0) {
+    return false;
+  }
+
+  // 2. Reject 3+ identical consecutive letters (e.g. "klslss", "kdnndjdd", "aaab")
+  if (/(.)\1\1/.test(alpha)) {
+    return false;
+  }
+
+  // 3. Reject extreme vowel scarcity in longer tokens (e.g. "fhakksd" = 1/7 vowels, "iiebndmd" = 5 trailing consonants)
+  if (alpha.length >= 6 && (vowels.length / alpha.length) < 0.2) {
+    return false;
+  }
+
+  // 4. Reject impossible initial consonant clusters (e.g. "kdokand" -> "kd", "jxksks" -> "jx", "ndkwnd" -> "nd")
+  const leadingConsonantsMatch = alpha.match(/^[bcdfghjklmnpqrstvwxz]+/);
+  if (leadingConsonantsMatch) {
+    const lead = leadingConsonantsMatch[0];
+    if (lead.length >= 4) return false;
+    if (lead.length >= 2 && !VALID_INITIAL_CONSONANT_CLUSTERS.test(lead)) {
+      return false;
+    }
+  }
+
+  // 5. Reject impossible trailing consonant clusters (e.g. "fhakksd" -> "kksd", "iiebndmd" -> "bndmd", "idsdndkd" -> "dndkd")
+  const trailingConsonantsMatch = alpha.match(/[bcdfghjklmnpqrstvwxz]+$/);
+  if (trailingConsonantsMatch) {
+    const trail = trailingConsonantsMatch[0];
+    if (trail.length >= 5) return false;
+    if (trail.length >= 2 && !VALID_FINAL_CONSONANT_CLUSTERS.test(trail)) {
+      return false;
+    }
+  }
+
+  // 6. Reject harsh internal consonant clusters of 4+ consonants unless they contain a valid English blend
+  const consonantRuns = alpha.match(/[bcdfghjklmnpqrstvwxz]{4,}/g);
+  if (consonantRuns) {
+    for (const run of consonantRuns) {
+      if (run.length >= 6) return false;
+      if (!VALID_INTERNAL_CONSONANT_BLENDS.test(run)) {
+        return false;
+      }
+    }
+  }
+
+  // 7. Reject repetitive keyboard-mash bigrams (e.g. "jsksks", "jdkskd", "ndkdmdnd", "asdfasdf")
+  if (/([bcdfghjklmnpqrstvwxz]{2,3})\1/.test(alpha) || /(?:asdf|qwer|zxcv|hjkl|jkl|ksk|dks|ndkd|mdnd)/.test(alpha)) {
+    return false;
+  }
+
+  return true;
+}
+
+function analyzePerspectiveWordQuality(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw) {
+    return {
+      totalTokens: 0,
+      validWordCount: 0,
+      invalidWords: [],
+      invalidRatio: 0,
+      anchorCount: 0,
+      hasWarning: false,
+      isNonsense: false,
+      coachingMessage: ''
+    };
+  }
+
+  const rawTokens = raw.split(/\s+/).filter(Boolean);
+  const validWords = [];
+  const invalidWords = [];
+  let anchorCount = 0;
+
+  for (const tok of rawTokens) {
+    const cleanLower = tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').toLowerCase();
+    if (!cleanLower) continue;
+    if (PERSPECTIVE_ENGLISH_ANCHOR_WORDS.has(cleanLower)) {
+      anchorCount++;
+    }
+    if (isTokenReadableWord(tok)) {
+      validWords.push(tok);
+    } else {
+      const displayTok = tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '') || tok;
+      invalidWords.push(displayTok);
+    }
+  }
+
+  const totalTokens = validWords.length + invalidWords.length;
+  const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
+  // Flag as nonsense if:
+  // - >= 25% of words are invalid/gibberish, OR
+  // - >= 3 unrecognized words exist, OR
+  // - >= 1 unrecognized word in a short (< 5 token) input, OR
+  // - >= 6 tokens exist with ZERO recognizable English anchor/function words
+  const lacksEnglishStructure = totalTokens >= 6 && anchorCount === 0;
+  const isNonsense = totalTokens > 0 && (
+    invalidRatio >= 0.25 ||
+    invalidWords.length >= 3 ||
+    (totalTokens < 5 && invalidWords.length >= 1) ||
+    lacksEnglishStructure
+  );
+  const hasWarning = isNonsense || invalidWords.length >= 1;
+
+  let coachingMessage = '';
+  if (invalidWords.length > 0) {
+    const uniqueInvalid = Array.from(new Set(invalidWords)).slice(0, 4);
+    const sampleQuoted = uniqueInvalid.map(w => `"${w}"`).join(', ');
+    if (isNonsense) {
+      coachingMessage = `Unrecognized or nonsense words detected (${sampleQuoted}${invalidWords.length > 4 ? '...' : ''}). Please avoid random or non-existent words and write your perspective using clear, everyday English — or tap 💡 Guide above to see real examples.`;
+    } else {
+      coachingMessage = `Check wording: ${sampleQuoted} ${uniqueInvalid.length === 1 ? 'does not look like a clear word' : 'do not look like clear words'}. Consider replacing ${uniqueInvalid.length === 1 ? 'it' : 'them'} with clearer wording, or tap ✨ Review & Polish for phrasing suggestions.`;
+    }
+  } else if (lacksEnglishStructure) {
+    coachingMessage = 'This doesn\'t read like a complete sentence yet. Please write your thought in natural, everyday English sentences so Slant can identify your Moment, Why It Matters, and Conviction.';
+  }
+
+  return {
+    totalTokens,
+    validWordCount: isNonsense ? 0 : validWords.length,
+    invalidWords,
+    invalidRatio,
+    anchorCount,
+    hasWarning,
+    isNonsense,
+    coachingMessage
+  };
+}
+window.analyzePerspectiveWordQuality = analyzePerspectiveWordQuality;
+
 function evaluatePerspectiveDepth(rawText = '', spark = '') {
   const cleanRaw = String(rawText || '').trim();
   const cleanSpark = String(spark || '').trim();
   const combined = `${cleanSpark} ${cleanRaw}`.trim();
 
-  const words = combined ? combined.split(/\s+/).filter(Boolean) : [];
-  const wordCount = words.length;
+  const rawQuality = analyzePerspectiveWordQuality(cleanRaw);
+  const combinedQuality = analyzePerspectiveWordQuality(combined);
+  const isNonsense = rawQuality.isNonsense || (cleanRaw.length > 0 && combinedQuality.isNonsense);
+
+  const wordCount = isNonsense ? 0 : combinedQuality.validWordCount;
   const minWords = PERSPECTIVE_MIN_WORDS;
   const hasMinWords = wordCount >= minWords;
   const wordsRemaining = Math.max(0, minWords - wordCount);
 
-  // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once
+  if (isNonsense) {
+    return {
+      wordCount: 0,
+      minWords,
+      hasMinWords: false,
+      wordsRemaining: minWords,
+      hasMoment: false,
+      hasWhyItMatters: false,
+      hasConviction: false,
+      beatsCount: 0,
+      hasTwoOfThreeBeats: false,
+      hasAllThreeBeats: false,
+      depthScore: 0,
+      isVerifiedByPolish: false,
+      isReady: false,
+      hasWordQualityWarning: true,
+      isNonsense: true,
+      invalidWords: rawQuality.invalidWords,
+      wordQualityMessage: rawQuality.coachingMessage || combinedQuality.coachingMessage,
+      missingLabels: ['Moment', 'Why It Matters', 'Conviction'],
+      nudge: rawQuality.coachingMessage || combinedQuality.coachingMessage || 'Please write your perspective using clear, real words.'
+    };
+  }
+
+  // Split into distinct clauses so a single short sentence cannot trigger multiple signals at once,
+  // and filter out any clause that is mostly gibberish or lacks real words
   const rawClauses = cleanRaw
     .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
     .map(c => c.trim())
-    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
+    .filter(c => {
+      const cq = analyzePerspectiveWordQuality(c);
+      return !cq.isNonsense && cq.validWordCount >= 4 && cq.anchorCount >= 1;
+    });
 
   const usedIdx = new Set();
-  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
-  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
-  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward|true wealth|real progress|cannot be|must be|will always|is to build|never trade|choose to)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas|what changed|realized that|makes me realize|reminded me why|taught me that)\b/i;
+  const momentRegex = /\b(as i sit|sitting|sat|watched|watching|saw|read|reading|heard|hearing|noticed|noticing|listening|listened|looked|looking|walked|walking|talked|talking|met|meeting|visited|visiting|spent|spending|scrolling|opened|opening|came across|stumbled upon|remembered|thinking about|today|yesterday|recently|last night|this morning|this week|nights|months|years|morning|evening|when|while|during|after|before|every time|whenever|article|video|podcast|talk|interview|story|report|news|post|headline|book|scene|moment|conversation|son|sons|daughter|kids|children|wife|husband|family|parents|mother|father|friend|colleague|team|school|classroom|office|desk|home|hospital|city|market|stocks|company|founders|investors|to build apps|building|working on)\b/i;
 
   // 1. Check Conviction on a distinct clause (requires at least 2 clauses total so opening moment isn't misread as conviction)
   let convIdx = -1;
@@ -18908,19 +19157,18 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
     }
   }
 
-  // 3. Check Moment on a distinct remaining clause (or opening clause >= 6 words)
+  // 3. Check Moment on a distinct remaining clause (requires genuine moment/observation/context cues — never grant Moment on blind word count alone)
   let momentIdx = -1;
   for (let i = 0; i < rawClauses.length; i++) {
     if (usedIdx.has(i)) continue;
-    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
-    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+    if (momentRegex.test(rawClauses[i])) {
       momentIdx = i;
       usedIdx.add(i);
       break;
     }
   }
 
-  let hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  let hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && momentRegex.test(combined));
   let hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
   let hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
 
@@ -18941,17 +19189,19 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
   const hasAllThreeBeats = beatsCount === 3;
   const hasTwoOfThreeBeats = beatsCount >= 2;
 
-  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const wordScore = beatsCount === 0
+    ? Math.min(18, Math.round((wordCount / 42) * 18))
+    : Math.min(45, Math.round((wordCount / 42) * 45));
   const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
-  const clauseBonus = Math.min(8, rawClauses.length * 2);
-  const computedDepthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+  const clauseBonus = beatsCount === 0 ? 0 : Math.min(8, rawClauses.length * 2);
+  const computedDepthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(beatsCount > 0 ? 12 : 0, wordScore + beatScore + clauseBonus));
 
   const depthScore = isVerifiedByPolish
     ? Math.max(Number(verifiedPolishDepthState.depthScore) || 0, computedDepthScore)
     : computedDepthScore;
 
-  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved
-  const isReady = isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
+  // Synthesize unlocks ONLY after Review & Polish has measured depth AND 3/3 signals + >= 70% depth are achieved (and no nonsense words)
+  const isReady = !rawQuality.hasWarning && isVerifiedByPolish && hasAllThreeBeats && depthScore >= PERSPECTIVE_MIN_DEPTH_SCORE;
 
   const missingLabels = [];
   if (!hasMoment) missingLabels.push('Moment');
@@ -18959,8 +19209,12 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
   if (!hasConviction) missingLabels.push('Conviction');
 
   let nudge = '';
-  if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
+  if (rawQuality.hasWarning && rawQuality.coachingMessage) {
+    nudge = rawQuality.coachingMessage;
+  } else if (isVerifiedByPolish && verifiedPolishDepthState.nudge) {
     nudge = verifiedPolishDepthState.nudge;
+  } else if (!hasMoment) {
+    nudge = 'Start with a concrete Moment — what did you see, read, watch, or experience that sparked this thought?';
   } else if (!hasWhyItMatters && !hasConviction) {
     nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
   } else if (!hasWhyItMatters) {
@@ -18987,6 +19241,10 @@ function evaluatePerspectiveDepth(rawText = '', spark = '') {
     depthScore,
     isVerifiedByPolish,
     isReady,
+    hasWordQualityWarning: rawQuality.hasWarning,
+    isNonsense: false,
+    invalidWords: rawQuality.invalidWords,
+    wordQualityMessage: rawQuality.coachingMessage,
     missingLabels,
     nudge
   };
@@ -19732,8 +19990,10 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
   bar.classList.toggle('is-ready', depth.isReady);
   if (depth.isReady) {
     bar.classList.remove('is-gate-warning');
-  } else if (highlightMissing) {
+  } else if (highlightMissing || depth.isNonsense) {
     bar.classList.add('is-gate-warning');
+  } else {
+    bar.classList.remove('is-gate-warning');
   }
 
   // Sync Step 1 Synthesize button visual readiness state
@@ -19743,13 +20003,13 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
     synthBtn.classList.toggle('is-depth-unlocked', depth.isReady);
   }
 
-  // Subtly glow "Review & Polish" once user starts writing their perspective until it is reviewed
+  // Subtly glow "Review & Polish" once user starts writing their perspective until it is reviewed (unless input is nonsense)
   const polishBtn = document.getElementById('slantPolishActionBtn');
   if (polishBtn) {
-    const hasPerspectiveText = depth.wordCount >= 4 || rawText.trim().length >= 18;
+    const hasPerspectiveText = !depth.isNonsense && (depth.wordCount >= 4 || rawText.trim().length >= 18);
     const shouldGlowForReview = hasPerspectiveText && !depth.isVerifiedByPolish && !polishBtn.classList.contains('is-polishing');
     polishBtn.classList.toggle('needs-review-glow', shouldGlowForReview);
-    polishBtn.classList.toggle('is-review-complete', Boolean(depth.isVerifiedByPolish));
+    polishBtn.classList.toggle('is-review-complete', Boolean(depth.isVerifiedByPolish && !depth.isNonsense));
   }
 
   const setBeatPill = (pillId, checkId, isMet, key) => {
@@ -19812,6 +20072,9 @@ function updateLivePerspectiveDepthUI(highlightMissing = false) {
         <div class="depth-coach-text"><strong>${escapeHtml(meta.title)}:</strong> ${escapeHtml(meta.prompt)}</div>
         <button type="button" class="depth-coach-insert-btn" onclick="insertDepthBeatStarter('${activeDepthCoachBeat}', event)">+ Add cue</button>
       `;
+    } else if (depth.hasWordQualityWarning && depth.wordQualityMessage) {
+      hintEl.style.display = 'flex';
+      hintEl.innerHTML = `<div class="depth-coach-text" style="color:#D97706;">⚠️ <strong>Avoid Unrecognized Wording:</strong> ${escapeHtml(depth.wordQualityMessage)}</div>`;
     } else if (depth.isVerifiedByPolish) {
       hintEl.style.display = 'flex';
       if (depth.isReady) {
@@ -20011,17 +20274,37 @@ function renderPolishStructureBeatsUI(structureBeats, isChronicle = false, rawTe
     return;
   }
 
-  const beats = structureBeats || { hasMoment: true, hasWhyItMatters: true, hasConviction: false, depthScore: 60, nudge: '' };
+  const rawQ = analyzePerspectiveWordQuality(currentRaw);
+  const polQ = analyzePerspectiveWordQuality(currentPolished);
+  if (rawQ.isNonsense || polQ.isNonsense) {
+    verifiedPolishDepthState = {
+      verified: false,
+      confirmed: false,
+      rawFingerprint: '',
+      polishedFingerprint: '',
+      hasMoment: false,
+      hasWhyItMatters: false,
+      hasConviction: false,
+      depthScore: 0,
+      nudge: rawQ.coachingMessage || polQ.coachingMessage
+    };
+    activeDepthCoachBeat = null;
+    updateLivePerspectiveDepthUI(false);
+    return;
+  }
+
+  const beats = structureBeats || { hasMoment: false, hasWhyItMatters: false, hasConviction: false, depthScore: 0, nudge: '' };
+  const rawScore = Number(beats.depthScore);
 
   verifiedPolishDepthState = {
     verified: true,
     confirmed: false,
     rawFingerprint: currentRaw,
     polishedFingerprint: currentPolished,
-    hasMoment: beats.hasMoment !== false,
+    hasMoment: Boolean(beats.hasMoment),
     hasWhyItMatters: Boolean(beats.hasWhyItMatters),
     hasConviction: Boolean(beats.hasConviction),
-    depthScore: Math.max(15, Math.min(98, Number(beats.depthScore) || 65)),
+    depthScore: Math.max(0, Math.min(98, Number.isFinite(rawScore) ? rawScore : 0)),
     nudge: String(beats.nudge || '').trim()
   };
 

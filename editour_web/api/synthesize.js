@@ -2930,16 +2930,21 @@ Author's Raw Take:
 ${spark ? `Author's Spark / Catalyst: """${spark}"""` : ''}
 ${scrapedTitle ? `Source Headline: """${scrapedTitle}"""` : ''}
 ${wantBeats ? `\nEVALUATE 3-BEAT PERSPECTIVE & DEPTH SCORE ON THE POLISHED TEXT ("structureBeats"):
-1. "hasMoment" (Beat 1 — Moment / Trigger): True if the author grounds the thought in a concrete experience, personal scene, observation, event, or subject (e.g. sitting through nights building apps, watching a scene, reading an article).
+0. STRICT GIBBERISH / NON-EXISTENT WORD REJECTION:
+   - If the author's text contains random keyboard-mash, non-existent gibberish words (e.g. "jxksks", "jsjsmkskb", "jdkskd", "ndkdmdnd"), or meaningless word salad that does not form a coherent human thought, you MUST set "hasMoment": false, "hasWhyItMatters": false, "hasConviction": false, "depthScore": 0, and set "nudge" to warn the author which unrecognized words to avoid and ask them to write their perspective in clear, everyday English words!
+   - If the author wrote mostly real words with 1-2 misspelled, awkward, or incorrect wordings where the intended meaning is clear, replace them with natural, better wording in "polished", record each one in "corrections" ("spelling" or "phrasing"), and gently suggest the better wording in "nudge".
+1. "hasMoment" (Beat 1 — Moment / Trigger): True ONLY if the author grounds the thought in a genuine, readable experience, personal scene, observation, event, or subject (e.g. sitting through nights building apps, watching a scene, reading an article). Never mark true for random or unrecognizable words.
 2. "hasWhyItMatters" (Beat 2 — Why It Matters / The Shift): True if the author explains why this matters beneath the surface — the cause-and-effect, contrast between past and present (e.g. unable to build earlier due to technology gating vs feeling liberated with AI now), tension, or deeper implication.
 3. "hasConviction" (Beat 3 — Conviction / Personal Vision & Takeaway): True if the author expresses either (a) a personal aspiration, life vision, hope, or way of living they are claiming for themselves (e.g. dreaming of working like a madman and roaming like a free man outside a regular 9-to-5), OR (b) a lasting belief, stance, principle, or takeaway. Require at least 3 distinct clauses/thoughts in the text for all 3 beats to be true.
 4. "depthScore" (integer 0 to 100): Score the genuine human depth, honesty, specificity, and completeness of the author's perspective:
+   - 0: Gibberish, random non-existent words, or unrecognizable keyboard mash.
    - 75 to 96: All 3 beats are present with authentic personal voice, real tension/shift, and a clear personal vision or conviction (30+ words).
    - 50 to 69: 2 beats present or ideas feel slightly surface-level / incomplete.
    - 15 to 49: Only 1 brief thought or a short 1-liner without deeper reflection.
 5. "nudge": Speak like a warm, perceptive close friend helping the author unlock their deepest, most liberated thought:
+   - If gibberish or non-existent words are present: Point out the unrecognized words and advise avoiding incorrect/random writing in favor of clear, natural wording.
    - If all 3 beats are true and depthScore >= 70: A warm 1-sentence affirmation of their perspective (e.g. "✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!").
-   - If a beat is missing or depthScore < 70: A warm, specific 1-sentence prompt rooted in their exact topic inviting them to add the missing beat so their thought reaches 3/3 and 70%+ depth.` : ''}
+   - If a beat is missing or depthScore < 70: A warm, specific 1-sentence prompt rooted in their exact topic inviting them to add the missing beat (and suggesting better wording if any phrase felt awkward) so their thought reaches 3/3 and 70%+ depth.` : ''}
 
 Respond strictly with valid JSON with this exact structure:
 {
@@ -3128,31 +3133,43 @@ Respond strictly with valid JSON with this exact structure:
               : [];
 
             const polishedFallbackBeats = evaluateFallbackStructureBeats(cleanPolished || rawText, spark);
-            const rawHasMoment = parsed.structureBeats?.hasMoment !== undefined
-              ? Boolean(parsed.structureBeats.hasMoment)
-              : polishedFallbackBeats.hasMoment;
-            const rawHasWhy = parsed.structureBeats?.hasWhyItMatters !== undefined
-              ? Boolean(parsed.structureBeats.hasWhyItMatters)
-              : polishedFallbackBeats.hasWhyItMatters;
-            const rawHasConv = (parsed.structureBeats?.hasConviction !== undefined)
-              ? (Boolean(parsed.structureBeats.hasConviction) || polishedFallbackBeats.hasConviction)
-              : polishedFallbackBeats.hasConviction;
+            const rawFallbackBeats = evaluateFallbackStructureBeats(rawText, spark);
+            const isFallbackNonsense = Boolean(rawFallbackBeats.isNonsense || polishedFallbackBeats.isNonsense);
+            const rawHasMoment = isFallbackNonsense
+              ? false
+              : (parsed.structureBeats?.hasMoment !== undefined
+                  ? Boolean(parsed.structureBeats.hasMoment)
+                  : polishedFallbackBeats.hasMoment);
+            const rawHasWhy = isFallbackNonsense
+              ? false
+              : (parsed.structureBeats?.hasWhyItMatters !== undefined
+                  ? Boolean(parsed.structureBeats.hasWhyItMatters)
+                  : polishedFallbackBeats.hasWhyItMatters);
+            const rawHasConv = isFallbackNonsense
+              ? false
+              : ((parsed.structureBeats?.hasConviction !== undefined)
+                  ? (Boolean(parsed.structureBeats.hasConviction) || polishedFallbackBeats.hasConviction)
+                  : polishedFallbackBeats.hasConviction);
             const parsedScore = Number(parsed.structureBeats?.depthScore);
-            const resolvedDepthScore = Number.isFinite(parsedScore) && parsedScore > 0
-              ? Math.max(parsedScore, polishedFallbackBeats.depthScore)
-              : polishedFallbackBeats.depthScore;
+            const resolvedDepthScore = isFallbackNonsense
+              ? 0
+              : (Number.isFinite(parsedScore) && parsedScore >= 0
+                  ? (parsedScore === 0 ? 0 : Math.max(parsedScore, polishedFallbackBeats.depthScore))
+                  : polishedFallbackBeats.depthScore);
 
             const structureBeats = (parsed.structureBeats && typeof parsed.structureBeats === 'object')
               ? {
                   hasMoment: rawHasMoment,
                   hasWhyItMatters: rawHasWhy,
                   hasConviction: rawHasConv,
-                  depthScore: Math.min(98, Math.max(10, Math.round(resolvedDepthScore))),
-                  nudge: (rawHasMoment && rawHasWhy && rawHasConv && resolvedDepthScore >= 70)
-                    ? '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!'
-                    : String(parsed.structureBeats.nudge || polishedFallbackBeats.nudge).trim()
+                  depthScore: isFallbackNonsense ? 0 : Math.min(98, Math.max(0, Math.round(resolvedDepthScore))),
+                  nudge: isFallbackNonsense
+                    ? (rawFallbackBeats.nudge || polishedFallbackBeats.nudge)
+                    : ((rawHasMoment && rawHasWhy && rawHasConv && resolvedDepthScore >= 70)
+                        ? '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!'
+                        : String(parsed.structureBeats.nudge || polishedFallbackBeats.nudge).trim())
                 }
-              : polishedFallbackBeats;
+              : (isFallbackNonsense ? rawFallbackBeats : polishedFallbackBeats);
 
             return res.status(200).json({
               success: true,
@@ -6186,20 +6203,171 @@ function buildFallbackMomentVisualProjections(chronicleMoments = [], countryCont
   });
 }
 
+const SERVER_ALLOWED_SHORT_TOKENS = new Set([
+  'a', 'i', 'ai', 'us', 'uk', 'eu', 'ui', 'ux', 'tv', 'pc', 'vc', 'pr', 'hr', 'id', 'ip', 'os', 'it', 'ok',
+  'vs', 'mr', 'ms', 'dr', 'st', 'rd', 'am', 'pm', 'ad', 'bc', 'ptm', 'rss', 'bjp', 'gdp', 'ceo', 'cto', 'cfo',
+  'llm', 'api', 'app', 'gpu', 'cpu', 'ram', 'ssd', 'ios', 'url', 'seo', 'b2b', 'b2c', 'd2c', 'emi', 'upi', 'gst',
+  'rbi', 'ipl', 'icc', 'un', 'who', 'imf', 'ipo', 'etf', 'sip', 'nav', 'roi', 'kpi', 'okr', 'mvp', 'saas', 'paas'
+]);
+
+const SERVER_ENGLISH_ANCHOR_WORDS = new Set([
+  'the', 'a', 'an', 'i', 'me', 'my', 'mine', 'myself', 'we', 'our', 'ours', 'ourselves', 'us', 'you', 'your', 'yours',
+  'he', 'him', 'his', 'she', 'her', 'hers', 'it', 'its', 'they', 'them', 'their', 'theirs', 'this', 'that', 'these', 'those',
+  'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'done',
+  'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must', 'ought', 'need', 'needs', 'needed',
+  'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before',
+  'after', 'above', 'below', 'from', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
+  'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some',
+  'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'now', 'also', 'still', 'even',
+  'as', 'if', 'because', 'while', 'although', 'though', 'since', 'until', 'unless', 'whether', 'what', 'which', 'who', 'whom', 'whose',
+  'and', 'but', 'or', 'yet', 'like', 'unlike', 'instead', 'however', 'therefore', 'despite', 'without', 'within', 'beyond', 'around',
+  'feel', 'feels', 'felt', 'feeling', 'think', 'thinks', 'thought', 'thinking', 'believe', 'believes', 'believed',
+  'see', 'sees', 'saw', 'seen', 'seeing', 'watch', 'watched', 'watching', 'read', 'reading', 'sit', 'sitting', 'sat',
+  'build', 'builds', 'building', 'built', 'work', 'works', 'working', 'worked', 'live', 'lives', 'living', 'lived',
+  'life', 'time', 'day', 'days', 'night', 'nights', 'morning', 'evening', 'today', 'yesterday', 'recently', 'tomorrow',
+  'people', 'person', 'world', 'way', 'make', 'makes', 'made', 'making', 'know', 'knows', 'knew', 'known',
+  'take', 'takes', 'took', 'taken', 'come', 'comes', 'came', 'coming', 'go', 'goes', 'went', 'gone', 'going',
+  'want', 'wants', 'wanted', 'look', 'looks', 'looked', 'looking', 'use', 'uses', 'used', 'using',
+  'find', 'finds', 'found', 'give', 'gives', 'gave', 'given', 'tell', 'tells', 'told', 'say', 'says', 'said',
+  'new', 'good', 'better', 'best', 'first', 'last', 'long', 'great', 'little', 'old', 'right', 'big', 'high', 'different',
+  'small', 'large', 'next', 'early', 'young', 'important', 'public', 'real', 'true', 'free', 'deep', 'clear', 'able',
+  'ai', 'app', 'apps', 'tech', 'technology', 'india', 'indian', 'kids', 'kid', 'child', 'children', 'son', 'sons',
+  'daughter', 'wife', 'husband', 'family', 'parents', 'parent', 'friend', 'friends', 'colleague', 'school', 'office', 'home',
+  'city', 'country', 'market', 'markets', 'company', 'companies', 'future', 'change', 'shift', 'moment', 'story', 'article',
+  'video', 'podcast', 'money', 'growth', 'value', 'truth', 'hope', 'dream', 'mind', 'heart', 'idea', 'ideas', 'problem'
+]);
+
+const SERVER_VALID_INITIAL_CLUSTERS = /^(?:bl|br|ch|cl|cr|dr|dw|fl|fr|gh|gl|gn|gr|kh|kl|kn|kr|kw|ph|pl|pn|pr|ps|qu|rh|sc|sh|sk|sl|sm|sn|sp|sq|st|sv|sw|th|tr|tw|vl|vr|wh|wr|sch|scr|shr|skw|spl|spr|squ|str|thr|thw|shw|dhr|bhr|ksh|gy|ny|vy|ty|dy|py|by|my)/i;
+const SERVER_VALID_FINAL_CLUSTERS = /(?:ch|ck|ct|dd|ff|ft|gh|gn|ks|ld|lf|lk|ll|lm|ln|lp|ls|lt|mb|mp|nd|ng|nk|nn|nt|ph|ps|pt|rb|rc|rd|rf|rg|rk|rl|rm|rn|rp|rs|rt|rv|rz|sc|sh|sk|sp|ss|st|th|ts|tz|xt|zz|dge|tch|nch|ght|rld|rst|rth|rch|rsh|mpt|nct|nds|nts|mps|nks|ngs|lds|lfs|lks|lms|lps|lts|cts|fts|pts|xts|rds|rks|rms|rns|rps|rts|sts|sks|sps|ths|chs|shs|cks)$/i;
+const SERVER_VALID_INTERNAL_BLENDS = /(?:ch|sh|th|ph|wh|gh|ck|ng|nk|st|sp|sk|sl|sm|sn|sw|str|spr|scr|spl|sch|chr|thr|phr|tr|dr|pr|br|cr|gr|fr|pl|bl|cl|gl|fl|ld|lf|lk|lm|ln|lp|lt|ct|ft|pt|xt|nd|nt|mp|mb|nc|nch|tch|dge|ght|rth|rch|rsh|rst|rld|rts|rds|rks|rms|rns|lts|nds|nts|mps|nks|ngs|nst|ntr|ndr|mpl|mpr|npr|npl|xpl|xpr|xtr|ksh)/i;
+
+function isServerTokenReadableWord(rawToken = '') {
+  const cleaned = String(rawToken || '')
+    .replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '')
+    .replace(/['\u2019](?:s|d|ve|re|ll|m|t)$/i, '');
+  if (!cleaned) return true;
+  if (/^\d+(?:[.,:/-]\d+)*(?:st|nd|rd|th|%|yo|k|m|b|cr|x)?$/i.test(cleaned)) return true;
+
+  const lower = cleaned.toLowerCase();
+  if (SERVER_ALLOWED_SHORT_TOKENS.has(lower) || SERVER_ENGLISH_ANCHOR_WORDS.has(lower)) {
+    return true;
+  }
+  if (/[-/]/.test(lower)) {
+    const parts = lower.split(/[-/]+/).filter(Boolean);
+    if (parts.length > 1) {
+      return parts.every(p => isServerTokenReadableWord(p));
+    }
+  }
+  const alpha = lower.replace(/[^a-z]/g, '');
+  if (!alpha) return false;
+  if (alpha.length === 1) return alpha === 'a' || alpha === 'i';
+
+  const vowels = alpha.match(/[aeiouy]/g) || [];
+  if (vowels.length === 0) return false;
+  if (/(.)\1\1/.test(alpha)) return false;
+  if (alpha.length >= 6 && (vowels.length / alpha.length) < 0.2) return false;
+
+  const leadingConsonantsMatch = alpha.match(/^[bcdfghjklmnpqrstvwxz]+/);
+  if (leadingConsonantsMatch) {
+    const lead = leadingConsonantsMatch[0];
+    if (lead.length >= 4) return false;
+    if (lead.length >= 2 && !SERVER_VALID_INITIAL_CLUSTERS.test(lead)) return false;
+  }
+
+  const trailingConsonantsMatch = alpha.match(/[bcdfghjklmnpqrstvwxz]+$/);
+  if (trailingConsonantsMatch) {
+    const trail = trailingConsonantsMatch[0];
+    if (trail.length >= 5) return false;
+    if (trail.length >= 2 && !SERVER_VALID_FINAL_CLUSTERS.test(trail)) return false;
+  }
+
+  const consonantRuns = alpha.match(/[bcdfghjklmnpqrstvwxz]{4,}/g);
+  if (consonantRuns) {
+    for (const run of consonantRuns) {
+      if (run.length >= 6 || !SERVER_VALID_INTERNAL_BLENDS.test(run)) return false;
+    }
+  }
+
+  if (/([bcdfghjklmnpqrstvwxz]{2,3})\1/.test(alpha) || /(?:asdf|qwer|zxcv|hjkl|jkl|ksk|dks|ndkd|mdnd)/.test(alpha)) {
+    return false;
+  }
+  return true;
+}
+
+function analyzeServerTextWordQuality(text = '') {
+  const raw = String(text || '').trim();
+  if (!raw) {
+    return { validWordCount: 0, invalidWords: [], anchorCount: 0, isNonsense: false, coachingMessage: '' };
+  }
+  const rawTokens = raw.split(/\s+/).filter(Boolean);
+  const validWords = [];
+  const invalidWords = [];
+  let anchorCount = 0;
+
+  for (const tok of rawTokens) {
+    const cleanLower = tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '').toLowerCase();
+    if (!cleanLower) continue;
+    if (SERVER_ENGLISH_ANCHOR_WORDS.has(cleanLower)) anchorCount++;
+    if (isServerTokenReadableWord(tok)) {
+      validWords.push(tok);
+    } else {
+      invalidWords.push(tok.replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '') || tok);
+    }
+  }
+  const totalTokens = validWords.length + invalidWords.length;
+  const invalidRatio = totalTokens > 0 ? (invalidWords.length / totalTokens) : 0;
+  const lacksEnglishStructure = totalTokens >= 6 && anchorCount === 0;
+  const isNonsense = totalTokens > 0 && (
+    invalidRatio >= 0.25 ||
+    invalidWords.length >= 3 ||
+    (totalTokens < 5 && invalidWords.length >= 1) ||
+    lacksEnglishStructure
+  );
+  let coachingMessage = '';
+  if (invalidWords.length > 0) {
+    const sampleQuoted = Array.from(new Set(invalidWords)).slice(0, 4).map(w => `"${w}"`).join(', ');
+    coachingMessage = `Unrecognized or nonsense words detected (${sampleQuoted}${invalidWords.length > 4 ? '...' : ''}). Please avoid random or non-existent words and write your perspective using clear, everyday English.`;
+  } else if (lacksEnglishStructure) {
+    coachingMessage = 'Please write your perspective in clear, natural English sentences so Slant can identify your Moment, Why It Matters, and Conviction.';
+  }
+  return {
+    validWordCount: isNonsense ? 0 : validWords.length,
+    invalidWords,
+    anchorCount,
+    isNonsense,
+    coachingMessage
+  };
+}
+
 function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   const clean = String(rawText || '').trim();
   const combined = `${spark || ''} ${clean}`.trim();
-  const wordCount = combined ? combined.split(/\s+/).filter(Boolean).length : 0;
+  const rawQuality = analyzeServerTextWordQuality(clean);
+  const combinedQuality = analyzeServerTextWordQuality(combined);
+  if (rawQuality.isNonsense || (clean.length > 0 && combinedQuality.isNonsense)) {
+    return {
+      hasMoment: false,
+      hasWhyItMatters: false,
+      hasConviction: false,
+      depthScore: 0,
+      isNonsense: true,
+      nudge: rawQuality.coachingMessage || combinedQuality.coachingMessage || 'Please write your perspective using clear, real words.'
+    };
+  }
+  const wordCount = combinedQuality.validWordCount;
 
   const rawClauses = clean
     .split(/(?:[.!?;]+|\n+|,\s+(?=(?:as|because|since|so|yet|but|while|whereas|although|though|now|and\s+now|i\s+just|i\s+believe|i\s+feel|i\s+think|i\s+hope|my\s+conviction|my\s+take|for\s+me|to\s+me|what\s+matters|when\s+i|where\s+i)\b)|\s+[\u2014\u2013]\s+)/i)
     .map(c => c.trim())
-    .filter(c => c.split(/\s+/).filter(Boolean).length >= 4);
+    .filter(c => {
+      const cq = analyzeServerTextWordQuality(c);
+      return !cq.isNonsense && cq.validWordCount >= 4 && cq.anchorCount >= 1;
+    });
 
   const usedIdx = new Set();
-  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward)\b/i;
-  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas)\b/i;
-  const momentRegex = /\b(as i sit|sitting|watched|watching|saw|read|reading|heard|noticed|listening|looked|today|yesterday|recently|nights|months|morning|evening|when|while|during|article|video|podcast|talk|interview|story|report|scene|moment|son|daughter|kids|wife|friend|colleague|school|office|city|to build apps)\b/i;
+  const convictionRegex = /\b(i believe|i feel that|my take|my conviction|to me|in my view|for me|we must|we need to|we should|ought to|ultimately|the real lesson|reminds us|reminder that|i hope|i just hope|dream of|life i dream|come out of|coming out of|regular 9 to 5|roam like|work like|principle|takeaway|what counts|the point is|let's|let us|matters most|way forward|stand for|worth fighting|live a life|free man|going forward|true wealth|real progress|cannot be|must be|will always|is to build|never trade|choose to)\b/i;
+  const whyRegex = /\b(because|instead of|however|whereas|although|despite|the problem|the reality|the truth|irony|paradox|tension|consequence|impact|matters|means that|shows that|reveals|proves|signals|reflects|shift|difference|beneath|beyond|unable to|technology gating|feel liberated|liberated|used to keep|rather than|not just|able to build those ideas|what changed|realized that|makes me realize|reminded me why|taught me that)\b/i;
+  const momentRegex = /\b(as i sit|sitting|sat|watched|watching|saw|read|reading|heard|hearing|noticed|noticing|listening|listened|looked|looking|walked|walking|talked|talking|met|meeting|visited|visiting|spent|spending|scrolling|opened|opening|came across|stumbled upon|remembered|thinking about|today|yesterday|recently|last night|this morning|this week|nights|months|years|morning|evening|when|while|during|after|before|every time|whenever|article|video|podcast|talk|interview|story|report|news|post|headline|book|scene|moment|conversation|son|sons|daughter|kids|children|wife|husband|family|parents|mother|father|friend|colleague|team|school|classroom|office|desk|home|hospital|city|market|stocks|company|founders|investors|to build apps|building|working on)\b/i;
 
   let convIdx = -1;
   for (let i = rawClauses.length - 1; i >= 0; i--) {
@@ -6223,26 +6391,31 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
   let momentIdx = -1;
   for (let i = 0; i < rawClauses.length; i++) {
     if (usedIdx.has(i)) continue;
-    const cWords = rawClauses[i].split(/\s+/).filter(Boolean).length;
-    if (momentRegex.test(rawClauses[i]) || (i === 0 && cWords >= 6)) {
+    if (momentRegex.test(rawClauses[i])) {
       momentIdx = i;
       usedIdx.add(i);
       break;
     }
   }
 
-  const hasMoment = momentIdx !== -1 || (wordCount >= 8 && rawClauses.length >= 1);
+  const hasMoment = momentIdx !== -1 || (rawClauses.length >= 1 && wordCount >= 6 && momentRegex.test(combined));
   const hasWhyItMatters = whyIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 32 && whyRegex.test(combined));
   const hasConviction = convIdx !== -1 || (rawClauses.length >= 3 && wordCount >= 38 && convictionRegex.test(combined));
 
   const beatsCount = (hasMoment ? 1 : 0) + (hasWhyItMatters ? 1 : 0) + (hasConviction ? 1 : 0);
-  const wordScore = Math.min(45, Math.round((wordCount / 42) * 45));
+  const wordScore = beatsCount === 0
+    ? Math.min(18, Math.round((wordCount / 42) * 18))
+    : Math.min(45, Math.round((wordCount / 42) * 45));
   const beatScore = beatsCount === 3 ? 45 : (beatsCount === 2 ? 28 : (beatsCount === 1 ? 14 : 0));
-  const clauseBonus = Math.min(8, rawClauses.length * 2);
-  const depthScore = Math.min(96, Math.max(12, wordScore + beatScore + clauseBonus));
+  const clauseBonus = beatsCount === 0 ? 0 : Math.min(8, rawClauses.length * 2);
+  const depthScore = wordCount === 0 ? 0 : Math.min(96, Math.max(beatsCount > 0 ? 12 : 0, wordScore + beatScore + clauseBonus));
 
   let nudge = '✓ 3/3 signals & deep perspective unlocked — your voice is clear, honest, and ready to synthesize!';
-  if (!hasWhyItMatters && !hasConviction) {
+  if (rawQuality.coachingMessage) {
+    nudge = rawQuality.coachingMessage;
+  } else if (!hasMoment) {
+    nudge = 'Start with a concrete Moment — what did you see, read, watch, or experience that sparked this thought?';
+  } else if (!hasWhyItMatters && !hasConviction) {
     nudge = 'You have a real moment here — now go one layer deeper on why this matters to you and the personal truth or life vision you are claiming.';
   } else if (!hasWhyItMatters) {
     nudge = 'Beautiful moment and conviction — add 1 line on the shift or reason why this matters so deeply to you.';
@@ -6257,6 +6430,7 @@ function evaluateFallbackStructureBeats(rawText = '', spark = '') {
     hasWhyItMatters,
     hasConviction,
     depthScore,
+    isNonsense: false,
     nudge
   };
 }
